@@ -317,6 +317,7 @@ enum ThemeImageSkinCompiler {
         if skin.targets.cards {
             rules.append(glassRule(
                 selectors: [
+                    "section[class~=\"group/home-suggestions\"] button[aria-labelledby]",
                     "[data-home-ambient-suggestions] button[aria-labelledby]"
                 ],
                 background: "var(--cts-skin-card)"

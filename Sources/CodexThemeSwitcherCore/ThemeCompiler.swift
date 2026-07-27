@@ -117,6 +117,7 @@ public struct ThemeComponentCatalog: Codable, Equatable, Sendable {
                 "[data-codex-approval-surface]"
             ],
             "homeCard": [
+                "section[class~=\"group/home-suggestions\"] button[aria-labelledby]",
                 "[data-home-ambient-suggestions] button[aria-labelledby]"
             ],
             "projectPicker": [

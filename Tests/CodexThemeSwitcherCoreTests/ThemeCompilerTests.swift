@@ -578,6 +578,42 @@ final class ThemeCompilerTests: XCTestCase {
         )
     }
 
+    func testHomeCardSelectorsCoverCurrentAndLegacyCodexMarkup() throws {
+        let expectedSelectors = [
+            "section[class~=\"group/home-suggestions\"] button[aria-labelledby]",
+            "[data-home-ambient-suggestions] button[aria-labelledby]"
+        ]
+
+        XCTAssertEqual(
+            ThemeComponentCatalog.default.selectors(for: "homeCard"),
+            expectedSelectors
+        )
+
+        var skin = TestFixtures.imageSkin(
+            lightAssetID: nil,
+            darkAssetID: nil
+        )
+        skin.targets = ThemeSkinTargets(
+            sidebar: false,
+            content: false,
+            titlebar: false,
+            composer: false,
+            cards: true,
+            popovers: false,
+            codeBlocks: false
+        )
+        let css = try ThemeCompiler()
+            .compile(TestFixtures.theme(imageSkin: skin))
+            .css
+
+        for selector in expectedSelectors {
+            XCTAssertTrue(
+                css.contains(selector),
+                "Missing Home card selector: \(selector)"
+            )
+        }
+    }
+
     func testMissingAssetThrowsPreciseError() {
         let missing = UUID()
         let theme = TestFixtures.theme(
