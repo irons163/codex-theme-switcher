@@ -675,12 +675,12 @@ private struct ThemePreviewCanvas: View {
                     .font(.system(size: 9))
                     .foregroundStyle(visual.textSecondary)
                 Circle()
-                    .fill(visual.accent)
+                    .fill(visual.composerActionBackground)
                     .frame(width: 26, height: 26)
                     .overlay {
-                        Image(systemName: "arrow.up")
+                        Image(systemName: "waveform")
                             .font(.caption.bold())
-                            .foregroundStyle(visual.accentContrast)
+                            .foregroundStyle(visual.composerActionIcon)
                     }
             }
             .padding(.horizontal, 14)
@@ -1263,6 +1263,8 @@ struct ThemeVisualSnapshot {
     let textSecondary: Color
     let accent: Color
     let accentContrast: Color
+    let composerActionBackground: Color
+    let composerActionIcon: Color
     let border: Color
     let nativeBorder: Color
     let success: Color
@@ -1556,6 +1558,39 @@ struct ThemeVisualSnapshot {
             css: token("--color-token-on-accent", "#ffffff"),
             fallback: .white
         )
+        if let activeSkin,
+           let variant,
+           activeSkin.targets.composer {
+            let defaultActionBackground = Color(
+                css: variant.primaryTextColor,
+                fallback: textPrimary
+            )
+            let defaultActionIcon = Color(
+                css: variant.cardTint,
+                fallback: cardBackground
+            ).opacity(variant.cardOpacity)
+            composerActionBackground = variant
+                .composerActionBackgroundColor
+                .map {
+                    Color(
+                        css: $0,
+                        fallback: defaultActionBackground
+                    )
+                }
+                ?? defaultActionBackground
+            composerActionIcon = variant
+                .composerActionIconColor
+                .map {
+                    Color(
+                        css: $0,
+                        fallback: defaultActionIcon
+                    )
+                }
+                ?? defaultActionIcon
+        } else {
+            composerActionBackground = accent
+            composerActionIcon = accentContrast
+        }
         success = Color(
             css: semantic(.success, "#40c977"),
             fallback: .green

@@ -99,6 +99,12 @@ enum L10nCatalogWestern {
         Entry(key: "Border opacity", french: "Opacité de la bordure", spanish: "Opacidad del borde"),
         Entry(key: "Border width", french: "Épaisseur de la bordure", spanish: "Grosor del borde"),
         Entry(key: "Brightness", french: "Luminosité", spanish: "Brillo"),
+        Entry(
+            key: "Button background",
+            french: "Arrière-plan du bouton",
+            spanish: "Fondo del botón"
+        ),
+        Entry(key: "Button icon", french: "Icône du bouton", spanish: "Icono del botón"),
         Entry(key: "BUILT-IN", french: "INTÉGRÉ", spanish: "INTEGRADO"),
         Entry(key: "Cards / menus", french: "Cartes / menus", spanish: "Tarjetas / menús"),
         Entry(
@@ -150,6 +156,11 @@ enum L10nCatalogWestern {
             key: "Composer / project picker",
             french: "Composer / sélecteur de projet",
             spanish: "Composer / selector de proyecto"
+        ),
+        Entry(
+            key: "Composer primary button",
+            french: "Bouton principal du Composer",
+            spanish: "Botón principal del Composer"
         ),
         Entry(key: "Composer radius", french: "Rayon du Composer", spanish: "Radio del Composer"),
         Entry(
@@ -515,9 +526,19 @@ enum L10nCatalogWestern {
         Entry(key: "Unknown author", french: "Auteur inconnu", spanish: "Autor desconocido"),
         Entry(key: "Untitled Theme", french: "Thème sans titre", spanish: "Tema sin título"),
         Entry(
+            key: "Use automatic colors",
+            french: "Utiliser les couleurs automatiques",
+            spanish: "Usar colores automáticos"
+        ),
+        Entry(
             key: "Use catalog components (app, sidebar, composer, codeBlock…) or supply any selectors. Property/value pairs are unrestricted.",
             french: "Utilisez les composants du catalogue (app, sidebar, composer, codeBlock…) ou fournissez vos propres sélecteurs. Les paires propriété/valeur ne sont pas limitées.",
             spanish: "Usa componentes del catálogo (app, sidebar, composer, codeBlock…) o proporciona cualquier selector. Los pares propiedad/valor no tienen restricciones."
+        ),
+        Entry(
+            key: "Unset colors follow Primary text and Cards / menus.",
+            french: "Les couleurs non définies suivent Texte principal et Cartes / menus.",
+            spanish: "Los colores no definidos siguen Texto principal y Tarjetas / menús."
         ),
         Entry(
             key: "Use the image's natural size; focal point controls placement.",

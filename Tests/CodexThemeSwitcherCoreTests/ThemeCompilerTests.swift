@@ -614,6 +614,116 @@ final class ThemeCompilerTests: XCTestCase {
         }
     }
 
+    func testComposerActionButtonUsesIndependentColorsAndStableSelector() throws {
+        var skin = TestFixtures.imageSkin(
+            lightAssetID: nil,
+            darkAssetID: nil
+        )
+        skin.light.composerActionBackgroundColor = "#123456"
+        skin.light.composerActionIconColor = "#ABCDEF80"
+        skin.dark.composerActionBackgroundColor = "#654321"
+        skin.dark.composerActionIconColor = "#FEDCBA"
+        skin.targets = ThemeSkinTargets(
+            sidebar: false,
+            content: false,
+            titlebar: false,
+            composer: true,
+            cards: false,
+            popovers: false,
+            codeBlocks: false
+        )
+
+        let css = try ThemeCompiler()
+            .compile(TestFixtures.theme(imageSkin: skin))
+            .css
+        let selector =
+            "[data-codex-composer-root] .composer-surface-chrome "
+            + "button.size-token-button-composer.bg-token-foreground"
+
+        XCTAssertTrue(css.contains(selector))
+        XCTAssertTrue(
+            css.contains(
+                "--cts-skin-composer-action-background: #123456;"
+            )
+        )
+        XCTAssertTrue(
+            css.contains("--cts-skin-composer-action-icon: #ABCDEF80;")
+        )
+        XCTAssertTrue(
+            css.contains(
+                "--cts-skin-composer-action-background: #654321;"
+            )
+        )
+        XCTAssertTrue(
+            css.contains("--cts-skin-composer-action-icon: #FEDCBA;")
+        )
+        XCTAssertTrue(
+            css.contains(
+                "background-color: "
+                    + "var(--cts-skin-composer-action-background) "
+                    + "!important;"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "--color-token-foreground: "
+                    + "var(--cts-skin-composer-action-background) "
+                    + "!important;"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "--color-token-dropdown-background: "
+                    + "var(--cts-skin-composer-action-icon) "
+                    + "!important;"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "color: var(--cts-skin-composer-action-icon) !important;"
+            )
+        )
+    }
+
+    func testLegacyComposerActionColorsFollowTextAndCompleteCardSurface() throws {
+        var skin = TestFixtures.imageSkin(
+            lightAssetID: nil,
+            darkAssetID: nil
+        )
+        skin.light.primaryTextColor = "#102030"
+        skin.light.cardTint = "#405060"
+        skin.light.cardOpacity = 0.37
+        skin.light.composerActionBackgroundColor = nil
+        skin.light.composerActionIconColor = nil
+
+        let css = try ThemeCompiler()
+            .compile(TestFixtures.theme(imageSkin: skin))
+            .css
+
+        XCTAssertTrue(
+            css.contains(
+                "--cts-skin-text-primary: #102030;"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "--cts-skin-card: "
+                    + "color-mix(in srgb, #405060 37%, transparent);"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "--cts-skin-composer-action-background: "
+                    + "var(--cts-skin-text-primary);"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "--cts-skin-composer-action-icon: var(--cts-skin-card);"
+            )
+        )
+    }
+
     func testMissingAssetThrowsPreciseError() {
         let missing = UUID()
         let theme = TestFixtures.theme(

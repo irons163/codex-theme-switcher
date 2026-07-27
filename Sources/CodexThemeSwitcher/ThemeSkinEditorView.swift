@@ -624,6 +624,7 @@ struct ThemeSkinEditorView: View {
                     color: \.composerTint,
                     opacity: \.composerOpacity
                 )
+                composerActionControl
                 surfaceControl(
                     L10n.text("Cards／選單", "Cards / menus"),
                     color: \.cardTint,
@@ -970,6 +971,50 @@ struct ThemeSkinEditorView: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
+    private var composerActionControl: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(L10n.text("Composer 主要按鈕", "Composer primary button"))
+                    .font(.caption.weight(.semibold))
+                Spacer()
+                Button(L10n.text("自動配色", "Use automatic colors")) {
+                    resetComposerActionColors()
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .disabled(
+                    variant.composerActionBackgroundColor == nil
+                        && variant.composerActionIconColor == nil
+                )
+            }
+            Text(
+                L10n.text(
+                    "未指定時沿用主要文字與 Cards／選單。",
+                    "Unset colors follow Primary text and Cards / menus."
+                )
+            )
+            .font(.system(size: 10))
+            .foregroundStyle(.secondary)
+            SkinColorField(
+                title: L10n.text("按鈕背景", "Button background"),
+                value: variantOptionalColorBinding(
+                    \.composerActionBackgroundColor,
+                    fallback: \.primaryTextColor
+                )
+            )
+            SkinColorField(
+                title: L10n.text("按鈕圖示", "Button icon"),
+                value: variantOptionalColorBinding(
+                    \.composerActionIconColor,
+                    fallback: \.cardTint
+                )
+            )
+        }
+        .padding(11)
+        .background(.quaternary.opacity(0.28))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
     private func targetToggle(
         _ title: String,
         _ keyPath: WritableKeyPath<ThemeSkinTargets, Bool>
@@ -1028,6 +1073,42 @@ struct ThemeSkinEditorView: View {
                 }
             }
         )
+    }
+
+    private func variantOptionalColorBinding(
+        _ keyPath: WritableKeyPath<ThemeSkinVariant, String?>,
+        fallback: KeyPath<ThemeSkinVariant, String>
+    ) -> Binding<String> {
+        Binding(
+            get: {
+                let item = skin.variant(for: appearance)
+                return item[keyPath: keyPath] ?? item[keyPath: fallback]
+            },
+            set: { value in
+                model.mutateDraft(
+                    coalescingKey:
+                        "image-skin.variant.\(appearance.rawValue)."
+                        + String(reflecting: keyPath)
+                ) { document in
+                    var imageSkin = document.imageSkin ?? ThemeImageSkin()
+                    var item = imageSkin.variant(for: appearance)
+                    item[keyPath: keyPath] = value
+                    imageSkin.setVariant(item, for: appearance)
+                    document.imageSkin = imageSkin
+                }
+            }
+        )
+    }
+
+    private func resetComposerActionColors() {
+        model.mutateDraft { document in
+            var imageSkin = document.imageSkin ?? ThemeImageSkin()
+            var item = imageSkin.variant(for: appearance)
+            item.composerActionBackgroundColor = nil
+            item.composerActionIconColor = nil
+            imageSkin.setVariant(item, for: appearance)
+            document.imageSkin = imageSkin
+        }
     }
 
     private func glassBinding<Value>(

@@ -169,6 +169,77 @@ final class ThemeModelsTests: XCTestCase {
         )
     }
 
+    func testComposerActionColorsRoundTripAndLegacyValuesRemainAutomatic() throws {
+        var skin = ThemeImageSkin()
+        skin.light.composerActionBackgroundColor = "#123456"
+        skin.light.composerActionIconColor = "#ABCDEF80"
+        skin.dark.composerActionBackgroundColor = "#654321"
+        skin.dark.composerActionIconColor = "#FEDCBA"
+
+        let data = try JSONEncoder().encode(skin)
+        let decoded = try JSONDecoder().decode(
+            ThemeImageSkin.self,
+            from: data
+        )
+
+        XCTAssertEqual(decoded, skin)
+        XCTAssertEqual(
+            decoded.light.composerActionBackgroundColor,
+            "#123456"
+        )
+        XCTAssertEqual(decoded.light.composerActionIconColor, "#ABCDEF80")
+        XCTAssertEqual(
+            decoded.dark.composerActionBackgroundColor,
+            "#654321"
+        )
+        XCTAssertEqual(decoded.dark.composerActionIconColor, "#FEDCBA")
+
+        let object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+        let light = try XCTUnwrap(object["light"] as? [String: Any])
+        let dark = try XCTUnwrap(object["dark"] as? [String: Any])
+        XCTAssertEqual(
+            light["composerActionBackgroundColor"] as? String,
+            "#123456"
+        )
+        XCTAssertEqual(
+            light["composerActionIconColor"] as? String,
+            "#ABCDEF80"
+        )
+        XCTAssertEqual(
+            dark["composerActionBackgroundColor"] as? String,
+            "#654321"
+        )
+        XCTAssertEqual(
+            dark["composerActionIconColor"] as? String,
+            "#FEDCBA"
+        )
+
+        let legacy = try JSONDecoder().decode(
+            ThemeImageSkin.self,
+            from: Data(#"""
+            {
+              "light": {
+                "primaryTextColor": "#102030",
+                "cardTint": "#405060",
+                "cardOpacity": 0.37
+              },
+              "dark": {
+                "primaryTextColor": "#E0D0C0",
+                "cardTint": "#302010",
+                "cardOpacity": 0.63
+              }
+            }
+            """#.utf8)
+        )
+
+        XCTAssertNil(legacy.light.composerActionBackgroundColor)
+        XCTAssertNil(legacy.light.composerActionIconColor)
+        XCTAssertNil(legacy.dark.composerActionBackgroundColor)
+        XCTAssertNil(legacy.dark.composerActionIconColor)
+    }
+
     func testWallpaperScopeUsesStableValuesAndFutureSafeFallback() throws {
         let cases: [
             (

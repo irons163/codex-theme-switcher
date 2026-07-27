@@ -372,6 +372,178 @@ final class ThemePreviewRenderTests: XCTestCase {
     }
 
     @MainActor
+    func testComposerActionColorsFlowIntoSnapshotAndBothSurfaceRenders()
+        throws
+    {
+        let background = NSColor(
+            srgbRed: 0.086,
+            green: 0.878,
+            blue: 0.627,
+            alpha: 1
+        )
+        let icon = NSColor(
+            srgbRed: 1,
+            green: 0.153,
+            blue: 0.843,
+            alpha: 1
+        )
+        var skin = ThemeImageSkin()
+        skin.targets.composer = true
+        skin.light.composerActionBackgroundColor = "#16E0A0"
+        skin.light.composerActionIconColor = "#FF27D7"
+
+        var theme = BuiltInThemes.paper
+        theme.id = UUID()
+        theme.imageSkin = skin
+
+        let snapshot = ThemeVisualSnapshot(
+            theme: theme,
+            appearance: .light
+        )
+        try assertColor(
+            snapshot.composerActionBackground,
+            equals: background
+        )
+        try assertColor(
+            snapshot.composerActionIcon,
+            equals: icon
+        )
+
+        var iconReferenceSkin = skin
+        iconReferenceSkin.light.composerActionIconColor = "#16E0A0"
+        var iconReferenceTheme = theme
+        iconReferenceTheme.imageSkin = iconReferenceSkin
+        let renderedBackground = try renderedColor(
+            snapshot.composerActionBackground
+        )
+
+        for surface in ThemePreviewSurface.allCases {
+            let image = try render(
+                theme: theme,
+                appearance: .light,
+                surface: surface
+            )
+            let iconReference = try render(
+                theme: iconReferenceTheme,
+                appearance: .light,
+                surface: surface
+            )
+            if let directory = ProcessInfo.processInfo.environment[
+                "CTS_COMPOSER_ACTION_SNAPSHOT_DIR"
+            ],
+            let data = image.pngData {
+                let url = URL(fileURLWithPath: directory)
+                    .appendingPathComponent("\(surface.rawValue).png")
+                try data.write(to: url)
+            }
+            XCTAssertGreaterThan(
+                try pixelCount(
+                    in: image,
+                    matching: renderedBackground,
+                    tolerance: 0.04
+                ),
+                120,
+                "\(surface.rawValue) did not render the action background"
+            )
+            XCTAssertGreaterThan(
+                try differingPixelCount(
+                    in: image,
+                    comparedTo: iconReference,
+                    tolerance: 0.03
+                ),
+                5,
+                "\(surface.rawValue) did not render the action icon"
+            )
+        }
+    }
+
+    @MainActor
+    func testComposerActionUsesNativeColorsWithoutAnActiveComposerSkin()
+        throws
+    {
+        var customSkin = ThemeImageSkin()
+        customSkin.light.composerActionBackgroundColor = "#16E0A0"
+        customSkin.light.composerActionIconColor = "#FF27D7"
+
+        var theme = BuiltInThemes.paper
+        theme.id = UUID()
+
+        let nativeSnapshot = ThemeVisualSnapshot(
+            theme: theme,
+            appearance: .light
+        )
+        try assertColor(
+            nativeSnapshot.composerActionBackground,
+            equals: nativeSnapshot.accent
+        )
+        try assertColor(
+            nativeSnapshot.composerActionIcon,
+            equals: nativeSnapshot.accentContrast
+        )
+
+        customSkin.isEnabled = false
+        theme.imageSkin = customSkin
+        let disabledSkinSnapshot = ThemeVisualSnapshot(
+            theme: theme,
+            appearance: .light
+        )
+        try assertColor(
+            disabledSkinSnapshot.composerActionBackground,
+            equals: disabledSkinSnapshot.accent
+        )
+        try assertColor(
+            disabledSkinSnapshot.composerActionIcon,
+            equals: disabledSkinSnapshot.accentContrast
+        )
+
+        customSkin.isEnabled = true
+        customSkin.targets.composer = false
+        theme.imageSkin = customSkin
+        let disabledTargetSnapshot = ThemeVisualSnapshot(
+            theme: theme,
+            appearance: .light
+        )
+        try assertColor(
+            disabledTargetSnapshot.composerActionBackground,
+            equals: disabledTargetSnapshot.accent
+        )
+        try assertColor(
+            disabledTargetSnapshot.composerActionIcon,
+            equals: disabledTargetSnapshot.accentContrast
+        )
+    }
+
+    @MainActor
+    func testComposerActionLegacyFieldsUseSemanticSkinFallbacks() throws {
+        var skin = ThemeImageSkin()
+        skin.targets.composer = true
+        skin.light.primaryTextColor = "#123456"
+        skin.light.cardTint = "#ABCDEF"
+        skin.light.cardOpacity = 0.37
+        skin.light.composerActionBackgroundColor = nil
+        skin.light.composerActionIconColor = nil
+
+        var theme = BuiltInThemes.paper
+        theme.id = UUID()
+        theme.imageSkin = skin
+
+        let snapshot = ThemeVisualSnapshot(
+            theme: theme,
+            appearance: .light
+        )
+        try assertColor(
+            snapshot.composerActionBackground,
+            equals: try XCTUnwrap(NSColor(css: "#123456"))
+        )
+        try assertColor(
+            snapshot.composerActionIcon,
+            equals: try XCTUnwrap(
+                NSColor(css: "#ABCDEF")?.withAlphaComponent(0.37)
+            )
+        )
+    }
+
+    @MainActor
     func testUnitBackdropSettingsDoNotAddPreviewMaterial() {
         var skin = ThemeImageSkin()
         skin.glass.blurRadius = 0
@@ -779,6 +951,155 @@ final class ThemePreviewRenderTests: XCTestCase {
             }
         }
         return count
+    }
+
+    private func pixelCount(
+        in image: NSImage,
+        matching expected: NSColor,
+        tolerance: CGFloat
+    ) throws -> Int {
+        let data = try XCTUnwrap(image.tiffRepresentation)
+        let representation = try XCTUnwrap(NSBitmapImageRep(data: data))
+        let expected = try XCTUnwrap(expected.usingColorSpace(.sRGB))
+        var count = 0
+
+        for y in 0..<representation.pixelsHigh {
+            for x in 0..<representation.pixelsWide {
+                guard let color = representation.colorAt(
+                    x: x,
+                    y: y
+                )?.usingColorSpace(.sRGB)
+                else { continue }
+
+                if abs(color.redComponent - expected.redComponent)
+                    <= tolerance,
+                   abs(color.greenComponent - expected.greenComponent)
+                    <= tolerance,
+                   abs(color.blueComponent - expected.blueComponent)
+                    <= tolerance {
+                    count += 1
+                }
+            }
+        }
+        return count
+    }
+
+    private func differingPixelCount(
+        in image: NSImage,
+        comparedTo reference: NSImage,
+        tolerance: CGFloat
+    ) throws -> Int {
+        let data = try XCTUnwrap(image.tiffRepresentation)
+        let referenceData = try XCTUnwrap(reference.tiffRepresentation)
+        let representation = try XCTUnwrap(NSBitmapImageRep(data: data))
+        let referenceRepresentation = try XCTUnwrap(
+            NSBitmapImageRep(data: referenceData)
+        )
+        XCTAssertEqual(
+            representation.pixelsWide,
+            referenceRepresentation.pixelsWide
+        )
+        XCTAssertEqual(
+            representation.pixelsHigh,
+            referenceRepresentation.pixelsHigh
+        )
+        var count = 0
+
+        for y in 0..<representation.pixelsHigh {
+            for x in 0..<representation.pixelsWide {
+                guard let color = representation.colorAt(
+                    x: x,
+                    y: y
+                )?.usingColorSpace(.sRGB),
+                let referenceColor = referenceRepresentation.colorAt(
+                    x: x,
+                    y: y
+                )?.usingColorSpace(.sRGB)
+                else { continue }
+
+                if max(
+                    abs(color.redComponent - referenceColor.redComponent),
+                    abs(color.greenComponent - referenceColor.greenComponent),
+                    abs(color.blueComponent - referenceColor.blueComponent)
+                ) > tolerance {
+                    count += 1
+                }
+            }
+        }
+        return count
+    }
+
+    @MainActor
+    private func renderedColor(_ color: Color) throws -> NSColor {
+        let renderer = ImageRenderer(
+            content: color.frame(width: 8, height: 8)
+        )
+        renderer.scale = 1
+        let image = try XCTUnwrap(renderer.nsImage)
+        return try pixelColor(in: image, at: CGPoint(x: 4, y: 4))
+    }
+
+    private func assertColor(
+        _ actual: Color,
+        equals expected: NSColor,
+        accuracy: CGFloat = 0.005,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        let actual = try XCTUnwrap(
+            NSColor(actual).usingColorSpace(.sRGB),
+            file: file,
+            line: line
+        )
+        let expected = try XCTUnwrap(
+            expected.usingColorSpace(.sRGB),
+            file: file,
+            line: line
+        )
+        XCTAssertEqual(
+            actual.redComponent,
+            expected.redComponent,
+            accuracy: accuracy,
+            file: file,
+            line: line
+        )
+        XCTAssertEqual(
+            actual.greenComponent,
+            expected.greenComponent,
+            accuracy: accuracy,
+            file: file,
+            line: line
+        )
+        XCTAssertEqual(
+            actual.blueComponent,
+            expected.blueComponent,
+            accuracy: accuracy,
+            file: file,
+            line: line
+        )
+        XCTAssertEqual(
+            actual.alphaComponent,
+            expected.alphaComponent,
+            accuracy: accuracy,
+            file: file,
+            line: line
+        )
+    }
+
+    private func assertColor(
+        _ actual: Color,
+        equals expected: Color,
+        accuracy: CGFloat = 0.005,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        try assertColor(
+            actual,
+            equals: NSColor(expected),
+            accuracy: accuracy,
+            file: file,
+            line: line
+        )
     }
 
     private func assert(

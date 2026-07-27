@@ -311,7 +311,7 @@ public struct ThemeValidator: Sendable {
                     }
                 }
 
-                let cssValues: [(String, String)] = [
+                var cssValues: [(String, String)] = [
                     ("backgroundColor", variant.backgroundColor),
                     ("overlayColor", variant.overlayColor),
                     ("primaryTextColor", variant.primaryTextColor),
@@ -326,6 +326,16 @@ public struct ThemeValidator: Sendable {
                     ("centerPanelBorderColor", variant.centerPanelBorderColor),
                     ("centerPanelShadowColor", variant.centerPanelShadowColor)
                 ]
+                if let value = variant.composerActionBackgroundColor {
+                    cssValues.append(
+                        ("composerActionBackgroundColor", value)
+                    )
+                }
+                if let value = variant.composerActionIconColor {
+                    cssValues.append(
+                        ("composerActionIconColor", value)
+                    )
+                }
                 for (name, value) in cssValues {
                     totalCSSCharacters += value.count
                     let valuePath = "\(path).\(name)"

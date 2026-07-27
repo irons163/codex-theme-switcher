@@ -250,6 +250,36 @@ final class ThemeValidatorTests: XCTestCase {
         )
     }
 
+    func testImageSkinValidatesOptionalComposerActionColors() {
+        var skin = TestFixtures.imageSkin(
+            lightAssetID: nil,
+            darkAssetID: nil
+        )
+        skin.light.composerActionBackgroundColor =
+            "red; outline: 10px solid blue"
+        skin.dark.composerActionIconColor =
+            #"u\72l("https://tracker.invalid/action-icon")"#
+
+        let result = validator.validate(
+            TestFixtures.theme(imageSkin: skin)
+        )
+
+        XCTAssertTrue(
+            result.issues.contains {
+                $0.code == .invalidSkinCSSValue
+                    && $0.path
+                        == "imageSkin.light.composerActionBackgroundColor"
+            }
+        )
+        XCTAssertTrue(
+            result.issues.contains {
+                $0.code == .unsafeURL
+                    && $0.path
+                        == "imageSkin.dark.composerActionIconColor"
+            }
+        )
+    }
+
     func testImageSkinRejectsImportantCommentsAndUnsupportedHEIC() {
         let heic = ThemeAsset(
             name: "wallpaper.heic",

@@ -29,6 +29,11 @@ cp -R \
   "$APP_RESOURCE_BUNDLE" \
   "$STAGING_PATH/Contents/Resources/CodexThemeSwitcher_CodexThemeSwitcher.bundle"
 
+test -f \
+  "$STAGING_PATH/Contents/Resources/CodexThemeSwitcher_CodexThemeRuntime.bundle/Resources/runtime/cli.js"
+test -f \
+  "$STAGING_PATH/Contents/Resources/CodexThemeSwitcher_CodexThemeSwitcher.bundle/MenuBarIcon.png"
+
 if [ -n "${CODESIGN_IDENTITY:-}" ]; then
   codesign \
     --force \

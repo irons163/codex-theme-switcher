@@ -117,6 +117,12 @@ enum ThemeImageSkinCompiler {
               ));
             """
             : ""
+        let composerActionBackground =
+            variant.composerActionBackgroundColor
+            ?? "var(--cts-skin-text-primary)"
+        let composerActionIcon =
+            variant.composerActionIconColor
+            ?? "var(--cts-skin-card)"
 
         return """
         \(selector) {
@@ -141,6 +147,8 @@ enum ThemeImageSkinCompiler {
           --cts-skin-content: \(alphaColor(variant.contentTint, variant.contentOpacity));
           --cts-skin-composer: \(alphaColor(variant.composerTint, variant.composerOpacity));
           --cts-skin-card: \(alphaColor(variant.cardTint, variant.cardOpacity));
+          --cts-skin-composer-action-background: \(composerActionBackground);
+          --cts-skin-composer-action-icon: \(composerActionIcon);
           --cts-skin-border: \(alphaColor(variant.borderColor, variant.borderOpacity));
         \(centerPanelDeclarations)
         }
@@ -312,6 +320,7 @@ enum ThemeImageSkinCompiler {
                 ],
                 background: "var(--cts-skin-composer)"
             ))
+            rules.append(composerActionRule())
         }
 
         if skin.targets.cards {
@@ -377,6 +386,21 @@ enum ThemeImageSkinCompiler {
                 "-webkit-backdrop-filter: blur(var(--cts-skin-center-panel-backdrop-blur)) saturate(var(--cts-skin-center-panel-backdrop-saturation));",
                 "backdrop-filter: blur(var(--cts-skin-center-panel-backdrop-blur)) saturate(var(--cts-skin-center-panel-backdrop-saturation));",
                 "box-shadow: var(--cts-skin-center-panel-shadow-offset-x) var(--cts-skin-center-panel-shadow-offset-y) var(--cts-skin-center-panel-shadow-blur) var(--cts-skin-center-panel-shadow) !important;"
+            ]
+        )
+    }
+
+    private static func composerActionRule() -> String {
+        rule(
+            selectors: [
+                "[data-codex-composer-root] .composer-surface-chrome "
+                    + "button.size-token-button-composer.bg-token-foreground"
+            ],
+            declarations: [
+                "--color-token-foreground: var(--cts-skin-composer-action-background) !important;",
+                "--color-token-dropdown-background: var(--cts-skin-composer-action-icon) !important;",
+                "background-color: var(--cts-skin-composer-action-background) !important;",
+                "color: var(--cts-skin-composer-action-icon) !important;"
             ]
         )
     }

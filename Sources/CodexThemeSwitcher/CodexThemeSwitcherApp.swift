@@ -14,7 +14,7 @@ struct CodexThemeSwitcherApp: App {
             ThemeSwitcherRootView(model: model)
                 .frame(width: 920, height: 720)
         } label: {
-            AppBrandIcon(height: 18)
+            MenuBarBrandIcon()
                 .accessibilityLabel(model.activeThemeName ?? L10n.appName)
         }
         .menuBarExtraStyle(.window)

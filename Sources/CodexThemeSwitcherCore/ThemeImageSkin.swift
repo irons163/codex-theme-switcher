@@ -178,6 +178,16 @@ public struct ThemeSkinVariant: Codable, Equatable, Sendable {
     public var contentOpacity: Double
     public var composerTint: String
     public var composerOpacity: Double
+    /// Overrides the Composer's primary voice/send/stop button background.
+    ///
+    /// `nil` preserves the legacy semantic behavior by following
+    /// `primaryTextColor` at compile time.
+    public var composerActionBackgroundColor: String?
+    /// Overrides the icon inside the Composer's primary action button.
+    ///
+    /// `nil` preserves the legacy semantic behavior by following the complete
+    /// card surface, including `cardOpacity`, at compile time.
+    public var composerActionIconColor: String?
     public var cardTint: String
     public var cardOpacity: Double
     public var borderColor: String
@@ -216,6 +226,8 @@ public struct ThemeSkinVariant: Codable, Equatable, Sendable {
         contentOpacity: Double = 0.08,
         composerTint: String = "#15130F",
         composerOpacity: Double = 0.78,
+        composerActionBackgroundColor: String? = nil,
+        composerActionIconColor: String? = nil,
         cardTint: String = "#15130F",
         cardOpacity: Double = 0.58,
         borderColor: String = "#D8B06C",
@@ -253,6 +265,8 @@ public struct ThemeSkinVariant: Codable, Equatable, Sendable {
         self.contentOpacity = contentOpacity
         self.composerTint = composerTint
         self.composerOpacity = composerOpacity
+        self.composerActionBackgroundColor = composerActionBackgroundColor
+        self.composerActionIconColor = composerActionIconColor
         self.cardTint = cardTint
         self.cardOpacity = cardOpacity
         self.borderColor = borderColor
@@ -326,6 +340,8 @@ public struct ThemeSkinVariant: Codable, Equatable, Sendable {
         case contentOpacity
         case composerTint
         case composerOpacity
+        case composerActionBackgroundColor
+        case composerActionIconColor
         case cardTint
         case cardOpacity
         case borderColor
@@ -456,6 +472,14 @@ public struct ThemeSkinVariant: Codable, Equatable, Sendable {
             Double.self,
             forKey: .composerOpacity
         ) ?? defaults.composerOpacity
+        composerActionBackgroundColor = try values.decodeIfPresent(
+            String.self,
+            forKey: .composerActionBackgroundColor
+        ) ?? defaults.composerActionBackgroundColor
+        composerActionIconColor = try values.decodeIfPresent(
+            String.self,
+            forKey: .composerActionIconColor
+        ) ?? defaults.composerActionIconColor
         cardTint = try values.decodeIfPresent(
             String.self,
             forKey: .cardTint

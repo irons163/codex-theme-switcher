@@ -106,6 +106,8 @@ enum L10nCatalogCJK {
         .init("Border opacity", "边框不透明度", "ボーダーの不透明度", "테두리 불투명도"),
         .init("Border width", "边框宽度", "ボーダー幅", "테두리 두께"),
         .init("Brightness", "亮度", "明るさ", "밝기"),
+        .init("Button background", "按钮背景", "ボタン背景", "버튼 배경"),
+        .init("Button icon", "按钮图标", "ボタンアイコン", "버튼 아이콘"),
         .init("Cards / menus", "卡片／菜单", "カード／メニュー", "카드 / 메뉴"),
         .init("Center content panel", "中央内容面板", "中央コンテンツパネル", "중앙 콘텐츠 패널"),
         .init(
@@ -150,6 +152,7 @@ enum L10nCatalogCJK {
             "전체 ANSI 기본 팔레트. 밝은 변형은 고급 토큰에서 추가할 수 있습니다"
         ),
         .init("Composer / project picker", "Composer／项目选择器", "Composer／プロジェクト選択", "Composer / 프로젝트 선택기"),
+        .init("Composer primary button", "Composer 主要按钮", "Composerのメインボタン", "Composer 주요 버튼"),
         .init("Composer radius", "Composer 圆角", "Composerの角丸", "Composer 모서리 반경"),
         .init("Composer tray background", "Composer 托盘背景", "Composerトレイの背景", "Composer 트레이 배경"),
         .init("Condition", "条件", "条件", "조건"),
@@ -501,11 +504,18 @@ enum L10nCatalogCJK {
         .init("Undo", "撤销", "取り消す", "실행 취소"),
         .init("Unknown author", "未知作者", "作成者不明", "알 수 없는 작성자"),
         .init("Untitled Theme", "未命名主题", "名称未設定のテーマ", "이름 없는 테마"),
+        .init("Use automatic colors", "使用自动配色", "自動配色を使用", "자동 색상 사용"),
         .init(
             "Use catalog components (app, sidebar, composer, codeBlock…) or supply any selectors. Property/value pairs are unrestricted.",
             "可使用目录组件（app、sidebar、composer、codeBlock…），也可提供任意 selector。property/value 对不受限制。",
             "カタログのコンポーネント（app、sidebar、composer、codeBlock…）を使うか、任意のselectorを指定できます。property/valueの組み合わせに制限はありません。",
             "카탈로그 컴포넌트(app, sidebar, composer, codeBlock…)를 사용하거나 임의의 selector를 지정할 수 있습니다. property/value 쌍에는 제한이 없습니다."
+        ),
+        .init(
+            "Unset colors follow Primary text and Cards / menus.",
+            "未指定的颜色会沿用“主要文字”和“卡片／菜单”。",
+            "未指定の色は「メインテキスト」と「カード／メニュー」に従います。",
+            "지정하지 않은 색상은 기본 텍스트 및 카드 / 메뉴 색상을 따릅니다."
         ),
         .init(
             "Use the image's natural size; focal point controls placement.",
