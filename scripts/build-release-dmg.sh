@@ -63,6 +63,8 @@ PY
 
 APP_PATH="${WORK_DIR}/${APP_PRODUCT_NAME}.app"
 APP_BINARY="${APP_PATH}/Contents/MacOS/${APP_PRODUCT_NAME}"
+AGENT_CLI="${APP_PATH}/Contents/Helpers/codex-theme"
+AGENT_SCHEMA="${APP_PATH}/Contents/Resources/Schemas/codextheme.schema.json"
 FRAMEWORKS_DIR="${APP_PATH}/Contents/Frameworks"
 RESOURCES_DIR="${APP_PATH}/Contents/Resources"
 STAGING_DIR="${WORK_DIR}/dmg-staging"
@@ -91,14 +93,22 @@ swift build \
   -c "$CONFIGURATION" \
   --arch "$TARGET_ARCH" \
   --product "$APP_PRODUCT_NAME"
+swift build \
+  -c "$CONFIGURATION" \
+  --arch "$TARGET_ARCH" \
+  --product codex-theme
 
 BIN_DIR="$(swift build -c "$CONFIGURATION" --arch "$TARGET_ARCH" --show-bin-path)"
 BINARY_SOURCE="${BIN_DIR}/${APP_PRODUCT_NAME}"
+AGENT_CLI_SOURCE="${BIN_DIR}/codex-theme"
 SPARKLE_FRAMEWORK_SOURCE="${BIN_DIR}/Sparkle.framework"
 RUNTIME_RESOURCE_BUNDLE="${BIN_DIR}/${APP_PRODUCT_NAME}_CodexThemeRuntime.bundle"
 APP_RESOURCE_BUNDLE="${BIN_DIR}/${APP_PRODUCT_NAME}_${APP_PRODUCT_NAME}.bundle"
 
 [[ -f "$BINARY_SOURCE" ]] || fail "Missing executable: ${BINARY_SOURCE}"
+[[ -f "$AGENT_CLI_SOURCE" ]] || fail "Missing agent CLI: ${AGENT_CLI_SOURCE}"
+[[ -f "$PROJECT_ROOT/Sources/CodexThemeAgentCLI/Resources/codextheme.schema.json" ]] \
+  || fail "Missing agent JSON Schema"
 [[ -d "$SPARKLE_FRAMEWORK_SOURCE" ]] || fail "Missing Sparkle.framework: ${SPARKLE_FRAMEWORK_SOURCE}"
 [[ -d "$RUNTIME_RESOURCE_BUNDLE" ]] || fail "Missing runtime resource bundle: ${RUNTIME_RESOURCE_BUNDLE}"
 [[ -d "$APP_RESOURCE_BUNDLE" ]] || fail "Missing app resource bundle: ${APP_RESOURCE_BUNDLE}"
@@ -106,16 +116,24 @@ APP_RESOURCE_BUNDLE="${BIN_DIR}/${APP_PRODUCT_NAME}_${APP_PRODUCT_NAME}.bundle"
 echo "==> Staging .app bundle"
 mkdir -p \
   "${APP_PATH}/Contents/MacOS" \
+  "${APP_PATH}/Contents/Helpers" \
   "$FRAMEWORKS_DIR" \
-  "$RESOURCES_DIR"
+  "$RESOURCES_DIR" \
+  "${RESOURCES_DIR}/Schemas"
 
 ditto "$BINARY_SOURCE" "$APP_BINARY"
+ditto "$AGENT_CLI_SOURCE" "$AGENT_CLI"
 ditto "$PROJECT_ROOT/Packaging/Info.plist" "${APP_PATH}/Contents/Info.plist"
 ditto "$PROJECT_ROOT/Packaging/AppIcon.icns" "${RESOURCES_DIR}/AppIcon.icns"
+ditto \
+  "$PROJECT_ROOT/Sources/CodexThemeAgentCLI/Resources/codextheme.schema.json" \
+  "$AGENT_SCHEMA"
 ditto "$SPARKLE_FRAMEWORK_SOURCE" "${FRAMEWORKS_DIR}/Sparkle.framework"
 ditto "$RUNTIME_RESOURCE_BUNDLE" "${RESOURCES_DIR}/${APP_PRODUCT_NAME}_CodexThemeRuntime.bundle"
 ditto "$APP_RESOURCE_BUNDLE" "${RESOURCES_DIR}/${APP_PRODUCT_NAME}_${APP_PRODUCT_NAME}.bundle"
 chmod +x "$APP_BINARY"
+chmod +x "$AGENT_CLI"
+[[ -f "$AGENT_SCHEMA" ]] || fail "Agent JSON Schema was not packaged"
 
 /usr/libexec/PlistBuddy \
   -c "Set :CFBundleShortVersionString ${RELEASE_VERSION}" \
@@ -150,19 +168,73 @@ if /usr/libexec/PlistBuddy \
   fail "The staged app contains SUAllowsInsecureUpdates."
 fi
 
+HOST_ARCH="$(uname -m)"
+AGENT_CLI_ARCHS="$(lipo -archs "$AGENT_CLI")"
+AGENT_CLI_RUNNER=("$AGENT_CLI")
+CAN_RUN_AGENT_CLI=true
+if ! grep -qw "$HOST_ARCH" <<<"$AGENT_CLI_ARCHS"; then
+  if [[ "$HOST_ARCH" == "arm64" ]] \
+      && grep -qw "x86_64" <<<"$AGENT_CLI_ARCHS" \
+      && /usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null; then
+    AGENT_CLI_RUNNER=(/usr/bin/arch -x86_64 "$AGENT_CLI")
+  else
+    CAN_RUN_AGENT_CLI=false
+  fi
+fi
+
+if [[ "$CAN_RUN_AGENT_CLI" == true ]]; then
+  (
+    cd /
+    "${AGENT_CLI_RUNNER[@]}" capabilities
+  ) | python3 -c '
+import json
+import sys
+
+payload = json.load(sys.stdin)
+if payload.get("ok") is not True or payload.get("command") != "capabilities":
+    raise SystemExit("Packaged agent CLI capabilities smoke test failed.")
+'
+  (
+    cd /
+    "${AGENT_CLI_RUNNER[@]}" schema
+  ) | python3 -c '
+import json
+import sys
+
+payload = json.load(sys.stdin)
+schema = payload.get("data", {}).get("schema", {})
+if payload.get("ok") is not True or "$schema" not in schema:
+    raise SystemExit("Packaged agent CLI schema smoke test failed.")
+'
+else
+  echo "Skipping agent CLI smoke tests for non-runnable architecture: $TARGET_ARCH"
+fi
+
 if ! otool -l "$APP_BINARY" | grep -Fq '@executable_path/../Frameworks'; then
   install_name_tool -add_rpath '@executable_path/../Frameworks' "$APP_BINARY"
 fi
 
 BUILT_ARCHS="$(lipo -archs "$APP_BINARY")"
+BUILT_AGENT_ARCHS="$(lipo -archs "$AGENT_CLI")"
 printf 'Built executable architectures: %s\n' "$BUILT_ARCHS"
+printf 'Built agent CLI architectures: %s\n' "$BUILT_AGENT_ARCHS"
 grep -qw "$TARGET_ARCH" <<< "$BUILT_ARCHS" \
   || fail "Executable does not contain requested architecture ${TARGET_ARCH}."
+grep -qw "$TARGET_ARCH" <<< "$BUILT_AGENT_ARCHS" \
+  || fail "Agent CLI does not contain requested architecture ${TARGET_ARCH}."
 if [[ "$TARGET_ARCH" == "arm64" ]] && grep -qw "x86_64" <<< "$BUILT_ARCHS"; then
   fail "arm64 release executable unexpectedly contains x86_64."
 fi
+if [[ "$TARGET_ARCH" == "arm64" ]] \
+    && grep -qw "x86_64" <<< "$BUILT_AGENT_ARCHS"; then
+  fail "arm64 agent CLI unexpectedly contains x86_64."
+fi
 if [[ "$TARGET_ARCH" == "x86_64" ]] && grep -qw "arm64" <<< "$BUILT_ARCHS"; then
   fail "x86_64 release executable unexpectedly contains arm64."
+fi
+if [[ "$TARGET_ARCH" == "x86_64" ]] \
+    && grep -qw "arm64" <<< "$BUILT_AGENT_ARCHS"; then
+  fail "x86_64 agent CLI unexpectedly contains arm64."
 fi
 
 echo "==> Generating dSYM"
@@ -218,6 +290,12 @@ done < <(
 sign_preserving_metadata "$SPARKLE_FRAMEWORK"
 
 echo "==> Signing main app"
+codesign \
+  --force \
+  --timestamp \
+  --options runtime \
+  --sign "$CODE_SIGN_IDENTITY" \
+  "$AGENT_CLI"
 codesign \
   --force \
   --timestamp \

@@ -18,6 +18,7 @@ public actor FileThemeRepository {
     private let activeThemeFile: URL
     private let validator: ThemeValidator
     private let fileManager: FileManager
+    private let processLock: RepositoryFileLock
 
     public init(
         rootDirectory: URL = FileThemeRepository.defaultRootDirectory,
@@ -28,30 +29,41 @@ public actor FileThemeRepository {
         activeThemeFile = self.rootDirectory.appendingPathComponent("active-theme.json")
         self.validator = validator
         fileManager = FileManager()
+        processLock = RepositoryFileLock(
+            rootDirectory: self.rootDirectory
+        )
     }
 
     public func list(includeBuiltIns: Bool = true) throws -> [ThemeSummary] {
-        try ensureDirectories()
-        var summaries: [ThemeSummary] = includeBuiltIns
-            ? BuiltInThemes.all.map { ThemeSummary(document: $0, isBuiltIn: true) }
-            : []
+        try processLock.withExclusiveLock {
+            try ensureDirectories()
+            var summaries: [ThemeSummary] = includeBuiltIns
+                ? BuiltInThemes.all.map {
+                    ThemeSummary(document: $0, isBuiltIn: true)
+                }
+                : []
 
-        let urls = try fileManager.contentsOfDirectory(
-            at: themesDirectory,
-            includingPropertiesForKeys: nil,
-            options: [.skipsHiddenFiles]
-        )
-        for url in urls where url.pathExtension.lowercased() == "json" {
-            let document = try decodeTheme(at: url)
-            summaries.append(ThemeSummary(document: document, isBuiltIn: false))
-        }
-
-        return summaries.sorted {
-            let comparison = $0.name.localizedCaseInsensitiveCompare($1.name)
-            if comparison == .orderedSame {
-                return $0.id.uuidString < $1.id.uuidString
+            let urls = try fileManager.contentsOfDirectory(
+                at: themesDirectory,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            )
+            for url in urls where url.pathExtension.lowercased() == "json" {
+                let document = try decodeTheme(at: url)
+                summaries.append(
+                    ThemeSummary(document: document, isBuiltIn: false)
+                )
             }
-            return comparison == .orderedAscending
+
+            return summaries.sorted {
+                let comparison = $0.name.localizedCaseInsensitiveCompare(
+                    $1.name
+                )
+                if comparison == .orderedSame {
+                    return $0.id.uuidString < $1.id.uuidString
+                }
+                return comparison == .orderedAscending
+            }
         }
     }
 
@@ -59,17 +71,24 @@ public actor FileThemeRepository {
         if let builtIn = BuiltInThemes.theme(id: id) {
             return builtIn
         }
-
-        let url = themeFileURL(id: id)
-        guard fileManager.fileExists(atPath: url.path) else {
-            throw ThemeRepositoryError.themeNotFound(id)
+        return try processLock.withExclusiveLock {
+            let url = themeFileURL(id: id)
+            guard fileManager.fileExists(atPath: url.path) else {
+                throw ThemeRepositoryError.themeNotFound(id)
+            }
+            return try decodeTheme(at: url)
         }
-        return try decodeTheme(at: url)
     }
 
     public func contains(id: UUID) -> Bool {
-        BuiltInThemes.theme(id: id) != nil
-            || fileManager.fileExists(atPath: themeFileURL(id: id).path)
+        if BuiltInThemes.theme(id: id) != nil {
+            return true
+        }
+        return (
+            try? processLock.withExclusiveLock {
+                containsUnlocked(id: id)
+            }
+        ) ?? false
     }
 
     @discardableResult
@@ -77,34 +96,45 @@ public actor FileThemeRepository {
         _ document: ThemeDocument,
         collisionPolicy: ThemeCollisionPolicy = .replace
     ) throws -> ThemeDocument {
-        try ensureDirectories()
-        var savedDocument = document
-        let collidesWithBuiltIn = BuiltInThemes.theme(id: document.id) != nil
-        let collidesWithUserTheme = fileManager.fileExists(
-            atPath: themeFileURL(id: document.id).path
-        )
+        try processLock.withExclusiveLock {
+            try ensureDirectories()
+            var savedDocument = document
+            let collidesWithBuiltIn =
+                BuiltInThemes.theme(id: document.id) != nil
+            let collidesWithUserTheme = fileManager.fileExists(
+                atPath: themeFileURL(id: document.id).path
+            )
 
-        if collidesWithBuiltIn || collidesWithUserTheme {
-            switch collisionPolicy {
-            case .fail:
-                throw ThemeRepositoryError.themeAlreadyExists(document.id)
-            case .replace:
-                if collidesWithBuiltIn {
-                    throw ThemeRepositoryError.cannotReplaceBuiltIn(document.id)
+            if collidesWithBuiltIn || collidesWithUserTheme {
+                switch collisionPolicy {
+                case .fail:
+                    throw ThemeRepositoryError.themeAlreadyExists(
+                        document.id
+                    )
+                case .replace:
+                    if collidesWithBuiltIn {
+                        throw ThemeRepositoryError.cannotReplaceBuiltIn(
+                            document.id
+                        )
+                    }
+                case .clone:
+                    repeat {
+                        savedDocument.id = UUID()
+                    } while containsUnlocked(id: savedDocument.id)
+                    savedDocument.metadata.name = Self.copyName(
+                        for: savedDocument.metadata.name
+                    )
+                    savedDocument.metadata.updatedAt = Date()
                 }
-            case .clone:
-                repeat {
-                    savedDocument.id = UUID()
-                } while contains(id: savedDocument.id)
-                savedDocument.metadata.name = Self.copyName(for: savedDocument.metadata.name)
-                savedDocument.metadata.updatedAt = Date()
             }
-        }
 
-        try validator.validateOrThrow(savedDocument)
-        let data = try ThemeJSONCoding.encoder().encode(savedDocument)
-        try data.write(to: themeFileURL(id: savedDocument.id), options: .atomic)
-        return savedDocument
+            try validator.validateOrThrow(savedDocument)
+            let data = try ThemeJSONCoding.encoder().encode(savedDocument)
+            let destination = themeFileURL(id: savedDocument.id)
+            try data.write(to: destination, options: .atomic)
+            try setPrivateFilePermissions(destination)
+            return savedDocument
+        }
     }
 
     public func delete(id: UUID) throws {
@@ -112,18 +142,26 @@ public actor FileThemeRepository {
             throw ThemeRepositoryError.cannotDeleteBuiltIn(id)
         }
 
-        let url = themeFileURL(id: id)
-        guard fileManager.fileExists(atPath: url.path) else {
-            throw ThemeRepositoryError.themeNotFound(id)
-        }
-        try fileManager.removeItem(at: url)
+        try processLock.withExclusiveLock {
+            let url = themeFileURL(id: id)
+            guard fileManager.fileExists(atPath: url.path) else {
+                throw ThemeRepositoryError.themeNotFound(id)
+            }
+            try fileManager.removeItem(at: url)
 
-        if try activeThemeID() == id {
-            try writeActiveThemeID(nil)
+            if try activeThemeIDUnlocked() == id {
+                try writeActiveThemeID(nil)
+            }
         }
     }
 
     public func activeThemeID() throws -> UUID? {
+        try processLock.withExclusiveLock {
+            try activeThemeIDUnlocked()
+        }
+    }
+
+    private func activeThemeIDUnlocked() throws -> UUID? {
         guard fileManager.fileExists(atPath: activeThemeFile.path) else {
             return nil
         }
@@ -136,17 +174,24 @@ public actor FileThemeRepository {
     }
 
     public func setActiveThemeID(_ id: UUID?) throws {
-        if let id, !contains(id: id) {
-            throw ThemeRepositoryError.invalidActiveTheme(id)
+        try processLock.withExclusiveLock {
+            if let id, !containsUnlocked(id: id) {
+                throw ThemeRepositoryError.invalidActiveTheme(id)
+            }
+            try ensureDirectories()
+            try writeActiveThemeID(id)
         }
-        try ensureDirectories()
-        try writeActiveThemeID(id)
     }
 
     private func ensureDirectories() throws {
         try fileManager.createDirectory(
             at: themesDirectory,
-            withIntermediateDirectories: true
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
+        try? fileManager.setAttributes(
+            [.posixPermissions: 0o700],
+            ofItemAtPath: themesDirectory.path
         )
     }
 
@@ -170,6 +215,19 @@ public actor FileThemeRepository {
     private func writeActiveThemeID(_ id: UUID?) throws {
         let data = try ThemeJSONCoding.encoder().encode(ActiveThemeRecord(id: id))
         try data.write(to: activeThemeFile, options: .atomic)
+        try setPrivateFilePermissions(activeThemeFile)
+    }
+
+    private func containsUnlocked(id: UUID) -> Bool {
+        BuiltInThemes.theme(id: id) != nil
+            || fileManager.fileExists(atPath: themeFileURL(id: id).path)
+    }
+
+    private func setPrivateFilePermissions(_ url: URL) throws {
+        try fileManager.setAttributes(
+            [.posixPermissions: 0o600],
+            ofItemAtPath: url.path
+        )
     }
 
     private static func copyName(for name: String) -> String {
@@ -180,16 +238,4 @@ public actor FileThemeRepository {
 
 private struct ActiveThemeRecord: Codable {
     var id: UUID?
-}
-
-enum ThemeJSONCoding {
-    static func encoder() -> JSONEncoder {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        return encoder
-    }
-
-    static func decoder() -> JSONDecoder {
-        JSONDecoder()
-    }
 }

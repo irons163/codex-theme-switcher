@@ -1,0 +1,690 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/irons163/codex-theme-switcher/raw/main/Sources/CodexThemeAgentCLI/Resources/codextheme.schema.json",
+  "title": "Codex Theme Archive",
+  "description": "Portable .codextheme JSON envelope. Import still performs Core validation, including aggregate CSS and asset limits and obfuscated CSS URL scanning.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "archiveVersion", "exportedAt", "theme"],
+  "properties": {
+    "format": {
+      "const": "com.codex-theme-switcher.theme"
+    },
+    "archiveVersion": {
+      "const": 1
+    },
+    "exportedAt": {
+      "$ref": "#/$defs/date"
+    },
+    "theme": {
+      "$ref": "#/$defs/themeDocument"
+    }
+  },
+  "x-codex-limits": {
+    "maximumArchiveBytes": 50331648,
+    "maximumAssetBytes": 16777216,
+    "maximumTotalAssetBytes": 33554432,
+    "maximumCSSCharacters": 1000000
+  },
+  "x-codex-security": {
+    "externalURLsAllowed": false,
+    "fileURLsAllowed": false,
+    "importRulesAllowed": false,
+    "javascriptAllowed": false,
+    "note": "The Core validator is authoritative and detects escaped or comment-obfuscated CSS tokens that JSON Schema cannot fully express."
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "date": {
+      "description": "Canonical output uses ISO-8601. Legacy numeric values are seconds since the Foundation reference date (2001-01-01T00:00:00Z).",
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "date-time"
+        },
+        {
+          "type": "number"
+        }
+      ]
+    },
+    "cssText": {
+      "type": "string",
+      "maxLength": 1000000,
+      "allOf": [
+        {
+          "not": {
+            "pattern": "@\\s*[Ii][Mm][Pp][Oo][Rr][Tt]"
+          }
+        },
+        {
+          "not": {
+            "pattern": "[Uu][Rr][Ll]\\s*\\(\\s*[\"']?\\s*(?:[Hh][Tt][Tt][Pp][Ss]?:|[Ff][Ii][Ll][Ee]:|[Ff][Tt][Pp]:|//)"
+          }
+        }
+      ]
+    },
+    "cssValue": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/cssText"
+        },
+        {
+          "minLength": 1
+        }
+      ]
+    },
+    "skinColor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000000,
+      "not": {
+        "pattern": "[;{}@]|![Ii][Mm][Pp][Oo][Rr][Tt][Aa][Nn][Tt]|/\\*|\\*/"
+      }
+    },
+    "themeDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "id", "metadata", "layers", "assets"],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadata"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/layer"
+          }
+        },
+        "assets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/asset"
+          }
+        },
+        "imageSkin": {
+          "$ref": "#/$defs/imageSkin"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "author",
+        "description",
+        "version",
+        "tags",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "author": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "homepage": {
+          "type": "string",
+          "format": "uri"
+        },
+        "license": {
+          "type": "string"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/date"
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/date"
+        }
+      }
+    },
+    "layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "condition",
+        "isEnabled",
+        "variables",
+        "components",
+        "rules",
+        "rawCSS"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "condition": {
+          "enum": ["always", "light", "dark", "custom"]
+        },
+        "mediaQuery": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000000,
+          "not": {
+            "pattern": "[{}]"
+          }
+        },
+        "isEnabled": {
+          "type": "boolean"
+        },
+        "variables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/variable"
+          }
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/component"
+          }
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/rule"
+          }
+        },
+        "rawCSS": {
+          "$ref": "#/$defs/cssText"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "condition": {
+                "const": "custom"
+              }
+            },
+            "required": ["condition"]
+          },
+          "then": {
+            "required": ["mediaQuery"]
+          }
+        }
+      ]
+    },
+    "variable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "value", "isEnabled"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/cssValue"
+        },
+        "semanticRole": {
+          "enum": [
+            "backgroundPrimary",
+            "backgroundSecondary",
+            "surface",
+            "textPrimary",
+            "textSecondary",
+            "accent",
+            "border",
+            "success",
+            "warning",
+            "error"
+          ]
+        },
+        "isEnabled": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["semanticRole"]
+          },
+          "else": {
+            "properties": {
+              "name": {
+                "pattern": "^--[A-Za-z0-9_-]+$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "property", "value", "isImportant", "isEnabled"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "property": {
+          "type": "string",
+          "pattern": "^(?:--[A-Za-z0-9_-]+|-?[A-Za-z][A-Za-z0-9-]*)$"
+        },
+        "value": {
+          "$ref": "#/$defs/cssValue"
+        },
+        "isImportant": {
+          "type": "boolean"
+        },
+        "isEnabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "componentID",
+        "selectors",
+        "declarations",
+        "isEnabled"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "componentID": {
+          "type": "string",
+          "minLength": 1
+        },
+        "selectors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/selector"
+          }
+        },
+        "declarations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/declaration"
+          }
+        },
+        "isEnabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "selector": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000000,
+      "not": {
+        "pattern": "[{}]"
+      }
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "selector", "declarations", "isEnabled"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "selector": {
+          "$ref": "#/$defs/selector"
+        },
+        "declarations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/declaration"
+          }
+        },
+        "isEnabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "mediaType", "dataBase64"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mediaType": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+$"
+        },
+        "dataBase64": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "maxLength": 22369624
+        }
+      }
+    },
+    "imageSkin": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "isEnabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "wallpaperScope": {
+          "enum": ["fullWindow", "mainContent"],
+          "default": "fullWindow"
+        },
+        "light": {
+          "$ref": "#/$defs/skinVariant"
+        },
+        "dark": {
+          "$ref": "#/$defs/skinVariant"
+        },
+        "centerPanel": {
+          "$ref": "#/$defs/centerPanel"
+        },
+        "glass": {
+          "$ref": "#/$defs/glass"
+        },
+        "targets": {
+          "$ref": "#/$defs/targets"
+        }
+      }
+    },
+    "skinVariant": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "backgroundAssetID": {
+          "$ref": "#/$defs/uuid"
+        },
+        "backgroundColor": {
+          "$ref": "#/$defs/skinColor"
+        },
+        "imageFit": {
+          "enum": [
+            "cover",
+            "contain",
+            "fill",
+            "fitWidth",
+            "fitHeight",
+            "original",
+            "tile"
+          ]
+        },
+        "positionX": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "positionY": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "zoom": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 3
+        },
+        "imageOpacity": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "imageBlur": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 80
+        },
+        "brightness": {
+          "$ref": "#/$defs/tripleNumber"
+        },
+        "contrast": {
+          "$ref": "#/$defs/tripleNumber"
+        },
+        "saturation": {
+          "$ref": "#/$defs/tripleNumber"
+        },
+        "blendMode": {
+          "enum": ["normal", "multiply", "screen", "overlay", "softLight"]
+        },
+        "overlayColor": {
+          "$ref": "#/$defs/skinColor"
+        },
+        "overlayOpacity": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "scrimDirection": {
+          "enum": ["none", "left", "right", "top", "bottom"]
+        },
+        "scrimOpacity": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "vignetteOpacity": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "primaryTextColor": {
+          "$ref": "#/$defs/skinColor"
+        },
+        "secondaryTextColor": {
+          "$ref": "#/$defs/skinColor"
+        },
+        "accentColor": {
+          "$ref": "#/$defs/skinColor"
+        },
+        "sidebarTint": {
+          "$ref": "#/$defs/skinColor"
+        },
+        "sidebarOpacity": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "contentTint": {
+          "$ref": "#/$defs/skinColor"
+        },
+        "contentOpacity": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "composerTint": {
+          "$ref": "#/$defs/skinColor"
+        },
+        "composerOpacity": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "composerActionBackgroundColor": {
+          "$ref": "#/$defs/skinColor"
+        },
+        "composerActionIconColor": {
+          "$ref": "#/$defs/skinColor"
+        },
+        "cardTint": {
+          "$ref": "#/$defs/skinColor"
+        },
+        "cardOpacity": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "borderColor": {
+          "$ref": "#/$defs/skinColor"
+        },
+        "borderOpacity": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "centerPanelTint": {
+          "$ref": "#/$defs/skinColor"
+        },
+        "centerPanelOpacity": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "centerPanelBorderColor": {
+          "$ref": "#/$defs/skinColor"
+        },
+        "centerPanelBorderOpacity": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "centerPanelShadowColor": {
+          "$ref": "#/$defs/skinColor"
+        },
+        "centerPanelShadowOpacity": {
+          "$ref": "#/$defs/unitNumber"
+        }
+      }
+    },
+    "unitNumber": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "tripleNumber": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 3
+    },
+    "centerPanel": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "isEnabled": {
+          "type": "boolean"
+        },
+        "backdropBlur": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 80
+        },
+        "backdropSaturation": {
+          "$ref": "#/$defs/tripleNumber"
+        },
+        "borderWidth": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "cornerRadius": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "shadowBlur": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 120
+        },
+        "shadowOffsetX": {
+          "type": "number",
+          "minimum": -120,
+          "maximum": 120
+        },
+        "shadowOffsetY": {
+          "type": "number",
+          "minimum": -120,
+          "maximum": 120
+        },
+        "maximumWidth": {
+          "type": "number",
+          "minimum": 320,
+          "maximum": 1600
+        },
+        "horizontalPadding": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 120
+        },
+        "verticalPadding": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 120
+        }
+      }
+    },
+    "glass": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "blurRadius": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 80
+        },
+        "saturation": {
+          "$ref": "#/$defs/tripleNumber"
+        },
+        "borderWidth": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "cornerRadius": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "shadowOpacity": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "shadowBlur": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 120
+        },
+        "textShadowOpacity": {
+          "$ref": "#/$defs/unitNumber"
+        }
+      }
+    },
+    "targets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sidebar": {
+          "type": "boolean"
+        },
+        "content": {
+          "type": "boolean"
+        },
+        "titlebar": {
+          "type": "boolean"
+        },
+        "composer": {
+          "type": "boolean"
+        },
+        "cards": {
+          "type": "boolean"
+        },
+        "popovers": {
+          "type": "boolean"
+        },
+        "codeBlocks": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

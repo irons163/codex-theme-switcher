@@ -1,0 +1,23 @@
+{
+  "format": "com.codex-theme-switcher.theme",
+  "archiveVersion": 1,
+  "exportedAt": "2026-07-27T00:00:00Z",
+  "theme": {
+    "schemaVersion": 1,
+    "id": "9d9028d5-f76a-4e99-a5e5-da3533fe646d",
+    "metadata": {
+      "name": "Minimal Agent Theme",
+      "author": "Codex",
+      "description": "The smallest complete theme archive.",
+      "version": "1.0.0",
+      "tags": [
+        "example",
+        "agent"
+      ],
+      "createdAt": "2026-07-27T00:00:00Z",
+      "updatedAt": "2026-07-27T00:00:00Z"
+    },
+    "layers": [],
+    "assets": []
+  }
+}

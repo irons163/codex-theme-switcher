@@ -20,6 +20,10 @@ let package = Package(
         .executable(
             name: "CodexThemeSwitcher",
             targets: ["CodexThemeSwitcher"]
+        ),
+        .executable(
+            name: "codex-theme",
+            targets: ["CodexThemeAgentCLI"]
         )
     ],
     dependencies: [
@@ -49,6 +53,14 @@ let package = Package(
                 .process("Resources")
             ]
         ),
+        .executableTarget(
+            name: "CodexThemeAgentCLI",
+            dependencies: [
+                "CodexThemeSwitcherCore",
+                "CodexThemeRuntime"
+            ],
+            exclude: ["Resources"]
+        ),
         .testTarget(
             name: "CodexThemeSwitcherCoreTests",
             dependencies: ["CodexThemeSwitcherCore"]
@@ -61,6 +73,14 @@ let package = Package(
             name: "CodexThemeSwitcherTests",
             dependencies: [
                 "CodexThemeSwitcher",
+                "CodexThemeSwitcherCore",
+                "CodexThemeRuntime"
+            ]
+        ),
+        .testTarget(
+            name: "CodexThemeAgentCLITests",
+            dependencies: [
+                "CodexThemeAgentCLI",
                 "CodexThemeSwitcherCore",
                 "CodexThemeRuntime"
             ]

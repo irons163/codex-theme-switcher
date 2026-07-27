@@ -38,6 +38,18 @@ const MEDIA_TYPE_PATTERN =
 const THEME_ASSET_URL_PATTERN =
   /codex-theme-asset:\/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
 
+function createMutationQueue() {
+  let tail = Promise.resolve();
+  return function enqueueMutation(operation) {
+    const result = tail.then(() => operation());
+    tail = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  };
+}
+
 function collapseCompilerDataURLs(source) {
   return source.replace(
     /url\s*\(\s*(["']?)data:([a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+);base64,[a-z0-9+/=\s]*\1\s*\)/gi,
@@ -450,6 +462,7 @@ async function serveBridge(options) {
     lastError: null,
     launching: false,
   };
+  const enqueueMutation = createMutationQueue();
 
   async function chooseDebugPort() {
     const existing = await findExistingCodexDebugPort(state.debugPort);
@@ -606,40 +619,56 @@ async function serveBridge(options) {
       return;
     }
     if (request.method === "POST" && request.url === "/launch") {
-      await launchAndInject();
-      writeJSON(response, 200, await bridgeStatus());
+      const payload = await enqueueMutation(async () => {
+        await launchAndInject();
+        return bridgeStatus();
+      });
+      writeJSON(response, 200, payload);
       return;
     }
     if (request.method === "POST" && request.url === "/inject") {
-      await injectWhenReady();
-      writeJSON(response, 200, await bridgeStatus());
+      const payload = await enqueueMutation(async () => {
+        await injectWhenReady();
+        return bridgeStatus();
+      });
+      writeJSON(response, 200, payload);
       return;
     }
     if (request.method === "PUT" && request.url === "/theme") {
-      await applyTheme(await readJSONBody(request));
-      writeJSON(response, 200, await bridgeStatus());
+      const theme = await readJSONBody(request);
+      const payload = await enqueueMutation(async () => {
+        await applyTheme(theme);
+        return bridgeStatus();
+      });
+      writeJSON(response, 200, payload);
       return;
     }
     if (request.method === "DELETE" && request.url === "/theme") {
-      await clearTheme();
-      writeJSON(response, 200, await bridgeStatus());
+      const payload = await enqueueMutation(async () => {
+        await clearTheme();
+        return bridgeStatus();
+      });
+      writeJSON(response, 200, payload);
       return;
     }
     if (request.method === "POST" && request.url === "/stop") {
-      await clearRenderers(state.sessions, log);
-      for (const session of state.sessions.values()) session.close();
-      state.sessions.clear();
-      writeJSON(response, 200, {
-        app: APP_ID,
-        ok: true,
-        stopped: true,
-        status: {
-          ...(await bridgeStatus()).status,
-          isInjected: false,
-          bridgeRunning: false,
-          injectedRendererCount: 0,
-        },
+      const payload = await enqueueMutation(async () => {
+        await clearRenderers(state.sessions, log);
+        for (const session of state.sessions.values()) session.close();
+        state.sessions.clear();
+        return {
+          app: APP_ID,
+          ok: true,
+          stopped: true,
+          status: {
+            ...(await bridgeStatus()).status,
+            isInjected: false,
+            bridgeRunning: false,
+            injectedRendererCount: 0,
+          },
+        };
       });
+      writeJSON(response, 200, payload);
       server.close(() => process.exit(0));
       return;
     }
@@ -656,8 +685,10 @@ async function serveBridge(options) {
 
   setInterval(() => {
     if (state.launching) return;
-    cdpStatus(state.debugPort)
-      .then((status) => status.hasCodexTarget ? injectOnce() : null)
+    enqueueMutation(async () => {
+      const status = await cdpStatus(state.debugPort);
+      return status.hasCodexTarget ? injectOnce() : null;
+    })
       .catch((error) => {
         state.lastError = error.message || String(error);
       });
@@ -759,6 +790,7 @@ module.exports = {
   PROTOCOL_VERSION,
   activeThemePath,
   containsUnsafeThemeCSS,
+  createMutationQueue,
   ensureTokenFile,
   loadActiveTheme,
   persistActiveTheme,

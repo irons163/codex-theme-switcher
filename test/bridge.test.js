@@ -9,6 +9,7 @@ const test = require("node:test");
 
 const {
   activeThemePath,
+  createMutationQueue,
   ensureTokenFile,
   loadActiveTheme,
   MAX_THEME_ASSET_BYTES,
@@ -30,6 +31,48 @@ async function temporaryDirectory(t) {
 function fileMode(file) {
   return fs.statSync(file).mode & 0o777;
 }
+
+test("createMutationQueue runs operations FIFO and survives rejection", async () => {
+  const enqueueMutation = createMutationQueue();
+  const events = [];
+  let releaseFirst;
+  const firstGate = new Promise((resolve) => {
+    releaseFirst = resolve;
+  });
+
+  const first = enqueueMutation(async () => {
+    events.push("first:start");
+    await firstGate;
+    events.push("first:end");
+    return "first-result";
+  });
+  const second = enqueueMutation(async () => {
+    events.push("second:start");
+    throw new Error("expected mutation failure");
+  });
+  const secondRejection = assert.rejects(
+    second,
+    /expected mutation failure/,
+  );
+  const third = enqueueMutation(async () => {
+    events.push("third:start");
+    return "third-result";
+  });
+
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(events, ["first:start"]);
+
+  releaseFirst();
+  assert.equal(await first, "first-result");
+  await secondRejection;
+  assert.equal(await third, "third-result");
+  assert.deepEqual(events, [
+    "first:start",
+    "first:end",
+    "second:start",
+    "third:start",
+  ]);
+});
 
 test("validateThemePayload trims metadata and preserves CSS verbatim", () => {
   const css = ":root { --color-text: #fff; }\n";

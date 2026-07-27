@@ -25,11 +25,18 @@ public enum RuntimeLocator {
         let bundleName = "CodexThemeSwitcher_CodexThemeRuntime.bundle"
         let mainBundle = Bundle.main.bundleURL
         let mainResources = Bundle.main.resourceURL
+        let enclosingAppResources = Bundle.main.executableURL?
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Resources", isDirectory: true)
         let candidates: [URL?] = [
             mainBundle
                 .appendingPathComponent(bundleName)
                 .appendingPathComponent("Resources/runtime/cli.js"),
             mainResources?
+                .appendingPathComponent(bundleName)
+                .appendingPathComponent("Resources/runtime/cli.js"),
+            enclosingAppResources?
                 .appendingPathComponent(bundleName)
                 .appendingPathComponent("Resources/runtime/cli.js"),
             URL(fileURLWithPath: FileManager.default.currentDirectoryPath)

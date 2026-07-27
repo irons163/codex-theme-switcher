@@ -74,6 +74,39 @@ final class FileThemeRepositoryTests: XCTestCase {
         XCTAssertEqual(loadedClone, clone)
     }
 
+    func testSeparateRepositoryInstancesSerializeFailCollisions() async throws {
+        let root = TestFixtures.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let firstRepository = FileThemeRepository(rootDirectory: root)
+        let secondRepository = FileThemeRepository(rootDirectory: root)
+        let theme = TestFixtures.theme()
+
+        let outcomes = await withTaskGroup(of: Bool.self) { group in
+            for repository in [firstRepository, secondRepository] {
+                group.addTask {
+                    do {
+                        _ = try await repository.save(
+                            theme,
+                            collisionPolicy: .fail
+                        )
+                        return true
+                    } catch ThemeRepositoryError.themeAlreadyExists(theme.id) {
+                        return false
+                    } catch {
+                        XCTFail("Unexpected repository error: \(error)")
+                        return false
+                    }
+                }
+            }
+            return await group.reduce(into: []) { $0.append($1) }
+        }
+
+        XCTAssertEqual(outcomes.filter { $0 }.count, 1)
+        XCTAssertEqual(outcomes.filter { !$0 }.count, 1)
+        let loaded = try await firstRepository.load(id: theme.id)
+        XCTAssertEqual(loaded, theme)
+    }
+
     func testBuiltInsCanBeActiveButCannotBeReplacedOrDeleted() async throws {
         let root = TestFixtures.temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }

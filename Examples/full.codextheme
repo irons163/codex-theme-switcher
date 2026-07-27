@@ -1,0 +1,221 @@
+{
+  "format": "com.codex-theme-switcher.theme",
+  "archiveVersion": 1,
+  "exportedAt": "2026-07-27T08:30:00Z",
+  "theme": {
+    "schemaVersion": 1,
+    "id": "00000000-0000-4000-8000-000000001000",
+    "metadata": {
+      "name": "Complete Agent Theme",
+      "author": "Codex",
+      "description": "An agent-oriented example with structured CSS, an embedded asset, and an image skin.",
+      "version": "1.0.0",
+      "tags": [
+        "example",
+        "agent",
+        "image-skin"
+      ],
+      "homepage": "https://github.com/irons163/codex-theme-switcher",
+      "license": "MIT",
+      "createdAt": "2026-07-27T08:00:00Z",
+      "updatedAt": "2026-07-27T08:30:00Z"
+    },
+    "layers": [
+      {
+        "id": "00000000-0000-4000-8000-000000001001",
+        "name": "Base",
+        "condition": "always",
+        "isEnabled": true,
+        "variables": [
+          {
+            "id": "00000000-0000-4000-8000-000000001002",
+            "name": "",
+            "value": "#10151D",
+            "semanticRole": "backgroundPrimary",
+            "isEnabled": true
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000001003",
+            "name": "--agent-radius",
+            "value": "16px",
+            "isEnabled": true
+          }
+        ],
+        "components": [
+          {
+            "id": "00000000-0000-4000-8000-000000001004",
+            "componentID": "composer",
+            "selectors": [],
+            "declarations": [
+              {
+                "id": "00000000-0000-4000-8000-000000001005",
+                "property": "border-radius",
+                "value": "var(--agent-radius)",
+                "isImportant": false,
+                "isEnabled": true
+              }
+            ],
+            "isEnabled": true
+          }
+        ],
+        "rules": [
+          {
+            "id": "00000000-0000-4000-8000-000000001006",
+            "name": "Focus rings",
+            "selector": ":focus-visible",
+            "declarations": [
+              {
+                "id": "00000000-0000-4000-8000-000000001007",
+                "property": "outline-color",
+                "value": "#78A9FF",
+                "isImportant": false,
+                "isEnabled": true
+              }
+            ],
+            "isEnabled": true
+          }
+        ],
+        "rawCSS": ".codex-theme-example { transition: background-color 120ms ease; }"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000001008",
+        "name": "Dark accent",
+        "condition": "dark",
+        "isEnabled": true,
+        "variables": [
+          {
+            "id": "00000000-0000-4000-8000-000000001009",
+            "name": "",
+            "value": "#78A9FF",
+            "semanticRole": "accent",
+            "isEnabled": true
+          }
+        ],
+        "components": [],
+        "rules": [],
+        "rawCSS": ""
+      }
+    ],
+    "assets": [
+      {
+        "id": "00000000-0000-4000-8000-000000001010",
+        "name": "pixel.png",
+        "mediaType": "image/png",
+        "dataBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+      }
+    ],
+    "imageSkin": {
+      "isEnabled": true,
+      "wallpaperScope": "fullWindow",
+      "light": {
+        "backgroundAssetID": "00000000-0000-4000-8000-000000001010",
+        "backgroundColor": "#F5F7FA",
+        "imageFit": "cover",
+        "positionX": 0.5,
+        "positionY": 0.5,
+        "zoom": 1,
+        "imageOpacity": 0.18,
+        "imageBlur": 0,
+        "brightness": 1.1,
+        "contrast": 0.95,
+        "saturation": 0.8,
+        "blendMode": "softLight",
+        "overlayColor": "#FFFFFF",
+        "overlayOpacity": 0.1,
+        "scrimDirection": "left",
+        "scrimOpacity": 0.12,
+        "vignetteOpacity": 0.04,
+        "primaryTextColor": "#18202B",
+        "secondaryTextColor": "#536171",
+        "accentColor": "#2864B4",
+        "sidebarTint": "#FFFFFF",
+        "sidebarOpacity": 0.55,
+        "contentTint": "#FFFFFF",
+        "contentOpacity": 0.08,
+        "composerTint": "#FFFFFF",
+        "composerOpacity": 0.78,
+        "cardTint": "#FFFFFF",
+        "cardOpacity": 0.66,
+        "borderColor": "#FFFFFF",
+        "borderOpacity": 0.5,
+        "centerPanelTint": "#FFFFFF",
+        "centerPanelOpacity": 0.42,
+        "centerPanelBorderColor": "#FFFFFF",
+        "centerPanelBorderOpacity": 0.48,
+        "centerPanelShadowColor": "#172033",
+        "centerPanelShadowOpacity": 0.14
+      },
+      "dark": {
+        "backgroundAssetID": "00000000-0000-4000-8000-000000001010",
+        "backgroundColor": "#10151D",
+        "imageFit": "cover",
+        "positionX": 0.5,
+        "positionY": 0.5,
+        "zoom": 1.08,
+        "imageOpacity": 0.3,
+        "imageBlur": 2,
+        "brightness": 0.72,
+        "contrast": 1.12,
+        "saturation": 0.82,
+        "blendMode": "overlay",
+        "overlayColor": "#080B10",
+        "overlayOpacity": 0.28,
+        "scrimDirection": "left",
+        "scrimOpacity": 0.42,
+        "vignetteOpacity": 0.2,
+        "primaryTextColor": "#F3F6FA",
+        "secondaryTextColor": "#B8C1CC",
+        "accentColor": "#78A9FF",
+        "sidebarTint": "#0B1018",
+        "sidebarOpacity": 0.62,
+        "contentTint": "#10151D",
+        "contentOpacity": 0.12,
+        "composerTint": "#151D28",
+        "composerOpacity": 0.82,
+        "composerActionBackgroundColor": "#78A9FF",
+        "composerActionIconColor": "#10151D",
+        "cardTint": "#151D28",
+        "cardOpacity": 0.68,
+        "borderColor": "#78A9FF",
+        "borderOpacity": 0.28,
+        "centerPanelTint": "#10151D",
+        "centerPanelOpacity": 0.48,
+        "centerPanelBorderColor": "#78A9FF",
+        "centerPanelBorderOpacity": 0.24,
+        "centerPanelShadowColor": "#000000",
+        "centerPanelShadowOpacity": 0.3
+      },
+      "centerPanel": {
+        "isEnabled": true,
+        "backdropBlur": 18,
+        "backdropSaturation": 1.12,
+        "borderWidth": 1,
+        "cornerRadius": 20,
+        "shadowBlur": 32,
+        "shadowOffsetX": 0,
+        "shadowOffsetY": 18,
+        "maximumWidth": 900,
+        "horizontalPadding": 24,
+        "verticalPadding": 20
+      },
+      "glass": {
+        "blurRadius": 18,
+        "saturation": 1.12,
+        "borderWidth": 1,
+        "cornerRadius": 16,
+        "shadowOpacity": 0.24,
+        "shadowBlur": 36,
+        "textShadowOpacity": 0.16
+      },
+      "targets": {
+        "sidebar": true,
+        "content": true,
+        "titlebar": true,
+        "composer": true,
+        "cards": true,
+        "popovers": true,
+        "codeBlocks": true
+      }
+    }
+  }
+}

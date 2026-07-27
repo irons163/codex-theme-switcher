@@ -31,6 +31,9 @@ Codex reload 或開新視窗後，runtime 也會自動補上主題。
   安裝檔，並顯示相同七語系的版本說明。
 - 啟動時檢查更新，之後每 30 分鐘檢查一次；也能從設定或右上角選單手動檢查、
   略過特定版本，或改用手動下載。
+- 內附 JSON-first `codex-theme` agent CLI：AI agent 可取得 schema／範例、驗證、
+  正規化、編譯、安裝、導出及產生 Light／Dark × Home／Chat PNG 預覽；只有明確
+  呼叫 `attach`、`apply` 或 `clear` 才會改變 Codex。
 
 ## 背景與玻璃 / Image Skin
 
@@ -89,6 +92,8 @@ Image Skin 圖片欄位只接受 raster asset（PNG、JPEG、WebP、GIF、AVIF�
   資料與 16 MB 容量上限。
 - Runtime 與 style ID 都使用 `codex-theme-switcher` namespace，不會清除其他注入工具。
 - Menu bar 永遠提供「恢復 Codex 原始樣式」，即使自訂 CSS 損壞畫面仍可救援。
+- Agent CLI 明確禁止以非預設 `--root` 執行 `attach`、`apply` 或 `clear`；custom
+  root 只供隔離 repository 與離線工作，不能作為真實 Codex runtime 的 sandbox。
 - Chromium 的 CDP debug endpoint 也明確綁在 `127.0.0.1`，但 CDP 本身不提供
   bearer-token 驗證；同一台 Mac 上的其他本機程序仍可能連線。若不再使用主題功能，
   請結束 Codex 並以一般方式重新開啟，讓它不再帶 remote-debugging 參數。
@@ -109,6 +114,7 @@ swift test
 npm test
 npm run check
 swift run CodexThemeSwitcher
+swift run codex-theme capabilities
 ```
 
 建立可雙擊的 menu bar `.app`：
@@ -119,7 +125,11 @@ open dist/CodexThemeSwitcher.app
 ```
 
 輸出的 `Info.plist` 含 `LSUIElement=true`，因此 app 不會出現在 Dock 或一般 app
-switcher。沒有提供 signing identity 時，script 會使用 ad-hoc signing；正式散佈可設定：
+switcher。Agent CLI 會封裝在
+`CodexThemeSwitcher.app/Contents/Helpers/codex-theme`，JSON Schema 則位於
+`Contents/Resources/Schemas/`。完整協定與範例見
+[`docs/AGENT_API.md`](docs/AGENT_API.md)。沒有提供 signing identity 時，script
+會使用 ad-hoc signing；正式散佈可設定：
 
 ```sh
 CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
@@ -173,18 +183,30 @@ insecure allowance，不能拿來正式發布。
   "exportedAt": "2026-07-25T00:00:00Z",
   "theme": {
     "schemaVersion": 1,
-    "id": "UUID",
+    "id": "9d9028d5-f76a-4e99-a5e5-da3533fe646d",
     "metadata": {
       "name": "My Theme",
       "author": "Author",
+      "description": "",
       "version": "1.0.0",
-      "tags": ["dark", "glass"]
+      "tags": ["dark", "glass"],
+      "createdAt": "2026-07-25T00:00:00Z",
+      "updatedAt": "2026-07-25T00:00:00Z"
     },
     "layers": [],
     "assets": []
   }
 }
 ```
+
+可直接匯入的檔案見
+[`Examples/minimal.codextheme`](Examples/minimal.codextheme) 與
+[`Examples/full.codextheme`](Examples/full.codextheme)。Agent 可使用
+[`codextheme.schema.json`](Sources/CodexThemeAgentCLI/Resources/codextheme.schema.json)
+產生與檢查
+JSON；日期一律輸出 ISO-8601，匯入仍相容舊版 Foundation 的 numeric dates。JSON
+Schema 同樣接受兩種日期輸入，並提供結構、enum 與數值範圍的快速檢查；Core
+validator 仍是 CSS 安全掃描與總容量限制的最終依據。
 
 Theme cascade 順序固定為：
 
@@ -228,8 +250,9 @@ body {
 - `CodexThemeSwitcherCore`: theme schema、validator、compiler、repository、archive。
 - `CodexThemeRuntime`: async Swift runner 與 authenticated Node/CDP runtime。
 - `CodexThemeSwitcher`: AppKit/SwiftUI menu bar studio。
-- `Tests/`: 85 Swift tests。
-- `test/`: 49 Node runtime tests。
+- `codex-theme`: 給 AI agent 與自動化使用的結構化 JSON CLI 與無視窗 PNG renderer。
+- `Tests/`：Swift test suites。
+- `test/`：Node runtime test suites。
 
 Selector rules 屬於 expert layer，Codex 更新後可能需要調整；基礎與
 `--color-token-*` layers 優先使用目前 Codex 自己的 CSS contract，較不依賴 React

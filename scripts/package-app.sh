@@ -9,6 +9,8 @@ APP_PATH="$PROJECT_ROOT/dist/CodexThemeSwitcher.app"
 STAGING_PATH="$PROJECT_ROOT/dist/.CodexThemeSwitcher.app.staging"
 INFO_PLIST_PATH="$STAGING_PATH/Contents/Info.plist"
 APP_BINARY_PATH="$STAGING_PATH/Contents/MacOS/CodexThemeSwitcher"
+AGENT_CLI_PATH="$STAGING_PATH/Contents/Helpers/codex-theme"
+AGENT_SCHEMA_PATH="$STAGING_PATH/Contents/Resources/Schemas/codextheme.schema.json"
 SPARKLE_FRAMEWORK_PATH="$STAGING_PATH/Contents/Frameworks/Sparkle.framework"
 PLIST_BUDDY="/usr/libexec/PlistBuddy"
 
@@ -38,12 +40,15 @@ cd "$PROJECT_ROOT"
 swift build "${SWIFT_BUILD_ARGS[@]}"
 BUILD_PATH="$(swift build "${SWIFT_BUILD_ARGS[@]}" --show-bin-path)"
 BINARY_PATH="$BUILD_PATH/CodexThemeSwitcher"
+AGENT_CLI_SOURCE="$BUILD_PATH/codex-theme"
 RUNTIME_RESOURCE_BUNDLE="$BUILD_PATH/CodexThemeSwitcher_CodexThemeRuntime.bundle"
 APP_RESOURCE_BUNDLE="$BUILD_PATH/CodexThemeSwitcher_CodexThemeSwitcher.bundle"
 SPARKLE_FRAMEWORK_SOURCE="$BUILD_PATH/Sparkle.framework"
 
 for required_path in \
   "$BINARY_PATH" \
+  "$AGENT_CLI_SOURCE" \
+  "$PROJECT_ROOT/Sources/CodexThemeAgentCLI/Resources/codextheme.schema.json" \
   "$RUNTIME_RESOURCE_BUNDLE" \
   "$APP_RESOURCE_BUNDLE" \
   "$SPARKLE_FRAMEWORK_SOURCE"; do
@@ -56,13 +61,20 @@ done
 rm -rf "$STAGING_PATH"
 mkdir -p \
   "$STAGING_PATH/Contents/MacOS" \
+  "$STAGING_PATH/Contents/Helpers" \
   "$STAGING_PATH/Contents/Resources" \
+  "$STAGING_PATH/Contents/Resources/Schemas" \
   "$STAGING_PATH/Contents/Frameworks"
 
 cp "$BINARY_PATH" "$APP_BINARY_PATH"
+cp "$AGENT_CLI_SOURCE" "$AGENT_CLI_PATH"
+chmod +x "$AGENT_CLI_PATH"
 cp "$PROJECT_ROOT/Packaging/Info.plist" "$INFO_PLIST_PATH"
 cp "$PROJECT_ROOT/Packaging/AppIcon.icns" \
   "$STAGING_PATH/Contents/Resources/AppIcon.icns"
+cp \
+  "$PROJECT_ROOT/Sources/CodexThemeAgentCLI/Resources/codextheme.schema.json" \
+  "$AGENT_SCHEMA_PATH"
 ditto \
   "$RUNTIME_RESOURCE_BUNDLE" \
   "$STAGING_PATH/Contents/Resources/CodexThemeSwitcher_CodexThemeRuntime.bundle"
@@ -87,11 +99,55 @@ test -f \
   "$STAGING_PATH/Contents/Resources/CodexThemeSwitcher_CodexThemeRuntime.bundle/Resources/runtime/cli.js"
 test -f \
   "$STAGING_PATH/Contents/Resources/CodexThemeSwitcher_CodexThemeSwitcher.bundle/MenuBarIcon.png"
+test -x "$AGENT_CLI_PATH"
+test -f "$AGENT_SCHEMA_PATH"
 test -f "$SPARKLE_FRAMEWORK_PATH/Versions/B/Sparkle"
 test -f "$SPARKLE_FRAMEWORK_PATH/Versions/B/Autoupdate"
 test -d "$SPARKLE_FRAMEWORK_PATH/Versions/B/Updater.app"
 test -d "$SPARKLE_FRAMEWORK_PATH/Versions/B/XPCServices/Downloader.xpc"
 test -d "$SPARKLE_FRAMEWORK_PATH/Versions/B/XPCServices/Installer.xpc"
+
+HOST_ARCH="$(uname -m)"
+AGENT_CLI_ARCHS="$(lipo -archs "$AGENT_CLI_PATH")"
+AGENT_CLI_RUNNER=("$AGENT_CLI_PATH")
+CAN_RUN_AGENT_CLI=true
+if ! grep -qw "$HOST_ARCH" <<<"$AGENT_CLI_ARCHS"; then
+  if [[ "$HOST_ARCH" == "arm64" ]] \
+      && grep -qw "x86_64" <<<"$AGENT_CLI_ARCHS" \
+      && /usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null; then
+    AGENT_CLI_RUNNER=(/usr/bin/arch -x86_64 "$AGENT_CLI_PATH")
+  else
+    CAN_RUN_AGENT_CLI=false
+  fi
+fi
+
+if [[ "$CAN_RUN_AGENT_CLI" == true ]]; then
+  (
+    cd /
+    "${AGENT_CLI_RUNNER[@]}" capabilities
+  ) | python3 -c '
+import json
+import sys
+
+payload = json.load(sys.stdin)
+if payload.get("ok") is not True or payload.get("command") != "capabilities":
+    raise SystemExit("Packaged agent CLI capabilities smoke test failed.")
+'
+  (
+    cd /
+    "${AGENT_CLI_RUNNER[@]}" schema
+  ) | python3 -c '
+import json
+import sys
+
+payload = json.load(sys.stdin)
+schema = payload.get("data", {}).get("schema", {})
+if payload.get("ok") is not True or "$schema" not in schema:
+    raise SystemExit("Packaged agent CLI schema smoke test failed.")
+'
+else
+  echo "Skipping agent CLI smoke tests for non-runnable architectures: $AGENT_CLI_ARCHS"
+fi
 
 if ! otool -L "$APP_BINARY_PATH" \
   | grep -Fq "@rpath/Sparkle.framework/Versions/B/Sparkle"; then
@@ -177,6 +233,7 @@ done < <(
     -print0
 )
 
+sign_target "$AGENT_CLI_PATH"
 sign_target "$SPARKLE_FRAMEWORK_PATH"
 sign_target "$STAGING_PATH"
 
