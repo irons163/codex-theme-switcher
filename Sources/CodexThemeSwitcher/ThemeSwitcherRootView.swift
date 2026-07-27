@@ -184,6 +184,41 @@ struct ThemeSwitcherRootView: View {
                     .controlSize(.small)
             }
 
+            HStack(spacing: 2) {
+                Button {
+                    model.undoDraftChange()
+                } label: {
+                    Image(systemName: "arrow.uturn.backward")
+                }
+                .buttonStyle(.borderless)
+                .help(
+                    model.undoDraftActionName.map {
+                        L10n.text(
+                            "復原：\($0)（⌘Z）",
+                            "Undo: \($0) (⌘Z)"
+                        )
+                    } ?? L10n.text("沒有可復原的動作", "Nothing to undo")
+                )
+                .disabled(!model.canUndoDraft || model.isBusy)
+
+                Button {
+                    model.redoDraftChange()
+                } label: {
+                    Image(systemName: "arrow.uturn.forward")
+                }
+                .buttonStyle(.borderless)
+                .help(
+                    model.redoDraftActionName.map {
+                        L10n.text(
+                            "重做：\($0)（⇧⌘Z）",
+                            "Redo: \($0) (⇧⌘Z)"
+                        )
+                    } ?? L10n.text("沒有可重做的動作", "Nothing to redo")
+                )
+                .disabled(!model.canRedoDraft || model.isBusy)
+            }
+            .controlSize(.small)
+
             if !model.isAttached {
                 Button {
                     model.launchAndAttach()

@@ -15,6 +15,20 @@ final class ThemeAppModel: ObservableObject {
         "image/gif",
         "image/avif"
     ]
+    private static let draftHistoryLimit = 100
+    private static let draftHistoryCoalescingInterval: TimeInterval = 1
+
+    private struct DraftHistoryEntry {
+        let document: ThemeDocument
+        let actionName: String
+    }
+
+    private struct DraftHistoryState {
+        var undoEntries: [DraftHistoryEntry] = []
+        var redoEntries: [DraftHistoryEntry] = []
+        var lastCoalescingKey: String?
+        var lastMutationDate: Date?
+    }
 
     enum EditorPage: String, CaseIterable, Identifiable {
         case preview
@@ -78,6 +92,8 @@ final class ThemeAppModel: ObservableObject {
     @Published private(set) var isBusy = false
     @Published private(set) var isLoaded = false
     @Published private(set) var isDraftDirty = false
+    @Published private(set) var undoDraftActionName: String?
+    @Published private(set) var redoDraftActionName: String?
     @Published var selectedPage: EditorPage = .preview
     @Published var previewAppearance: ThemeSkinAppearance = .dark
     @Published var previewSurface: ThemePreviewSurface = .home
@@ -90,6 +106,8 @@ final class ThemeAppModel: ObservableObject {
     private let runtime: ThemeRuntimeController?
     private var monitorTask: Task<Void, Never>?
     private var unsavedDrafts: [UUID: ThemeDocument] = [:]
+    private var persistedDocuments: [UUID: ThemeDocument] = [:]
+    private var draftHistories: [UUID: DraftHistoryState] = [:]
 
     init() {
         repository = FileThemeRepository()
@@ -158,6 +176,14 @@ final class ThemeAppModel: ObservableObject {
             && runtimeStatus?.isInjected == true
     }
 
+    var canUndoDraft: Bool {
+        undoDraftActionName != nil
+    }
+
+    var canRedoDraft: Bool {
+        redoDraftActionName != nil
+    }
+
     var menuBarSymbol: String {
         if isBusy { return "paintpalette.fill" }
         if isAttached && activeThemeID != nil {
@@ -214,6 +240,7 @@ final class ThemeAppModel: ObservableObject {
         selectedThemeID = id
         draft = unsavedDrafts[id] ?? theme
         isDraftDirty = unsavedDrafts[id] != nil
+        refreshDraftHistoryAvailability()
     }
 
     func hasUnsavedChanges(for id: UUID) -> Bool {
@@ -306,6 +333,8 @@ final class ThemeAppModel: ObservableObject {
                 }
                 try await self.repository.delete(id: id)
                 self.unsavedDrafts.removeValue(forKey: id)
+                self.persistedDocuments.removeValue(forKey: id)
+                self.draftHistories.removeValue(forKey: id)
                 await self.reloadThemes()
                 self.show(
                     L10n.text("主題已刪除", "Theme deleted"),
@@ -459,16 +488,75 @@ final class ThemeAppModel: ObservableObject {
         }
     }
 
-    func mutateDraft(_ mutation: (inout ThemeDocument) -> Void) {
-        guard var draft, !isSelectedBuiltIn else { return }
-        mutation(&draft)
-        draft.metadata.updatedAt = Date()
-        self.draft = draft
-        unsavedDrafts[draft.id] = draft
-        isDraftDirty = true
-        if let index = themes.firstIndex(where: { $0.id == draft.id }) {
-            themes[index] = draft
+    func mutateDraft(
+        actionName: String = L10n.text("編輯主題", "Edit theme"),
+        coalescingKey: String? = nil,
+        coalesces: Bool = true,
+        fileID: StaticString = #fileID,
+        line: UInt = #line,
+        _ mutation: (inout ThemeDocument) -> Void
+    ) {
+        guard let current = draft, !isSelectedBuiltIn else { return }
+        var updated = current
+        mutation(&updated)
+        guard updated != current else { return }
+
+        let resolvedCoalescingKey: String?
+        if coalesces {
+            resolvedCoalescingKey = coalescingKey
+                ?? "\(String(describing: fileID)):\(line)"
+        } else {
+            resolvedCoalescingKey = nil
         }
+        recordDraftHistory(
+            previous: current,
+            actionName: actionName,
+            coalescingKey: resolvedCoalescingKey
+        )
+
+        updated.metadata.updatedAt = Date()
+        publishDraft(updated)
+    }
+
+    func undoDraftChange() {
+        guard let current = draft,
+              !isSelectedBuiltIn,
+              var history = draftHistories[current.id],
+              let entry = history.undoEntries.popLast() else {
+            return
+        }
+
+        history.redoEntries.append(
+            DraftHistoryEntry(
+                document: current,
+                actionName: entry.actionName
+            )
+        )
+        history.lastCoalescingKey = nil
+        history.lastMutationDate = nil
+        draftHistories[current.id] = history
+        publishDraft(entry.document)
+    }
+
+    func redoDraftChange() {
+        guard let current = draft,
+              !isSelectedBuiltIn,
+              var history = draftHistories[current.id],
+              let entry = history.redoEntries.popLast() else {
+            return
+        }
+
+        history.undoEntries.append(
+            DraftHistoryEntry(
+                document: current,
+                actionName: entry.actionName
+            )
+        )
+        trimDraftHistory(&history.undoEntries)
+        history.lastCoalescingKey = nil
+        history.lastMutationDate = nil
+        draftHistories[current.id] = history
+        publishDraft(entry.document)
     }
 
     func semanticValue(
@@ -799,7 +887,15 @@ final class ThemeAppModel: ObservableObject {
         from source: ThemeSkinAppearance,
         to destination: ThemeSkinAppearance
     ) {
-        mutateDraft { document in
+        mutateDraft(
+            actionName: L10n.text(
+                "複製\(source == .light ? "淺色" : "深色")到"
+                    + "\(destination == .light ? "淺色" : "深色")",
+                "Copy \(source == .light ? "light" : "dark") to "
+                    + "\(destination == .light ? "light" : "dark")"
+            ),
+            coalesces: false
+        ) { document in
             var skin = document.imageSkin ?? ThemeImageSkin()
             skin.setVariant(
                 skin.variant(for: source),
@@ -832,7 +928,13 @@ final class ThemeAppModel: ObservableObject {
                 loaded.append(try await repository.load(id: summary.id))
             }
             let loadedIDs = Set(loaded.map(\.id))
+            persistedDocuments = Dictionary(
+                uniqueKeysWithValues: loaded.map { ($0.id, $0) }
+            )
             unsavedDrafts = unsavedDrafts.filter {
+                loadedIDs.contains($0.key)
+            }
+            draftHistories = draftHistories.filter {
                 loadedIDs.contains($0.key)
             }
             for index in loaded.indices {
@@ -869,6 +971,7 @@ final class ThemeAppModel: ObservableObject {
                 draft = nil
                 isDraftDirty = false
             }
+            refreshDraftHistoryAvailability()
             isLoaded = true
         } catch {
             isLoaded = true
@@ -895,6 +998,74 @@ final class ThemeAppModel: ObservableObject {
             guard self?.notice?.id == next.id else { return }
             self?.notice = nil
         }
+    }
+
+    private func recordDraftHistory(
+        previous: ThemeDocument,
+        actionName: String,
+        coalescingKey: String?
+    ) {
+        var history = draftHistories[previous.id] ?? DraftHistoryState()
+        let now = Date()
+        let shouldCoalesce =
+            coalescingKey != nil
+            && history.lastCoalescingKey == coalescingKey
+            && history.lastMutationDate.map {
+                now.timeIntervalSince($0)
+                    <= Self.draftHistoryCoalescingInterval
+            } == true
+            && !history.undoEntries.isEmpty
+
+        if !shouldCoalesce {
+            history.undoEntries.append(
+                DraftHistoryEntry(
+                    document: previous,
+                    actionName: actionName
+                )
+            )
+            trimDraftHistory(&history.undoEntries)
+        }
+        history.redoEntries.removeAll(keepingCapacity: true)
+        history.lastCoalescingKey = coalescingKey
+        history.lastMutationDate = now
+        draftHistories[previous.id] = history
+        refreshDraftHistoryAvailability()
+    }
+
+    private func trimDraftHistory(
+        _ entries: inout [DraftHistoryEntry]
+    ) {
+        let overflow = entries.count - Self.draftHistoryLimit
+        if overflow > 0 {
+            entries.removeFirst(overflow)
+        }
+    }
+
+    private func publishDraft(_ document: ThemeDocument) {
+        draft = document
+        let isDirty = persistedDocuments[document.id] != document
+        if isDirty {
+            unsavedDrafts[document.id] = document
+        } else {
+            unsavedDrafts.removeValue(forKey: document.id)
+        }
+        isDraftDirty = isDirty
+        if let index = themes.firstIndex(where: { $0.id == document.id }) {
+            themes[index] = document
+        }
+        refreshDraftHistoryAvailability()
+    }
+
+    private func refreshDraftHistoryAvailability() {
+        guard let selectedThemeID,
+              !isSelectedBuiltIn,
+              let history = draftHistories[selectedThemeID] else {
+            undoDraftActionName = nil
+            redoDraftActionName = nil
+            return
+        }
+        undoDraftActionName = history.undoEntries.last?.actionName
+        redoDraftActionName = history.redoEntries.last?.actionName
     }
 
     private func sanitizedFilename(_ value: String) -> String {

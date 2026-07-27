@@ -1010,7 +1010,11 @@ struct ThemeSkinEditorView: View {
                 skin.variant(for: appearance)[keyPath: keyPath]
             },
             set: { value in
-                model.mutateDraft { document in
+                model.mutateDraft(
+                    coalescingKey:
+                        "image-skin.variant.\(appearance.rawValue)."
+                        + String(reflecting: keyPath)
+                ) { document in
                     var imageSkin = document.imageSkin ?? ThemeImageSkin()
                     var item = imageSkin.variant(for: appearance)
                     item[keyPath: keyPath] = value
@@ -1027,7 +1031,10 @@ struct ThemeSkinEditorView: View {
         Binding(
             get: { skin.glass[keyPath: keyPath] },
             set: { value in
-                model.mutateDraft { document in
+                model.mutateDraft(
+                    coalescingKey:
+                        "image-skin.glass." + String(reflecting: keyPath)
+                ) { document in
                     var imageSkin = document.imageSkin ?? ThemeImageSkin()
                     imageSkin.glass[keyPath: keyPath] = value
                     document.imageSkin = imageSkin
@@ -1042,7 +1049,11 @@ struct ThemeSkinEditorView: View {
         Binding(
             get: { skin.centerPanel[keyPath: keyPath] },
             set: { value in
-                model.mutateDraft { document in
+                model.mutateDraft(
+                    coalescingKey:
+                        "image-skin.center-panel."
+                        + String(reflecting: keyPath)
+                ) { document in
                     var imageSkin = document.imageSkin ?? ThemeImageSkin()
                     imageSkin.centerPanel[keyPath: keyPath] = value
                     document.imageSkin = imageSkin
@@ -1057,7 +1068,10 @@ struct ThemeSkinEditorView: View {
         Binding(
             get: { skin.targets[keyPath: keyPath] },
             set: { value in
-                model.mutateDraft { document in
+                model.mutateDraft(
+                    coalescingKey:
+                        "image-skin.targets." + String(reflecting: keyPath)
+                ) { document in
                     var imageSkin = document.imageSkin ?? ThemeImageSkin()
                     imageSkin.targets[keyPath: keyPath] = value
                     document.imageSkin = imageSkin
