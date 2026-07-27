@@ -1,11 +1,29 @@
 # Codex Theme Switcher
 
+[English](README.en.md) | **繁體中文** | [简体中文](README.zh-Hans.md) | [Français](README.fr.md) | [Español](README.es.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+
 原生 macOS menu bar 主題工作室。它不建立一般主視窗、不出現在 Dock，也不修改、
 重簽或覆寫 `Codex.app` / `ChatGPT.app`。
 
 Theme Switcher 以 Chromium DevTools Protocol（CDP）連接 Codex renderer，將編譯後
 的 CSS 寫進一個 namespaced `<style>`。主題切換會即時同步到所有 Codex 視窗；
 Codex reload 或開新視窗後，runtime 也會自動補上主題。
+
+## 截圖
+
+### Menu bar 主題工作室
+
+![Codex Theme Switcher 主題工作室，顯示主題庫、即時預覽與完整編輯分頁](docs/images/theme-studio.png)
+
+### Agent renderer 預覽
+
+| Paper · Light / Home | Midnight · Dark / Chat |
+| --- | --- |
+| ![Paper 淺色 Home 預覽](docs/images/paper-light-home.png) | ![Midnight 深色 Chat 預覽](docs/images/midnight-dark-chat.png) |
+
+Agent CLI 可在無視窗環境產生 Light／Dark × Home／Chat PNG，供 AI agent 反覆檢查。
+這些是結構化的近似預覽；selector rules、raw CSS 與真實 Codex renderer 的最終結果，
+仍應在套用後確認。
 
 ## 功能
 
@@ -98,7 +116,7 @@ Image Skin 圖片欄位只接受 raster asset（PNG、JPEG、WebP、GIF、AVIF�
   bearer-token 驗證；同一台 Mac 上的其他本機程序仍可能連線。若不再使用主題功能，
   請結束 Codex 並以一般方式重新開啟，讓它不再帶 remote-debugging 參數。
 
-## Build
+## 建置
 
 需求：
 
@@ -172,7 +190,7 @@ insecure allowance，不能拿來正式發布。
 如果 `codex-desktop-switcher` 已建立 57330–57341 之間的 Codex target，本程式會優先
 共用它，不重啟 Codex。
 
-## `.codextheme` format
+## `.codextheme` 格式
 
 `.codextheme` 是 versioned、單一 JSON envelope：
 
@@ -233,7 +251,7 @@ body {
 區塊把素材送到每個 renderer，在 renderer 內建立 Blob URL 後才原子切換 style；
 相同素材會重用 Blob，切換或清除主題時也會撤銷不再使用的 URL。
 
-## Local data
+## 本機資料
 
 ```text
 ~/Library/Application Support/CodexThemeSwitcher/
@@ -245,7 +263,7 @@ body {
   Logs/runtime.log
 ```
 
-## Architecture
+## 架構
 
 - `CodexThemeSwitcherCore`: theme schema、validator、compiler、repository、archive。
 - `CodexThemeRuntime`: async Swift runner 與 authenticated Node/CDP runtime。
