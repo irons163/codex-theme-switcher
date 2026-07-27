@@ -28,52 +28,89 @@ struct ThemePreviewView: View {
         appearance ?? (colorScheme == .dark ? .dark : .light)
     }
 
-    private var visual: ThemeVisualSnapshot {
-        ThemeVisualSnapshot(
-            theme: theme,
-            appearance: resolvedAppearance
+    var body: some View {
+        ThemePreviewCanvas(
+            visual: ThemeVisualSnapshot(
+                theme: theme,
+                appearance: resolvedAppearance
+            ),
+            surface: surface
         )
     }
+}
+
+private struct ThemePreviewCanvas: View {
+    let visual: ThemeVisualSnapshot
+    let surface: ThemePreviewSurface
 
     var body: some View {
         GeometryReader { geometry in
             let sidebarWidth = ThemePreviewLayout.sidebarWidth(
                 containerWidth: geometry.size.width
             )
-            let wallpaperWidth = ThemePreviewLayout.wallpaperWidth(
-                containerWidth: geometry.size.width,
-                sidebarWidth: sidebarWidth,
-                scope: visual.wallpaperScope
-            )
 
-            ZStack(alignment: .trailing) {
-                wallpaper
-                    .frame(
-                        width: wallpaperWidth,
-                        height: geometry.size.height
+            ZStack(alignment: .top) {
+                ThemePreviewBackdropCanvas(
+                    visual: visual,
+                    canvasSize: geometry.size,
+                    sidebarWidth: sidebarWidth
+                )
+
+                HStack(alignment: .top, spacing: 0) {
+                    previewSidebar(
+                        canvasSize: geometry.size,
+                        sidebarWidth: sidebarWidth
                     )
-
-                HStack(spacing: 0) {
-                    previewSidebar
                         .frame(width: sidebarWidth)
 
                     VStack(spacing: 0) {
-                        previewTitlebar
-                        switch surface {
-                        case .home:
-                            homeSurface
-                        case .chat:
-                            chatSurface
+                        Color.clear
+                            .frame(height: ThemePreviewLayout.titlebarHeight)
+
+                        Group {
+                            switch surface {
+                            case .home:
+                                homeSurface(
+                                    canvasSize: geometry.size,
+                                    sidebarWidth: sidebarWidth,
+                                    viewportHeight: max(
+                                        0,
+                                        geometry.size.height
+                                            - ThemePreviewLayout.titlebarHeight
+                                    )
+                                )
+                            case .chat:
+                                chatSurface(
+                                    canvasSize: geometry.size,
+                                    sidebarWidth: sidebarWidth,
+                                    viewportHeight: max(
+                                        0,
+                                        geometry.size.height
+                                            - ThemePreviewLayout.titlebarHeight
+                                    )
+                                )
+                            }
                         }
+                        .frame(
+                            height: max(
+                                0,
+                                geometry.size.height
+                                    - ThemePreviewLayout.titlebarHeight
+                            )
+                        )
+                        .clipped()
                     }
-                    .background(visual.contentBackground)
-                    .background {
-                        if visual.contentUsesMaterial {
-                            Rectangle().fill(.ultraThinMaterial)
-                        }
-                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
+                .frame(
+                    width: geometry.size.width,
+                    height: geometry.size.height,
+                    alignment: .top
+                )
+
+                previewTitlebar
             }
+            .coordinateSpace(name: ThemePreviewCoordinateSpace.name)
         }
         .font(visual.uiFont)
         .foregroundStyle(visual.textPrimary)
@@ -81,36 +118,17 @@ struct ThemePreviewView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(visual.border, lineWidth: 1)
+                .stroke(visual.nativeBorder, lineWidth: 1)
         }
         .shadow(color: .black.opacity(0.14), radius: 20, y: 10)
     }
 
-    private var wallpaper: some View {
-        ZStack {
-            visual.backgroundPrimary
-
-            if let image = visual.backgroundImage,
-               let variant = visual.skinVariant {
-                SkinWallpaperView(image: image, variant: variant)
-            }
-
-            if let variant = visual.skinVariant {
-                Color(css: variant.overlayColor, fallback: .black)
-                    .opacity(variant.overlayOpacity)
-
-                SkinScrimView(variant: variant)
-                SkinVignetteView(opacity: variant.vignetteOpacity)
-            }
-        }
-        .clipped()
-    }
-
-    private var previewSidebar: some View {
+    private func previewSidebar(
+        canvasSize: CGSize,
+        sidebarWidth: CGFloat
+    ) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 9) {
-                Image(systemName: "shippingbox.fill")
-                    .foregroundStyle(visual.accent)
                 Text("Codex")
                     .fontWeight(.semibold)
                 Spacer()
@@ -124,9 +142,8 @@ struct ThemePreviewView: View {
             PreviewSidebarRow(icon: "at", title: "Plugins", visual: visual)
             PreviewSidebarRow(icon: "point.3.connected.trianglepath.dotted", title: "Pull requests", visual: visual)
 
-            Text("PROJECTS")
-                .font(.system(size: 9, weight: .bold))
-                .tracking(0.8)
+            Text("Projects")
+                .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(visual.textSecondary)
                 .padding(.top, 11)
                 .padding(.bottom, 2)
@@ -159,26 +176,42 @@ struct ThemePreviewView: View {
             }
             .foregroundStyle(visual.textSecondary)
         }
-        .padding(14)
-        .background(visual.sidebarBackground)
+        .padding(.horizontal, 14)
+        .padding(.bottom, 14)
+        .padding(.top, ThemePreviewLayout.titlebarHeight + 12)
         .background {
-            if visual.sidebarUsesMaterial {
-                Rectangle().fill(.ultraThinMaterial)
+            if visual.sidebarUsesBackdrop {
+                ThemePreviewGlassBackground(
+                    visual: visual,
+                    canvasSize: canvasSize,
+                    sidebarWidth: sidebarWidth,
+                    tint: visual.sidebarBackground,
+                    blurRadius: visual.glassBackdropBlur,
+                    saturation: visual.glassBackdropSaturation
+                )
+            } else {
+                visual.sidebarBackground
             }
         }
         .overlay(alignment: .trailing) {
             Rectangle()
-                .fill(visual.border)
-                .frame(width: visual.borderWidth)
+                .fill(visual.sidebarBorder)
+                .frame(width: visual.sidebarBorderWidth)
         }
-        .shadow(
-            color: .black.opacity(visual.shadowOpacity * 0.55),
-            radius: visual.shadowRadius * 0.45
-        )
     }
 
     private var previewTitlebar: some View {
         HStack(spacing: 10) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Color(red: 1, green: 0.37, blue: 0.34))
+                Circle()
+                    .fill(Color(red: 1, green: 0.75, blue: 0.23))
+                Circle()
+                    .fill(Color(red: 0.18, green: 0.78, blue: 0.35))
+            }
+            .frame(width: 42, height: 10)
+
             Image(systemName: "sidebar.left")
             Image(systemName: "chevron.left")
             Image(systemName: "chevron.right")
@@ -201,100 +234,189 @@ struct ThemePreviewView: View {
         .font(.system(size: 11))
         .foregroundStyle(visual.textSecondary)
         .padding(.horizontal, 18)
-        .frame(height: 46)
+        .frame(height: ThemePreviewLayout.titlebarHeight)
         .background(visual.titlebarBackground)
-        .background {
-            if visual.titlebarUsesMaterial {
-                Rectangle().fill(.ultraThinMaterial)
-            }
-        }
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(visual.border.opacity(0.75))
-                .frame(height: visual.borderWidth)
+                .fill(visual.nativeBorder.opacity(0.75))
+                .frame(height: 1)
         }
     }
 
-    private var chatSurface: some View {
-        ScrollView {
-            centerPanel(legacyMaximumWidth: 600) {
+    private func chatSurface(
+        canvasSize: CGSize,
+        sidebarWidth: CGFloat,
+        viewportHeight: CGFloat
+    ) -> some View {
+        ZStack(alignment: .top) {
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: viewportHeight)
+
+            centerPanel(
+                legacyMaximumWidth: 600,
+                alignment: .leading,
+                canvasSize: canvasSize,
+                sidebarWidth: sidebarWidth
+            ) {
                 VStack(alignment: .leading, spacing: 18) {
-                    assistantMessage
                     userMessage
-                    codeBlock
-                    assistantReply
+                    assistantMessage
+                    if viewportHeight >= 330 {
+                        codeBlock(
+                            canvasSize: canvasSize,
+                            sidebarWidth: sidebarWidth
+                        )
+                        assistantReply
+                    }
                 }
             }
             .padding(.horizontal, 28)
             .padding(.top, 28)
-            .padding(.bottom, 100)
+            .frame(
+                height: max(0, viewportHeight - 104),
+                alignment: .top
+            )
             .frame(maxWidth: .infinity)
-        }
-        .overlay(alignment: .bottom) {
-            composer(prompt: "Ask Codex anything", expanded: false)
+            .clipped()
+
+            composer(
+                prompt: "Ask Codex anything",
+                mode: .chat,
+                canvasSize: canvasSize,
+                sidebarWidth: sidebarWidth
+            )
+                .frame(maxWidth: 520)
+                .frame(height: ThemePreviewLayout.composerHeight)
                 .padding(22)
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(2)
+                .frame(height: viewportHeight, alignment: .bottom)
         }
+        .frame(height: viewportHeight)
     }
 
-    private var homeSurface: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 16)
+    private func homeSurface(
+        canvasSize: CGSize,
+        sidebarWidth: CGFloat,
+        viewportHeight: CGFloat
+    ) -> some View {
+        let showsSuggestions = viewportHeight >= 330
+        let heroMaximumHeight = max(
+            92,
+            viewportHeight - (showsSuggestions ? 214 : 114)
+        )
 
-            centerPanel(legacyMaximumWidth: 610) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("What should we build?")
-                        .font(.system(size: 25, weight: .bold))
-                    Text("Bring your workspace into a look that feels entirely yours.")
-                        .font(.system(size: 11))
+        return ZStack {
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: viewportHeight)
+
+            centerPanel(
+                legacyMaximumWidth: 610,
+                alignment: .center,
+                canvasSize: canvasSize,
+                sidebarWidth: sidebarWidth
+            ) {
+                VStack(spacing: 12) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 18, weight: .regular))
                         .foregroundStyle(visual.textSecondary)
+
+                    Text("What should we build?")
+                        .font(.system(size: 25, weight: .regular))
+                        .multilineTextAlignment(.center)
                 }
+                .frame(maxWidth: .infinity, alignment: .center)
             }
             .padding(.horizontal, 24)
+            .frame(height: heroMaximumHeight)
+            .clipped()
+            .padding(.top, 10)
+            .frame(height: viewportHeight, alignment: .top)
 
-            Spacer(minLength: 16)
+            VStack(spacing: 10) {
+                if showsSuggestions {
+                    ViewThatFits(in: .horizontal) {
+                        suggestionRow(
+                            limit: 4,
+                            canvasSize: canvasSize,
+                            sidebarWidth: sidebarWidth
+                        )
+                        .frame(minWidth: 430)
 
-            HStack(spacing: 10) {
-                HomeSuggestionCard(
-                    icon: "megaphone",
-                    title: "Explore and understand code",
-                    visual: visual
+                        suggestionRow(
+                            limit: 3,
+                            canvasSize: canvasSize,
+                            sidebarWidth: sidebarWidth
+                        )
+                        .frame(minWidth: 320)
+
+                        suggestionRow(
+                            limit: 2,
+                            canvasSize: canvasSize,
+                            sidebarWidth: sidebarWidth
+                        )
+                    }
+                    .frame(maxWidth: 650)
+                    .padding(.horizontal, 20)
+                }
+
+                composer(
+                    prompt: "Do anything",
+                    mode: .home,
+                    canvasSize: canvasSize,
+                    sidebarWidth: sidebarWidth
                 )
+                .frame(maxWidth: 650)
+                .frame(height: ThemePreviewLayout.composerHeight)
+                .padding(.horizontal, 20)
+            }
+            .padding(.bottom, 14)
+            .frame(height: viewportHeight, alignment: .bottom)
+        }
+        .frame(height: viewportHeight)
+    }
+
+    private func suggestionRow(
+        limit: Int,
+        canvasSize: CGSize,
+        sidebarWidth: CGFloat
+    ) -> some View {
+        let suggestions = [
+            ("megaphone", "Explore and understand code"),
+            ("hammer", "Build a new feature"),
+            ("arrow.triangle.2.circlepath", "Review and suggest changes"),
+            ("ladybug", "Fix issues and failures")
+        ]
+
+        return HStack(spacing: 10) {
+            ForEach(
+                Array(suggestions.prefix(limit).enumerated()),
+                id: \.offset
+            ) { _, suggestion in
                 HomeSuggestionCard(
-                    icon: "hammer",
-                    title: "Build a new feature",
-                    visual: visual
-                )
-                HomeSuggestionCard(
-                    icon: "arrow.triangle.2.circlepath",
-                    title: "Review and suggest changes",
-                    visual: visual
-                )
-                HomeSuggestionCard(
-                    icon: "ladybug",
-                    title: "Fix issues and failures",
-                    visual: visual
+                    icon: suggestion.0,
+                    title: suggestion.1,
+                    visual: visual,
+                    canvasSize: canvasSize,
+                    sidebarWidth: sidebarWidth
                 )
             }
-            .frame(maxWidth: 650)
-            .padding(.horizontal, 20)
-
-            Spacer(minLength: 18)
-
-            composer(prompt: "Do anything", expanded: true)
-                .frame(maxWidth: 650)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 18)
         }
     }
 
     @ViewBuilder
     private func centerPanel<Content: View>(
         legacyMaximumWidth: CGFloat,
+        alignment: Alignment,
+        canvasSize: CGSize,
+        sidebarWidth: CGFloat,
         @ViewBuilder content: () -> Content
     ) -> some View {
         if visual.centerPanelEnabled {
             content()
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: alignment)
                 .padding(
                     .horizontal,
                     visual.centerPanelHorizontalPadding
@@ -305,17 +427,21 @@ struct ThemePreviewView: View {
                 )
                 .frame(
                     maxWidth: visual.centerPanelMaximumWidth,
-                    alignment: .leading
+                    alignment: alignment
                 )
-                .background(visual.centerPanelBackground)
                 .background {
-                    if visual.centerPanelUsesMaterial {
-                        RoundedRectangle(
-                            cornerRadius: visual.centerPanelCornerRadius,
-                            style: .continuous
+                    if visual.centerPanelUsesBackdrop {
+                        ThemePreviewGlassBackground(
+                            visual: visual,
+                            canvasSize: canvasSize,
+                            sidebarWidth: sidebarWidth,
+                            tint: visual.centerPanelBackground,
+                            blurRadius: visual.centerPanelBackdropBlur,
+                            saturation:
+                                visual.centerPanelBackdropSaturation
                         )
-                        .fill(.ultraThinMaterial)
-                        .saturation(visual.centerPanelBackdropSaturation)
+                    } else {
+                        visual.centerPanelBackground
                     }
                 }
                 .clipShape(
@@ -346,20 +472,15 @@ struct ThemePreviewView: View {
             content()
                 .frame(
                     maxWidth: legacyMaximumWidth,
-                    alignment: .leading
+                    alignment: alignment
                 )
         }
     }
 
     private var assistantMessage: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Codex")
-                .font(.caption.bold())
-                .foregroundStyle(visual.accent)
-            Text("I’ll turn this into a menu bar app with live theme switching, a visual skin editor, and portable templates.")
-                .font(.system(size: visual.chatFontSize))
-                .lineSpacing(visual.chatFontSize * 0.35)
-        }
+        Text("I’ll turn this into a menu bar app with live theme switching, a visual skin editor, and portable templates.")
+            .font(.system(size: visual.chatFontSize))
+            .lineSpacing(visual.chatFontSize * 0.35)
         .shadow(
             color: .black.opacity(visual.textShadowOpacity),
             radius: 2,
@@ -372,29 +493,21 @@ struct ThemePreviewView: View {
             .font(.system(size: visual.chatFontSize))
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(visual.cardBackground)
-            .background {
-                if visual.cardUsesMaterial {
-                    Rectangle().fill(.ultraThinMaterial)
-                }
-            }
+            .background(visual.userMessageBackground)
             .clipShape(
                 RoundedRectangle(
-                    cornerRadius: visual.cornerRadius,
+                    cornerRadius: 14,
                     style: .continuous
                 )
             )
-            .overlay {
-                RoundedRectangle(
-                    cornerRadius: visual.cornerRadius,
-                    style: .continuous
-                )
-                .stroke(visual.border, lineWidth: visual.borderWidth)
-            }
+            .frame(maxWidth: 440, alignment: .trailing)
             .frame(maxWidth: .infinity, alignment: .trailing)
     }
 
-    private var codeBlock: some View {
+    private func codeBlock(
+        canvasSize: CGSize,
+        sidebarWidth: CGFloat
+    ) -> some View {
         VStack(spacing: 0) {
             HStack {
                 Text("theme.css")
@@ -406,7 +519,7 @@ struct ThemePreviewView: View {
             }
             .padding(.horizontal, 12)
             .frame(height: 32)
-            .background(visual.codeBackground.opacity(0.86))
+            .background(visual.textPrimary.opacity(0.04))
 
             (
                 Text(":root").foregroundColor(visual.syntaxPurple)
@@ -418,26 +531,49 @@ struct ThemePreviewView: View {
             .font(visual.codeFont)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
-            .background(visual.codeBackground)
+        }
+        .background {
+            if visual.codeUsesBackdrop {
+                ThemePreviewGlassBackground(
+                    visual: visual,
+                    canvasSize: canvasSize,
+                    sidebarWidth: sidebarWidth,
+                    tint: visual.codeBackground,
+                    blurRadius: visual.glassBackdropBlur,
+                    saturation: visual.glassBackdropSaturation,
+                    includesCenterPanelBackdrop:
+                        visual.centerPanelEnabled
+                )
+            } else {
+                visual.codeBackground
+            }
         }
         .clipShape(
             RoundedRectangle(
-                cornerRadius: max(6, visual.cornerRadius - 3),
+                cornerRadius: visual.codeCornerRadius,
                 style: .continuous
             )
         )
         .overlay {
             RoundedRectangle(
-                cornerRadius: max(6, visual.cornerRadius - 3),
+                cornerRadius: visual.codeCornerRadius,
                 style: .continuous
             )
-            .stroke(visual.border, lineWidth: visual.borderWidth)
+            .stroke(
+                visual.codeBorder,
+                lineWidth: visual.codeBorderWidth
+            )
         }
+        .shadow(
+            color: .black.opacity(visual.codeShadowOpacity),
+            radius: visual.codeShadowRadius,
+            y: visual.codeShadowOffsetY
+        )
     }
 
     private var assistantReply: some View {
         HStack(alignment: .top, spacing: 9) {
-            Image(systemName: "checkmark.circle.fill")
+            Image(systemName: "checkmark.circle")
                 .foregroundStyle(visual.success)
             VStack(alignment: .leading, spacing: 4) {
                 Text("Theme applied")
@@ -449,29 +585,42 @@ struct ThemePreviewView: View {
         }
     }
 
-    private func composer(prompt: String, expanded: Bool) -> some View {
-        VStack(spacing: 0) {
-            if expanded {
-                HStack(spacing: 7) {
-                    Image(systemName: "folder")
-                    Text("Select project")
-                    Spacer()
-                }
-                .font(.system(size: 10, weight: .medium))
+    private func composer(
+        prompt: String,
+        mode: PreviewComposerMode,
+        canvasSize: CGSize,
+        sidebarWidth: CGFloat
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(prompt)
                 .foregroundStyle(visual.textSecondary)
                 .padding(.horizontal, 14)
-                .frame(height: 31)
-
-                Divider()
-                    .overlay(visual.border)
-            }
+                .padding(.top, 13)
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: mode == .chat ? 42 : 38,
+                    alignment: .topLeading
+                )
 
             HStack(spacing: 10) {
                 Image(systemName: "plus")
                     .foregroundStyle(visual.textSecondary)
-                Text(prompt)
-                    .foregroundStyle(visual.textSecondary)
+
+                HStack(spacing: 5) {
+                    Image(systemName: mode == .home ? "folder" : "gearshape")
+                    Text(mode == .home ? "Select project" : "Custom")
+                }
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(visual.textSecondary)
+                .padding(.horizontal, 8)
+                .frame(height: 22)
+                .background(visual.controlBackground)
+                .clipShape(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                )
+
                 Spacer()
+
                 Text("5.6 Sol")
                     .font(.system(size: 9))
                     .foregroundStyle(visual.textSecondary)
@@ -485,38 +634,58 @@ struct ThemePreviewView: View {
                     }
             }
             .padding(.horizontal, 14)
-            .frame(height: expanded ? 47 : 50)
+            .padding(.bottom, 9)
+            .frame(minHeight: 39)
         }
-        .background(visual.composerBackground)
         .background {
-            if visual.composerUsesMaterial {
-                Rectangle().fill(.ultraThinMaterial)
+            if visual.composerUsesBackdrop {
+                ThemePreviewGlassBackground(
+                    visual: visual,
+                    canvasSize: canvasSize,
+                    sidebarWidth: sidebarWidth,
+                    tint: visual.composerBackground,
+                    blurRadius: visual.glassBackdropBlur,
+                    saturation: visual.glassBackdropSaturation
+                )
+            } else {
+                visual.composerBackground
             }
         }
         .clipShape(
             RoundedRectangle(
-                cornerRadius: visual.composerRadius,
+                cornerRadius: visual.resolvedComposerRadius,
                 style: .continuous
             )
         )
         .overlay {
             RoundedRectangle(
-                cornerRadius: visual.composerRadius,
+                cornerRadius: visual.resolvedComposerRadius,
                 style: .continuous
             )
-            .stroke(visual.border, lineWidth: visual.borderWidth)
+            .stroke(
+                visual.composerBorder,
+                lineWidth: visual.composerBorderWidth
+            )
         }
         .shadow(
-            color: .black.opacity(visual.shadowOpacity),
-            radius: visual.shadowRadius,
-            y: 8
+            color: .black.opacity(visual.composerShadowOpacity),
+            radius: visual.composerShadowRadius,
+            y: visual.composerShadowOffsetY
         )
     }
 }
 
+private enum PreviewComposerMode {
+    case home
+    case chat
+}
+
 enum ThemePreviewLayout {
+    static let titlebarHeight: CGFloat = 46
+    static let composerHeight: CGFloat = 78
+
     static func sidebarWidth(containerWidth: CGFloat) -> CGFloat {
-        min(185, containerWidth * 0.28)
+        min(165, max(124, containerWidth * 0.18))
     }
 
     static func wallpaperWidth(
@@ -530,6 +699,163 @@ enum ThemePreviewLayout {
         case .mainContent:
             max(0, containerWidth - sidebarWidth)
         }
+    }
+}
+
+private enum ThemePreviewCoordinateSpace {
+    static let name = "codex-theme-preview-root"
+}
+
+struct ThemePreviewBackdropCanvas: View {
+    let visual: ThemeVisualSnapshot
+    let canvasSize: CGSize
+    let sidebarWidth: CGFloat
+
+    private var wallpaperWidth: CGFloat {
+        ThemePreviewLayout.wallpaperWidth(
+            containerWidth: canvasSize.width,
+            sidebarWidth: sidebarWidth,
+            scope: visual.wallpaperScope
+        )
+    }
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            visual.backgroundPrimary
+
+            ThemePreviewWallpaper(visual: visual)
+                .frame(
+                    width: wallpaperWidth,
+                    height: canvasSize.height
+                )
+
+            HStack(spacing: 0) {
+                Color.clear
+                    .frame(width: sidebarWidth)
+                visual.contentBackground
+            }
+        }
+        .frame(width: canvasSize.width, height: canvasSize.height)
+        .clipped()
+        .allowsHitTesting(false)
+    }
+}
+
+private struct ThemePreviewWallpaper: View {
+    let visual: ThemeVisualSnapshot
+
+    var body: some View {
+        ZStack {
+            visual.backgroundPrimary
+
+            if let image = visual.backgroundImage,
+               let variant = visual.skinVariant {
+                SkinWallpaperView(image: image, variant: variant)
+            }
+
+            if let variant = visual.skinVariant {
+                Color(css: variant.overlayColor, fallback: .black)
+                    .opacity(variant.overlayOpacity)
+
+                SkinScrimView(variant: variant)
+                SkinVignetteView(opacity: variant.vignetteOpacity)
+            }
+        }
+        .clipped()
+    }
+}
+
+private struct ThemePreviewGlassBackground: View {
+    let visual: ThemeVisualSnapshot
+    let canvasSize: CGSize
+    let sidebarWidth: CGFloat
+    let tint: Color
+    let blurRadius: CGFloat
+    let saturation: Double
+    let includesCenterPanelBackdrop: Bool
+
+    init(
+        visual: ThemeVisualSnapshot,
+        canvasSize: CGSize,
+        sidebarWidth: CGFloat,
+        tint: Color,
+        blurRadius: CGFloat,
+        saturation: Double,
+        includesCenterPanelBackdrop: Bool = false
+    ) {
+        self.visual = visual
+        self.canvasSize = canvasSize
+        self.sidebarWidth = sidebarWidth
+        self.tint = tint
+        self.blurRadius = blurRadius
+        self.saturation = saturation
+        self.includesCenterPanelBackdrop =
+            includesCenterPanelBackdrop
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            let frame = geometry.frame(
+                in: .named(ThemePreviewCoordinateSpace.name)
+            )
+
+            // SwiftUI Material adds its own platform tint and cannot represent an
+            // exact CSS blur radius. Repaint the shared backdrop in root
+            // coordinates, filter it, then add the configured RGBA tint.
+            ZStack(alignment: .topLeading) {
+                sampledBackdrop(frame: frame)
+                .blur(radius: blurRadius)
+                .saturation(saturation)
+
+                tint
+                    .frame(
+                        width: geometry.size.width,
+                        height: geometry.size.height
+                    )
+            }
+            .frame(
+                width: geometry.size.width,
+                height: geometry.size.height,
+                alignment: .topLeading
+            )
+            .clipped()
+        }
+        .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private func sampledBackdrop(frame: CGRect) -> some View {
+        if includesCenterPanelBackdrop {
+            ZStack(alignment: .topLeading) {
+                alignedRootBackdrop(frame: frame)
+                    .blur(radius: visual.centerPanelBackdropBlur)
+                    .saturation(
+                        visual.centerPanelBackdropSaturation
+                    )
+
+                visual.centerPanelBackground
+                    .frame(
+                        width: canvasSize.width,
+                        height: canvasSize.height
+                    )
+                    .offset(x: -frame.minX, y: -frame.minY)
+            }
+        } else {
+            alignedRootBackdrop(frame: frame)
+        }
+    }
+
+    private func alignedRootBackdrop(frame: CGRect) -> some View {
+        ThemePreviewBackdropCanvas(
+            visual: visual,
+            canvasSize: canvasSize,
+            sidebarWidth: sidebarWidth
+        )
+        .frame(
+            width: canvasSize.width,
+            height: canvasSize.height
+        )
+        .offset(x: -frame.minX, y: -frame.minY)
     }
 }
 
@@ -600,6 +926,18 @@ enum SkinWallpaperLayout {
             )
         )
     }
+
+    static func blurOverscan(
+        fit: ThemeSkinImageFit,
+        imageBlur: Double
+    ) -> CGFloat {
+        guard imageBlur > 0,
+              fit == .cover || fit == .fill
+        else {
+            return 0
+        }
+        return imageBlur * 2 + 4
+    }
 }
 
 private struct SkinWallpaperView: View {
@@ -608,6 +946,15 @@ private struct SkinWallpaperView: View {
 
     var body: some View {
         GeometryReader { geometry in
+            let overscan = SkinWallpaperLayout.blurOverscan(
+                fit: variant.imageFit,
+                imageBlur: variant.imageBlur
+            )
+            let renderSize = CGSize(
+                width: geometry.size.width + overscan * 2,
+                height: geometry.size.height + overscan * 2
+            )
+
             switch variant.imageFit {
             case .tile:
                 Rectangle()
@@ -627,7 +974,7 @@ private struct SkinWallpaperView: View {
             case .cover, .contain, .fill, .fitWidth, .fitHeight, .original:
                 let layout = SkinWallpaperLayout.resolve(
                     imageSize: image.size,
-                    containerSize: geometry.size,
+                    containerSize: renderSize,
                     fit: variant.imageFit,
                     zoom: variant.zoom,
                     positionX: variant.positionX,
@@ -645,6 +992,11 @@ private struct SkinWallpaperView: View {
                         y: layout.offset.height
                     )
                     .modifier(SkinImageTreatment(variant: variant))
+                    .frame(
+                        width: renderSize.width,
+                        height: renderSize.height
+                    )
+                    .clipped()
                     .frame(
                         width: geometry.size.width,
                         height: geometry.size.height
@@ -687,9 +1039,13 @@ private struct SkinScrimView: View {
     var body: some View {
         if variant.scrimDirection != .none, variant.scrimOpacity > 0 {
             LinearGradient(
-                colors: [
-                    .black.opacity(variant.scrimOpacity),
-                    .clear
+                stops: [
+                    .init(
+                        color: .black.opacity(variant.scrimOpacity),
+                        location: 0
+                    ),
+                    .init(color: .clear, location: 0.58),
+                    .init(color: .clear, location: 1)
                 ],
                 startPoint: startPoint,
                 endPoint: endPoint
@@ -710,10 +1066,10 @@ private struct SkinScrimView: View {
 
     private var endPoint: UnitPoint {
         switch variant.scrimDirection {
-        case .left: UnitPoint(x: 0.62, y: 0.5)
-        case .right: UnitPoint(x: 0.38, y: 0.5)
-        case .top: UnitPoint(x: 0.5, y: 0.62)
-        case .bottom: UnitPoint(x: 0.5, y: 0.38)
+        case .left: .trailing
+        case .right: .leading
+        case .top: .bottom
+        case .bottom: .top
         case .none: .center
         }
     }
@@ -723,12 +1079,32 @@ private struct SkinVignetteView: View {
     let opacity: Double
 
     var body: some View {
-        RadialGradient(
-            colors: [.clear, .black.opacity(opacity)],
-            center: .center,
-            startRadius: 60,
-            endRadius: 520
-        )
+        GeometryReader { geometry in
+            let diameter = max(
+                geometry.size.width,
+                geometry.size.height
+            )
+
+            RadialGradient(
+                stops: [
+                    .init(color: .clear, location: 0),
+                    .init(color: .clear, location: 0.34),
+                    .init(color: .black.opacity(opacity), location: 1)
+                ],
+                center: .center,
+                startRadius: 0,
+                endRadius: diameter / 2
+            )
+            .frame(width: diameter, height: diameter)
+            .scaleEffect(
+                x: geometry.size.width / diameter,
+                y: geometry.size.height / diameter
+            )
+            .position(
+                x: geometry.size.width / 2,
+                y: geometry.size.height / 2
+            )
+        }
         .allowsHitTesting(false)
     }
 }
@@ -760,47 +1136,61 @@ private struct HomeSuggestionCard: View {
     let icon: String
     let title: String
     let visual: ThemeVisualSnapshot
+    let canvasSize: CGSize
+    let sidebarWidth: CGFloat
 
     var body: some View {
-        VStack(spacing: 9) {
-            Circle()
-                .fill(visual.accent.opacity(0.12))
-                .frame(width: 34, height: 34)
-                .overlay {
-                    Image(systemName: icon)
-                        .foregroundStyle(visual.accent)
-                }
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 15))
+                .foregroundStyle(visual.accent)
+                .frame(width: 24, height: 24, alignment: .leading)
+
+            Spacer(minLength: 0)
+
             Text(title)
                 .font(.system(size: 10, weight: .medium))
-                .multilineTextAlignment(.center)
+                .multilineTextAlignment(.leading)
                 .lineLimit(2)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 92)
-        .padding(.horizontal, 7)
-        .background(visual.cardBackground)
+        .frame(height: 72)
+        .padding(.horizontal, 11)
+        .padding(.vertical, 9)
         .background {
-            if visual.cardUsesMaterial {
-                Rectangle().fill(.ultraThinMaterial)
+            if visual.cardUsesBackdrop {
+                ThemePreviewGlassBackground(
+                    visual: visual,
+                    canvasSize: canvasSize,
+                    sidebarWidth: sidebarWidth,
+                    tint: visual.cardBackground,
+                    blurRadius: visual.glassBackdropBlur,
+                    saturation: visual.glassBackdropSaturation
+                )
+            } else {
+                visual.cardBackground
             }
         }
         .clipShape(
             RoundedRectangle(
-                cornerRadius: visual.cornerRadius,
+                cornerRadius: visual.cardCornerRadius,
                 style: .continuous
             )
         )
         .overlay {
             RoundedRectangle(
-                cornerRadius: visual.cornerRadius,
+                cornerRadius: visual.cardCornerRadius,
                 style: .continuous
             )
-            .stroke(visual.border, lineWidth: visual.borderWidth)
+            .stroke(
+                visual.cardBorder,
+                lineWidth: visual.cardBorderWidth
+            )
         }
         .shadow(
-            color: .black.opacity(visual.shadowOpacity * 0.7),
-            radius: visual.shadowRadius * 0.6,
-            y: 5
+            color: .black.opacity(visual.cardShadowOpacity),
+            radius: visual.cardShadowRadius,
+            y: visual.cardShadowOffsetY
         )
     }
 }
@@ -813,6 +1203,8 @@ struct ThemeVisualSnapshot {
     let titlebarBackground: Color
     let composerBackground: Color
     let cardBackground: Color
+    let userMessageBackground: Color
+    let controlBackground: Color
     let centerPanelBackground: Color
     let centerPanelBorder: Color
     let centerPanelShadow: Color
@@ -822,6 +1214,7 @@ struct ThemeVisualSnapshot {
     let accent: Color
     let accentContrast: Color
     let border: Color
+    let nativeBorder: Color
     let success: Color
     let codeBackground: Color
     let codeText: Color
@@ -830,14 +1223,19 @@ struct ThemeVisualSnapshot {
     let selectionBackground: Color
     let cornerRadius: CGFloat
     let composerRadius: CGFloat
+    let nativeCornerRadius: CGFloat
+    let nativeComposerRadius: CGFloat
     let chatFontSize: CGFloat
     let borderWidth: CGFloat
     let shadowOpacity: Double
     let shadowRadius: CGFloat
     let textShadowOpacity: Double
+    let glassBackdropBlur: CGFloat
+    let glassBackdropSaturation: Double
     let centerPanelEnabled: Bool
     let centerPanelBorderWidth: CGFloat
     let centerPanelCornerRadius: CGFloat
+    let centerPanelBackdropBlur: CGFloat
     let centerPanelBackdropSaturation: Double
     let centerPanelShadowOpacity: Double
     let centerPanelShadowRadius: CGFloat
@@ -851,12 +1249,15 @@ struct ThemeVisualSnapshot {
     let backgroundImage: NSImage?
     let skinVariant: ThemeSkinVariant?
     let wallpaperScope: ThemeSkinWallpaperScope
-    let contentUsesMaterial: Bool
-    let sidebarUsesMaterial: Bool
-    let titlebarUsesMaterial: Bool
-    let composerUsesMaterial: Bool
-    let cardUsesMaterial: Bool
-    let centerPanelUsesMaterial: Bool
+    let sidebarTargetEnabled: Bool
+    let composerTargetEnabled: Bool
+    let cardTargetEnabled: Bool
+    let codeTargetEnabled: Bool
+    let sidebarUsesBackdrop: Bool
+    let composerUsesBackdrop: Bool
+    let cardUsesBackdrop: Bool
+    let codeUsesBackdrop: Bool
+    let centerPanelUsesBackdrop: Bool
 
     init(
         theme: ThemeDocument,
@@ -891,6 +1292,23 @@ struct ThemeVisualSnapshot {
         let variant = activeSkin?.variant(for: appearance)
         skinVariant = variant
         wallpaperScope = activeSkin?.wallpaperScope ?? .fullWindow
+        sidebarTargetEnabled = activeSkin?.targets.sidebar ?? false
+        composerTargetEnabled = activeSkin?.targets.composer ?? false
+        cardTargetEnabled = activeSkin?.targets.cards ?? false
+        codeTargetEnabled = activeSkin?.targets.codeBlocks ?? false
+
+        nativeBorder = Color(
+            css: semantic(.border, "rgba(255,255,255,0.12)"),
+            fallback: .white.opacity(0.12)
+        )
+        nativeCornerRadius = token(
+            "--codex-corner-radius-scale",
+            "12"
+        ).firstCSSNumber ?? 12
+        nativeComposerRadius = token(
+            "--composer-border-radius",
+            "\(nativeCornerRadius)"
+        ).firstCSSNumber ?? nativeCornerRadius
 
         backgroundPrimary = Color(
             css: variant?.backgroundColor
@@ -927,6 +1345,7 @@ struct ThemeVisualSnapshot {
         )
         centerPanelBorderWidth = centerPanel.borderWidth
         centerPanelCornerRadius = centerPanel.cornerRadius
+        centerPanelBackdropBlur = centerPanel.backdropBlur
         centerPanelBackdropSaturation = centerPanel.backdropSaturation
         centerPanelShadowOpacity =
             variant?.centerPanelShadowOpacity ?? 0
@@ -936,18 +1355,27 @@ struct ThemeVisualSnapshot {
         centerPanelMaximumWidth = centerPanel.maximumWidth
         centerPanelHorizontalPadding = centerPanel.horizontalPadding
         centerPanelVerticalPadding = centerPanel.verticalPadding
-        centerPanelUsesMaterial =
-            centerPanelEnabled && centerPanel.backdropBlur > 0
+        centerPanelUsesBackdrop =
+            centerPanelEnabled
+            && (
+                centerPanel.backdropBlur > 0
+                || abs(centerPanel.backdropSaturation - 1) > 0.001
+            )
 
         if let variant, let activeSkin {
-            contentBackground = Color(
-                css: activeSkin.targets.content
-                    ? variant.contentTint
-                    : semantic(.backgroundPrimary, "#151515"),
-                fallback: .clear
-            ).opacity(
-                activeSkin.targets.content ? variant.contentOpacity : 1
-            )
+            if activeSkin.targets.content {
+                contentBackground = Color(
+                    css: variant.contentTint,
+                    fallback: .clear
+                ).opacity(variant.contentOpacity)
+            } else if activeSkin.wallpaperScope == .mainContent {
+                contentBackground = .clear
+            } else {
+                contentBackground = Color(
+                    css: semantic(.backgroundPrimary, "#151515"),
+                    fallback: backgroundPrimary
+                )
+            }
             sidebarBackground = Color(
                 css: activeSkin.targets.sidebar
                     ? variant.sidebarTint
@@ -959,10 +1387,10 @@ struct ThemeVisualSnapshot {
             titlebarBackground = Color(
                 css: activeSkin.targets.titlebar
                     ? variant.contentTint
-                    : semantic(.backgroundPrimary, "#151515"),
+                    : token("--codex-titlebar-tint", "transparent"),
                 fallback: .clear
             ).opacity(
-                activeSkin.targets.titlebar ? variant.contentOpacity : 0.96
+                activeSkin.targets.titlebar ? variant.contentOpacity : 1
             )
             composerBackground = Color(
                 css: activeSkin.targets.composer
@@ -979,6 +1407,18 @@ struct ThemeVisualSnapshot {
                 fallback: .clear
             ).opacity(
                 activeSkin.targets.cards ? variant.cardOpacity : 0.86
+            )
+            userMessageBackground = Color(
+                css: variant.primaryTextColor,
+                fallback: .primary
+            ).opacity(0.06)
+            controlBackground = Color(
+                css: activeSkin.targets.composer
+                    ? variant.composerTint
+                    : surfaceFallback,
+                fallback: .clear
+            ).opacity(
+                activeSkin.targets.composer ? variant.composerOpacity : 0.9
             )
             surface = cardBackground
             textPrimary = Color(
@@ -1003,13 +1443,18 @@ struct ThemeVisualSnapshot {
             shadowOpacity = activeSkin.glass.shadowOpacity
             shadowRadius = activeSkin.glass.shadowBlur
             textShadowOpacity = activeSkin.glass.textShadowOpacity
+            glassBackdropBlur = activeSkin.glass.blurRadius
+            glassBackdropSaturation = activeSkin.glass.saturation
 
-            let hasBlur = activeSkin.glass.blurRadius > 0
-            contentUsesMaterial = false
-            sidebarUsesMaterial = activeSkin.targets.sidebar && hasBlur
-            titlebarUsesMaterial = false
-            composerUsesMaterial = activeSkin.targets.composer && hasBlur
-            cardUsesMaterial = activeSkin.targets.cards && hasBlur
+            let hasBackdrop =
+                activeSkin.glass.blurRadius > 0
+                || abs(activeSkin.glass.saturation - 1) > 0.001
+            sidebarUsesBackdrop =
+                activeSkin.targets.sidebar && hasBackdrop
+            composerUsesBackdrop =
+                activeSkin.targets.composer && hasBackdrop
+            cardUsesBackdrop =
+                activeSkin.targets.cards && hasBackdrop
         } else {
             contentBackground = Color(
                 css: semantic(.backgroundPrimary, "#151515"),
@@ -1026,6 +1471,8 @@ struct ThemeVisualSnapshot {
             )
             composerBackground = surface.opacity(0.9)
             cardBackground = surface.opacity(0.86)
+            userMessageBackground = Color.primary.opacity(0.06)
+            controlBackground = surface.opacity(0.9)
             textPrimary = Color(
                 css: semantic(.textPrimary, "#f5f5f5"),
                 fallback: .white
@@ -1043,22 +1490,16 @@ struct ThemeVisualSnapshot {
                 fallback: .white.opacity(0.12)
             )
             borderWidth = 1
-            cornerRadius = token(
-                "--codex-corner-radius-scale",
-                "12"
-            ).firstCSSNumber ?? 12
-            composerRadius = token(
-                "--composer-border-radius",
-                "\(cornerRadius)"
-            ).firstCSSNumber ?? cornerRadius
+            cornerRadius = nativeCornerRadius
+            composerRadius = nativeComposerRadius
             shadowOpacity = 0.12
             shadowRadius = 18
             textShadowOpacity = 0
-            contentUsesMaterial = false
-            sidebarUsesMaterial = false
-            titlebarUsesMaterial = false
-            composerUsesMaterial = true
-            cardUsesMaterial = false
+            glassBackdropBlur = 0
+            glassBackdropSaturation = 1
+            sidebarUsesBackdrop = false
+            composerUsesBackdrop = false
+            cardUsesBackdrop = false
         }
 
         accentContrast = Color(
@@ -1069,10 +1510,26 @@ struct ThemeVisualSnapshot {
             css: semantic(.success, "#40c977"),
             fallback: .green
         )
-        codeBackground = Color(
-            css: token("--color-token-text-code-block-background", "#101010"),
-            fallback: .black.opacity(0.7)
-        )
+        if let activeSkin,
+           let variant,
+           activeSkin.targets.codeBlocks {
+            codeBackground = Color(
+                css: variant.cardTint,
+                fallback: .black
+            ).opacity(variant.cardOpacity)
+            codeUsesBackdrop =
+                activeSkin.glass.blurRadius > 0
+                || abs(activeSkin.glass.saturation - 1) > 0.001
+        } else {
+            codeBackground = Color(
+                css: token(
+                    "--color-token-text-code-block-background",
+                    "#101010"
+                ),
+                fallback: .black.opacity(0.7)
+            )
+            codeUsesBackdrop = false
+        }
         codeText = Color(
             css: token(
                 "--color-token-editor-foreground",
@@ -1118,6 +1575,88 @@ struct ThemeVisualSnapshot {
         } else {
             backgroundImage = nil
         }
+    }
+
+    var sidebarBorder: Color {
+        sidebarTargetEnabled ? border : nativeBorder
+    }
+
+    var sidebarBorderWidth: CGFloat {
+        sidebarTargetEnabled ? borderWidth : 1
+    }
+
+    var resolvedComposerRadius: CGFloat {
+        composerTargetEnabled ? composerRadius : nativeComposerRadius
+    }
+
+    var composerBorder: Color {
+        composerTargetEnabled ? border : nativeBorder
+    }
+
+    var composerBorderWidth: CGFloat {
+        composerTargetEnabled ? borderWidth : 1
+    }
+
+    var composerShadowOpacity: Double {
+        composerTargetEnabled ? shadowOpacity : 0.12
+    }
+
+    var composerShadowRadius: CGFloat {
+        composerTargetEnabled ? shadowRadius : 18
+    }
+
+    var composerShadowOffsetY: CGFloat {
+        composerTargetEnabled ? 18 : 8
+    }
+
+    var cardCornerRadius: CGFloat {
+        cardTargetEnabled ? cornerRadius : nativeCornerRadius
+    }
+
+    var cardBorder: Color {
+        cardTargetEnabled ? border : nativeBorder
+    }
+
+    var cardBorderWidth: CGFloat {
+        cardTargetEnabled ? borderWidth : 1
+    }
+
+    var cardShadowOpacity: Double {
+        cardTargetEnabled ? shadowOpacity : 0.08
+    }
+
+    var cardShadowRadius: CGFloat {
+        cardTargetEnabled ? shadowRadius : 8
+    }
+
+    var cardShadowOffsetY: CGFloat {
+        cardTargetEnabled ? 18 : 4
+    }
+
+    var codeCornerRadius: CGFloat {
+        codeTargetEnabled
+            ? cornerRadius
+            : max(6, nativeCornerRadius - 3)
+    }
+
+    var codeBorder: Color {
+        codeTargetEnabled ? border : nativeBorder
+    }
+
+    var codeBorderWidth: CGFloat {
+        codeTargetEnabled ? borderWidth : 1
+    }
+
+    var codeShadowOpacity: Double {
+        codeTargetEnabled ? shadowOpacity : 0
+    }
+
+    var codeShadowRadius: CGFloat {
+        codeTargetEnabled ? shadowRadius : 0
+    }
+
+    var codeShadowOffsetY: CGFloat {
+        codeTargetEnabled ? 18 : 0
     }
 }
 

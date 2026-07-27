@@ -10,7 +10,7 @@ final class ThemePreviewRenderTests: XCTestCase {
             containerWidth: 680
         )
 
-        XCTAssertEqual(sidebarWidth, 185, accuracy: 0.001)
+        XCTAssertEqual(sidebarWidth, 124, accuracy: 0.001)
         XCTAssertEqual(
             ThemePreviewLayout.wallpaperWidth(
                 containerWidth: 680,
@@ -26,7 +26,42 @@ final class ThemePreviewRenderTests: XCTestCase {
                 sidebarWidth: sidebarWidth,
                 scope: .mainContent
             ),
-            495,
+            556,
+            accuracy: 0.001
+        )
+    }
+
+    func testWallpaperBlurOverscanMatchesCompilerRule() {
+        XCTAssertEqual(
+            SkinWallpaperLayout.blurOverscan(
+                fit: .cover,
+                imageBlur: 12
+            ),
+            28,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            SkinWallpaperLayout.blurOverscan(
+                fit: .fill,
+                imageBlur: 6.5
+            ),
+            17,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            SkinWallpaperLayout.blurOverscan(
+                fit: .contain,
+                imageBlur: 12
+            ),
+            0,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            SkinWallpaperLayout.blurOverscan(
+                fit: .cover,
+                imageBlur: 0
+            ),
+            0,
             accuracy: 0.001
         )
     }
@@ -287,6 +322,316 @@ final class ThemePreviewRenderTests: XCTestCase {
     }
 
     @MainActor
+    func testVisualSnapshotPreservesExactBackdropParameters() {
+        var skin = ThemeImageSkin()
+        skin.glass.blurRadius = 13.5
+        skin.glass.saturation = 1.42
+        skin.centerPanel = ThemeSkinCenterPanel(
+            isEnabled: true,
+            backdropBlur: 0,
+            backdropSaturation: 1.6,
+            borderWidth: 2.25,
+            cornerRadius: 31,
+            shadowBlur: 44,
+            shadowOffsetX: -7,
+            shadowOffsetY: 12,
+            maximumWidth: 930,
+            horizontalPadding: 33,
+            verticalPadding: 21
+        )
+
+        var theme = BuiltInThemes.paper
+        theme.id = UUID()
+        theme.imageSkin = skin
+
+        let snapshot = ThemeVisualSnapshot(
+            theme: theme,
+            appearance: .light
+        )
+
+        XCTAssertEqual(snapshot.glassBackdropBlur, 13.5, accuracy: 0.001)
+        XCTAssertEqual(
+            snapshot.glassBackdropSaturation,
+            1.42,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            snapshot.centerPanelBackdropBlur,
+            0,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            snapshot.centerPanelBackdropSaturation,
+            1.6,
+            accuracy: 0.001
+        )
+        XCTAssertTrue(snapshot.sidebarUsesBackdrop)
+        XCTAssertTrue(snapshot.composerUsesBackdrop)
+        XCTAssertTrue(snapshot.cardUsesBackdrop)
+        XCTAssertTrue(snapshot.centerPanelUsesBackdrop)
+    }
+
+    @MainActor
+    func testUnitBackdropSettingsDoNotAddPreviewMaterial() {
+        var skin = ThemeImageSkin()
+        skin.glass.blurRadius = 0
+        skin.glass.saturation = 1
+        skin.centerPanel = ThemeSkinCenterPanel(
+            isEnabled: true,
+            backdropBlur: 0,
+            backdropSaturation: 1
+        )
+
+        var theme = BuiltInThemes.paper
+        theme.id = UUID()
+        theme.imageSkin = skin
+
+        let snapshot = ThemeVisualSnapshot(
+            theme: theme,
+            appearance: .light
+        )
+
+        XCTAssertFalse(snapshot.sidebarUsesBackdrop)
+        XCTAssertFalse(snapshot.composerUsesBackdrop)
+        XCTAssertFalse(snapshot.cardUsesBackdrop)
+        XCTAssertFalse(snapshot.centerPanelUsesBackdrop)
+    }
+
+    @MainActor
+    func testSaturationOnlyPanelReusesAlignedBackdropWithoutMaterialTint()
+        throws
+    {
+        let asset = ThemeAsset(
+            name: "alignment-wallpaper.png",
+            mediaType: "image/png",
+            data: try makeGrayscaleWallpaper()
+        )
+        var skin = ThemeImageSkin()
+        skin.light.backgroundAssetID = asset.id
+        skin.light.imageFit = .fill
+        skin.light.overlayOpacity = 0
+        skin.light.scrimDirection = .none
+        skin.light.scrimOpacity = 0
+        skin.light.vignetteOpacity = 0
+        skin.light.contentOpacity = 0
+        skin.light.centerPanelOpacity = 0
+        skin.light.centerPanelBorderOpacity = 0
+        skin.light.centerPanelShadowOpacity = 0
+        skin.centerPanel = ThemeSkinCenterPanel(
+            isEnabled: true,
+            backdropBlur: 0,
+            backdropSaturation: 1.8,
+            borderWidth: 0,
+            cornerRadius: 0,
+            shadowBlur: 0,
+            shadowOffsetX: 0,
+            shadowOffsetY: 0,
+            maximumWidth: 520,
+            horizontalPadding: 28,
+            verticalPadding: 24
+        )
+
+        var enabledTheme = BuiltInThemes.paper
+        enabledTheme.id = UUID()
+        enabledTheme.assets = [asset]
+        enabledTheme.imageSkin = skin
+
+        var disabledTheme = enabledTheme
+        disabledTheme.imageSkin?.centerPanel.isEnabled = false
+
+        let enabledImage = try render(
+            theme: enabledTheme,
+            appearance: .light,
+            surface: .home
+        )
+        let disabledImage = try render(
+            theme: disabledTheme,
+            appearance: .light,
+            surface: .home
+        )
+        let samplePoint = CGPoint(x: 190, y: 330)
+        let enabledColor = try pixelColor(
+            in: enabledImage,
+            at: samplePoint
+        )
+        let disabledColor = try pixelColor(
+            in: disabledImage,
+            at: samplePoint
+        )
+
+        XCTAssertEqual(
+            enabledColor.redComponent,
+            disabledColor.redComponent,
+            accuracy: 0.02
+        )
+        XCTAssertEqual(
+            enabledColor.greenComponent,
+            disabledColor.greenComponent,
+            accuracy: 0.02
+        )
+        XCTAssertEqual(
+            enabledColor.blueComponent,
+            disabledColor.blueComponent,
+            accuracy: 0.02
+        )
+    }
+
+    @MainActor
+    func testDisabledTargetsKeepNativePreviewGeometry() {
+        var skin = ThemeImageSkin()
+        skin.glass = ThemeSkinGlass(
+            blurRadius: 30,
+            saturation: 1.8,
+            borderWidth: 8,
+            cornerRadius: 64,
+            shadowOpacity: 0.9,
+            shadowBlur: 70,
+            textShadowOpacity: 0.4
+        )
+        skin.targets = ThemeSkinTargets(
+            sidebar: false,
+            content: true,
+            titlebar: false,
+            composer: false,
+            cards: false,
+            popovers: false,
+            codeBlocks: false
+        )
+
+        var theme = BuiltInThemes.paper
+        theme.id = UUID()
+        theme.imageSkin = skin
+
+        let snapshot = ThemeVisualSnapshot(
+            theme: theme,
+            appearance: .light
+        )
+
+        XCTAssertFalse(snapshot.sidebarUsesBackdrop)
+        XCTAssertFalse(snapshot.composerUsesBackdrop)
+        XCTAssertFalse(snapshot.cardUsesBackdrop)
+        XCTAssertFalse(snapshot.codeUsesBackdrop)
+        XCTAssertEqual(snapshot.sidebarBorderWidth, 1, accuracy: 0.001)
+        XCTAssertEqual(snapshot.composerBorderWidth, 1, accuracy: 0.001)
+        XCTAssertEqual(snapshot.cardBorderWidth, 1, accuracy: 0.001)
+        XCTAssertEqual(snapshot.codeBorderWidth, 1, accuracy: 0.001)
+        XCTAssertNotEqual(snapshot.resolvedComposerRadius, 64)
+        XCTAssertNotEqual(snapshot.cardCornerRadius, 64)
+        XCTAssertNotEqual(snapshot.codeCornerRadius, 64)
+        XCTAssertEqual(snapshot.codeShadowOpacity, 0, accuracy: 0.001)
+    }
+
+    @MainActor
+    func testWallpaperScopeStartsAtMainContentPixelBoundary() throws {
+        let asset = ThemeAsset(
+            name: "scope-wallpaper.png",
+            mediaType: "image/png",
+            data: try makeSolidWallpaper(color: .red)
+        )
+        var skin = ThemeImageSkin()
+        skin.targets = ThemeSkinTargets(
+            sidebar: false,
+            content: true,
+            titlebar: false,
+            composer: false,
+            cards: false,
+            popovers: false,
+            codeBlocks: false
+        )
+        skin.light.backgroundAssetID = asset.id
+        skin.light.backgroundColor = "#000000"
+        skin.light.imageFit = .fill
+        skin.light.overlayOpacity = 0
+        skin.light.scrimDirection = .none
+        skin.light.scrimOpacity = 0
+        skin.light.vignetteOpacity = 0
+        skin.light.contentOpacity = 0
+
+        var theme = BuiltInThemes.paper
+        theme.id = UUID()
+        theme.assets = [asset]
+
+        skin.wallpaperScope = .mainContent
+        theme.imageSkin = skin
+        let mainContentImage = try renderBackdrop(theme: theme)
+
+        skin.wallpaperScope = .fullWindow
+        theme.imageSkin = skin
+        let fullWindowImage = try renderBackdrop(theme: theme)
+
+        let leftMainContent = try pixelColor(
+            in: mainContentImage,
+            at: CGPoint(x: 30, y: 165)
+        )
+        let rightMainContent = try pixelColor(
+            in: mainContentImage,
+            at: CGPoint(x: 220, y: 165)
+        )
+        let leftFullWindow = try pixelColor(
+            in: fullWindowImage,
+            at: CGPoint(x: 30, y: 165)
+        )
+
+        XCTAssertLessThan(leftMainContent.redComponent, 0.1)
+        XCTAssertGreaterThan(rightMainContent.redComponent, 0.9)
+        XCTAssertGreaterThan(leftFullWindow.redComponent, 0.9)
+    }
+
+    @MainActor
+    func testCompactEditorHeightKeepsHomeAndChatContentVisible() throws {
+        var skin = ThemeImageSkin()
+        skin.centerPanel = ThemeSkinCenterPanel(
+            isEnabled: true,
+            backdropBlur: 12,
+            backdropSaturation: 1.2,
+            borderWidth: 2,
+            cornerRadius: 24,
+            shadowBlur: 24,
+            shadowOffsetX: 0,
+            shadowOffsetY: 8,
+            maximumWidth: 560,
+            horizontalPadding: 28,
+            verticalPadding: 24
+        )
+
+        var theme = BuiltInThemes.midnight
+        theme.id = UUID()
+        theme.imageSkin = skin
+
+        for surface in ThemePreviewSurface.allCases {
+            let image = try render(
+                theme: theme,
+                appearance: .dark,
+                surface: surface,
+                size: CGSize(width: 680, height: 330)
+            )
+            XCTAssertEqual(image.size.height, 330, accuracy: 0.5)
+            XCTAssertGreaterThan(
+                try brightPixelCount(
+                    in: image,
+                    screenRect: CGRect(
+                        x: 155,
+                        y: 58,
+                        width: 500,
+                        height: 130
+                    )
+                ),
+                100,
+                "\(surface.rawValue) content disappeared at editor height"
+            )
+
+            if let directory = ProcessInfo.processInfo.environment[
+                "CTS_COMPACT_PREVIEW_SNAPSHOT_DIR"
+            ],
+            let data = image.pngData {
+                let url = URL(fileURLWithPath: directory)
+                    .appendingPathComponent("\(surface.rawValue).png")
+                try data.write(to: url)
+            }
+        }
+    }
+
+    @MainActor
     private func makeWallpaper() throws -> Data {
         let image = NSImage(size: NSSize(width: 1_600, height: 1_000))
         image.lockFocus()
@@ -317,6 +662,123 @@ final class ThemePreviewRenderTests: XCTestCase {
         )
         image.unlockFocus()
         return try XCTUnwrap(image.pngData)
+    }
+
+    @MainActor
+    private func makeGrayscaleWallpaper() throws -> Data {
+        let image = NSImage(size: NSSize(width: 680, height: 420))
+        image.lockFocus()
+        NSGradient(
+            colors: [.black, .white]
+        )?.draw(
+            in: NSRect(x: 0, y: 0, width: 680, height: 420),
+            angle: 0
+        )
+        image.unlockFocus()
+        return try XCTUnwrap(image.pngData)
+    }
+
+    @MainActor
+    private func makeSolidWallpaper(color: NSColor) throws -> Data {
+        let image = NSImage(size: NSSize(width: 16, height: 16))
+        image.lockFocus()
+        color.setFill()
+        NSBezierPath(
+            rect: NSRect(x: 0, y: 0, width: 16, height: 16)
+        ).fill()
+        image.unlockFocus()
+        return try XCTUnwrap(image.pngData)
+    }
+
+    @MainActor
+    private func render(
+        theme: ThemeDocument,
+        appearance: ThemeSkinAppearance,
+        surface: ThemePreviewSurface,
+        size: CGSize = CGSize(width: 680, height: 420)
+    ) throws -> NSImage {
+        let renderer = ImageRenderer(
+            content: ThemePreviewView(
+                theme: theme,
+                appearance: appearance,
+                surface: surface
+            )
+            .environment(
+                \.colorScheme,
+                appearance == .dark ? .dark : .light
+            )
+            .frame(width: size.width, height: size.height)
+        )
+        renderer.scale = 1
+        return try XCTUnwrap(renderer.nsImage)
+    }
+
+    @MainActor
+    private func renderBackdrop(theme: ThemeDocument) throws -> NSImage {
+        let size = CGSize(width: 680, height: 330)
+        let visual = ThemeVisualSnapshot(
+            theme: theme,
+            appearance: .light
+        )
+        let renderer = ImageRenderer(
+            content: ThemePreviewBackdropCanvas(
+                visual: visual,
+                canvasSize: size,
+                sidebarWidth: ThemePreviewLayout.sidebarWidth(
+                    containerWidth: size.width
+                )
+            )
+            .frame(width: size.width, height: size.height)
+        )
+        renderer.scale = 1
+        return try XCTUnwrap(renderer.nsImage)
+    }
+
+    private func pixelColor(
+        in image: NSImage,
+        at point: CGPoint
+    ) throws -> NSColor {
+        let data = try XCTUnwrap(image.tiffRepresentation)
+        let representation = try XCTUnwrap(NSBitmapImageRep(data: data))
+        let color = try XCTUnwrap(
+            representation.colorAt(
+                x: Int(point.x),
+                y: Int(point.y)
+            )
+        )
+        return color.usingColorSpace(.sRGB) ?? color
+    }
+
+    private func brightPixelCount(
+        in image: NSImage,
+        screenRect: CGRect
+    ) throws -> Int {
+        let data = try XCTUnwrap(image.tiffRepresentation)
+        let representation = try XCTUnwrap(NSBitmapImageRep(data: data))
+        var count = 0
+        let minX = max(0, Int(screenRect.minX))
+        let maxX = min(representation.pixelsWide, Int(screenRect.maxX))
+        let minY = max(0, Int(screenRect.minY))
+        let maxY = min(representation.pixelsHigh, Int(screenRect.maxY))
+
+        for screenY in minY..<maxY {
+            let bitmapY = representation.pixelsHigh - screenY - 1
+            for x in minX..<maxX {
+                guard let color = representation.colorAt(
+                    x: x,
+                    y: bitmapY
+                )?.usingColorSpace(.sRGB)
+                else { continue }
+                if max(
+                    color.redComponent,
+                    color.greenComponent,
+                    color.blueComponent
+                ) > 0.65 {
+                    count += 1
+                }
+            }
+        }
+        return count
     }
 
     private func assert(
