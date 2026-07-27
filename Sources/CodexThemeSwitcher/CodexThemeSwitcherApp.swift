@@ -14,7 +14,7 @@ struct CodexThemeSwitcherApp: App {
             ThemeSwitcherRootView(model: model)
                 .frame(width: 920, height: 720)
         } label: {
-            Image(systemName: model.menuBarSymbol)
+            AppBrandIcon(height: 18)
                 .accessibilityLabel(model.activeThemeName ?? L10n.appName)
         }
         .menuBarExtraStyle(.window)
@@ -22,7 +22,7 @@ struct CodexThemeSwitcherApp: App {
             CommandGroup(replacing: .undoRedo) {
                 Button(
                     model.undoDraftActionName.map {
-                        L10n.text("復原 \($0)", "Undo \($0)")
+                        L10n.format("復原 {0}", "Undo {0}", $0)
                     } ?? L10n.text("復原", "Undo")
                 ) {
                     model.undoDraftChange()
@@ -32,7 +32,7 @@ struct CodexThemeSwitcherApp: App {
 
                 Button(
                     model.redoDraftActionName.map {
-                        L10n.text("重做 \($0)", "Redo \($0)")
+                        L10n.format("重做 {0}", "Redo {0}", $0)
                     } ?? L10n.text("重做", "Redo")
                 ) {
                     model.redoDraftChange()

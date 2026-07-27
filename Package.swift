@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "CodexThemeSwitcher",
-    defaultLocalization: "zh-Hant",
+    defaultLocalization: "en",
     platforms: [
         .macOS(.v13)
     ],
@@ -37,6 +37,9 @@ let package = Package(
             dependencies: [
                 "CodexThemeSwitcherCore",
                 "CodexThemeRuntime"
+            ],
+            resources: [
+                .process("Resources")
             ]
         ),
         .testTarget(
@@ -51,7 +54,8 @@ let package = Package(
             name: "CodexThemeSwitcherTests",
             dependencies: [
                 "CodexThemeSwitcher",
-                "CodexThemeSwitcherCore"
+                "CodexThemeSwitcherCore",
+                "CodexThemeRuntime"
             ]
         )
     ]

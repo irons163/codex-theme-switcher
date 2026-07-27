@@ -118,7 +118,7 @@ private struct ThemePreviewPage: View {
                     .lineLimit(2)
                 }
                 Spacer()
-                if model.activeThemeID == theme.id {
+                if model.appliedThemeID == theme.id {
                     Label(
                         L10n.text("使用中", "ACTIVE"),
                         systemImage: "checkmark.circle.fill"
@@ -133,8 +133,10 @@ private struct ThemePreviewPage: View {
                     L10n.text("畫面", "Surface"),
                     selection: $model.previewSurface
                 ) {
-                    Text("Home").tag(ThemePreviewSurface.home)
-                    Text("Chat").tag(ThemePreviewSurface.chat)
+                    Text(L10n.text("首頁", "Home"))
+                        .tag(ThemePreviewSurface.home)
+                    Text(L10n.text("對話", "Chat"))
+                        .tag(ThemePreviewSurface.chat)
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 170)
@@ -397,7 +399,10 @@ private struct CSSColorField: View {
                 )
                 .labelsHidden()
                 .frame(width: 30)
-                TextField("CSS value", text: definition.value)
+                TextField(
+                    L10n.text("CSS 值", "CSS value"),
+                    text: definition.value
+                )
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 11, design: .monospaced))
             }
@@ -562,11 +567,16 @@ private struct ComponentEditorPage: View {
                         Array(draft.layers.enumerated()),
                         id: \.element.id
                     ) { layerIndex, layer in
+                        let componentTemplate =
+                            layer.components.count == 1
+                                ? "{0} component override"
+                                : "{0} component overrides"
                         EditorSection(
                             title: layer.name,
-                            subtitle: L10n.text(
-                                "\(layer.components.count) 個元件覆寫",
-                                "\(layer.components.count) component overrides"
+                            subtitle: L10n.format(
+                                "{0} 個元件覆寫",
+                                componentTemplate,
+                                String(layer.components.count)
                             )
                         ) {
                             VStack(spacing: 12) {
@@ -701,7 +711,7 @@ private struct ComponentOverrideCard: View {
                             )
                             .labelsHidden()
                             TextField(
-                                "property",
+                                L10n.text("屬性", "Property"),
                                 text: declarationBinding(
                                     declarationIndex,
                                     get: { $0.property },
@@ -710,7 +720,7 @@ private struct ComponentOverrideCard: View {
                             )
                             .frame(width: 145)
                             TextField(
-                                "CSS value",
+                                L10n.text("CSS 值", "CSS value"),
                                 text: declarationBinding(
                                     declarationIndex,
                                     get: { $0.value },
@@ -827,9 +837,20 @@ private struct RuleEditorPage: View {
                         Array(draft.layers.enumerated()),
                         id: \.element.id
                     ) { layerIndex, layer in
+                        let condition = localizedLayerCondition(
+                            layer.condition
+                        )
+                        let ruleTemplate = layer.rules.count == 1
+                            ? "{0} · {1} rule"
+                            : "{0} · {1} rules"
                         EditorSection(
                             title: layer.name,
-                            subtitle: "\(layer.condition.rawValue) · \(layer.rules.count) rules"
+                            subtitle: L10n.format(
+                                "{0} · {1} 條規則",
+                                ruleTemplate,
+                                condition,
+                                String(layer.rules.count)
+                            )
                         ) {
                             VStack(spacing: 12) {
                                 ForEach(
@@ -1103,7 +1124,8 @@ private struct RawCSSEditorPage: View {
                                             ThemeLayerCondition.allCases,
                                             id: \.self
                                         ) {
-                                            Text($0.rawValue).tag($0)
+                                            Text(localizedLayerCondition($0))
+                                                .tag($0)
                                         }
                                     }
                                     .frame(width: 145)
@@ -1292,7 +1314,7 @@ private struct AdvancedVariableList: View {
                     )
                     .frame(width: 260)
                     TextField(
-                        "CSS value",
+                        L10n.text("CSS 值", "CSS value"),
                         text: binding(
                             item,
                             get: { $0.value },
@@ -1346,6 +1368,21 @@ private struct AdvancedVariableList: View {
                 }
             }
         )
+    }
+}
+
+private func localizedLayerCondition(
+    _ condition: ThemeLayerCondition
+) -> String {
+    switch condition {
+    case .always:
+        L10n.text("永遠", "Always")
+    case .light:
+        L10n.text("淺色", "Light")
+    case .dark:
+        L10n.text("深色", "Dark")
+    case .custom:
+        L10n.text("自訂", "Custom")
     }
 }
 

@@ -101,8 +101,10 @@ struct ThemeSkinEditorView: View {
                     L10n.text("預覽畫面", "Preview surface"),
                     selection: $model.previewSurface
                 ) {
-                    Text("Home").tag(ThemePreviewSurface.home)
-                    Text("Chat").tag(ThemePreviewSurface.chat)
+                    Text(L10n.text("首頁", "Home"))
+                        .tag(ThemePreviewSurface.home)
+                    Text(L10n.text("對話", "Chat"))
+                        .tag(ThemePreviewSurface.chat)
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 170)
@@ -125,9 +127,12 @@ struct ThemeSkinEditorView: View {
                     model.copySkinVariant(from: appearance, to: other)
                 } label: {
                     Label(
-                        L10n.text(
-                            "複製到\(appearance == .light ? "深色" : "淺色")",
-                            "Copy to \(appearance == .light ? "dark" : "light")"
+                        L10n.format(
+                            "複製到{0}",
+                            "Copy to {0}",
+                            appearance == .light
+                                ? L10n.text("深色", "Dark")
+                                : L10n.text("淺色", "Light")
                         ),
                         systemImage: "square.on.square"
                     )
@@ -869,7 +874,7 @@ struct ThemeSkinEditorView: View {
                 targetToggle(L10n.text("側欄", "Sidebar"), \.sidebar)
                 targetToggle(L10n.text("主內容", "Main content"), \.content)
                 targetToggle(L10n.text("標題列", "Titlebar"), \.titlebar)
-                targetToggle("Composer", \.composer)
+                targetToggle(L10n.text("輸入框", "Composer"), \.composer)
                 targetToggle(L10n.text("首頁 Cards", "Home cards"), \.cards)
                 targetToggle(L10n.text("選單／彈出視窗", "Menus / popovers"), \.popovers)
                 targetToggle(L10n.text("程式碼區塊", "Code blocks"), \.codeBlocks)
@@ -1213,11 +1218,11 @@ struct ThemeSkinEditorView: View {
 
     private func blendTitle(_ value: ThemeSkinBlendMode) -> String {
         switch value {
-        case .normal: "Normal"
-        case .multiply: "Multiply"
-        case .screen: "Screen"
-        case .overlay: "Overlay"
-        case .softLight: "Soft Light"
+        case .normal: L10n.text("正常", "Normal")
+        case .multiply: L10n.text("色彩增值", "Multiply")
+        case .screen: L10n.text("濾色", "Screen")
+        case .overlay: L10n.text("覆蓋", "Overlay")
+        case .softLight: L10n.text("柔光", "Soft Light")
         }
     }
 
@@ -1301,7 +1306,10 @@ private struct SkinColorField: View {
                 ColorPicker("", selection: color, supportsOpacity: true)
                     .labelsHidden()
                     .frame(width: 28)
-                TextField("CSS color", text: $value)
+                TextField(
+                    L10n.text("CSS 色彩", "CSS color"),
+                    text: $value
+                )
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 10, design: .monospaced))
             }

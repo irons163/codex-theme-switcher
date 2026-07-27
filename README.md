@@ -25,7 +25,8 @@ Codex reload 或開新視窗後，runtime 也會自動補上主題。
 - PNG、JPEG、WebP、GIF 與字型等素材可嵌入模板；runtime 會分段傳輸並建立
   renderer-local Blob URL，因此大型 4K 圖片不會撞到 CSS declaration 長度限制。
 - 單檔 `.codextheme` 導入／導出，方便分享。
-- Traditional Chinese / English UI。
+- 依 macOS 偏好語言自動切換英文、繁體中文、簡體中文、法文、西班牙文、日文或韓文；
+  其他語言回退英文。
 
 ## 背景與玻璃 / Image Skin
 
@@ -63,6 +64,8 @@ Image Skin 圖片欄位只接受 raster asset（PNG、JPEG、WebP、GIF、AVIF�
 
 1. 開啟 app，從 macOS menu bar 的調色盤圖示進入主題工作室。
 2. 按「啟動並連接 Codex」；第一次連接可能會重新啟動 Codex。
+   首次連接不會自動套用預選模板；之後重新連接則會恢復 runtime 保存的最後一次
+   成功套用快照，不包含之後只儲存或仍在草稿中的變更。
 3. 直接套用內建模板，或先「製作可編輯副本」；也可用左下角新增空白主題。
 4. 在背景與玻璃、色彩、字體與版面、元件、規則、進階 CSS、素材及資訊分頁編輯。
    橘色圓點代表該主題仍有未儲存變更；切到其他主題再回來也不會遺失草稿。

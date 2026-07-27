@@ -38,9 +38,8 @@ struct ThemeSwitcherRootView: View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Image(systemName: "paintpalette.fill")
-                        .font(.title3)
-                        .foregroundStyle(.tint)
+                    AppBrandIcon(height: 26)
+                        .accessibilityLabel(L10n.appName)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(L10n.appName)
                             .font(.headline)
@@ -79,7 +78,7 @@ struct ThemeSwitcherRootView: View {
                             ThemeLibraryRow(
                                 theme: theme,
                                 isSelected: model.selectedThemeID == theme.id,
-                                isActive: model.activeThemeID == theme.id,
+                                isActive: model.appliedThemeID == theme.id,
                                 isBuiltIn: BuiltInThemes.theme(id: theme.id) != nil,
                                 isDirty: model.hasUnsavedChanges(for: theme.id)
                             )
@@ -170,6 +169,8 @@ struct ThemeSwitcherRootView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(model.runtimeSummary)
                     .font(.caption.weight(.medium))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 if let version = model.runtimeStatus?.codexVersion {
                     Text("Codex \(version)")
                         .font(.system(size: 9, design: .monospaced))
@@ -193,9 +194,10 @@ struct ThemeSwitcherRootView: View {
                 .buttonStyle(.borderless)
                 .help(
                     model.undoDraftActionName.map {
-                        L10n.text(
-                            "復原：\($0)（⌘Z）",
-                            "Undo: \($0) (⌘Z)"
+                        L10n.format(
+                            "復原：{0}（⌘Z）",
+                            "Undo: {0} (⌘Z)",
+                            $0
                         )
                     } ?? L10n.text("沒有可復原的動作", "Nothing to undo")
                 )
@@ -209,9 +211,10 @@ struct ThemeSwitcherRootView: View {
                 .buttonStyle(.borderless)
                 .help(
                     model.redoDraftActionName.map {
-                        L10n.text(
-                            "重做：\($0)（⇧⌘Z）",
-                            "Redo: \($0) (⇧⌘Z)"
+                        L10n.format(
+                            "重做：{0}（⇧⌘Z）",
+                            "Redo: {0} (⇧⌘Z)",
+                            $0
                         )
                     } ?? L10n.text("沒有可重做的動作", "Nothing to redo")
                 )
@@ -226,12 +229,7 @@ struct ThemeSwitcherRootView: View {
                     Label(L10n.attach, systemImage: "bolt.horizontal.fill")
                 }
                 .buttonStyle(.bordered)
-                .help(
-                    L10n.text(
-                        "第一次連接時，若 Codex 未啟用 CDP，會重新啟動 Codex。",
-                        "The first attachment may restart Codex to enable CDP."
-                    )
-                )
+                .help(model.launchAndAttachHelp)
             }
 
             Button {

@@ -92,7 +92,10 @@ final class RuntimeModelsTests: XCTestCase {
         XCTAssertThrowsError(try result.requiringSuccess()) { error in
             XCTAssertEqual(
                 error as? ThemeRuntimeFailure,
-                ThemeRuntimeFailure(message: "Bridge unavailable")
+                ThemeRuntimeFailure(
+                    message: "Bridge unavailable",
+                    code: "bridge-error"
+                )
             )
             XCTAssertEqual(
                 (error as? LocalizedError)?.errorDescription,

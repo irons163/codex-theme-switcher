@@ -6,7 +6,8 @@ CONFIGURATION="${CONFIGURATION:-release}"
 APP_PATH="$PROJECT_ROOT/dist/CodexThemeSwitcher.app"
 BUILD_PATH="$PROJECT_ROOT/.build/$CONFIGURATION"
 BINARY_PATH="$BUILD_PATH/CodexThemeSwitcher"
-RESOURCE_BUNDLE="$BUILD_PATH/CodexThemeSwitcher_CodexThemeRuntime.bundle"
+RUNTIME_RESOURCE_BUNDLE="$BUILD_PATH/CodexThemeSwitcher_CodexThemeRuntime.bundle"
+APP_RESOURCE_BUNDLE="$BUILD_PATH/CodexThemeSwitcher_CodexThemeSwitcher.bundle"
 STAGING_PATH="$PROJECT_ROOT/dist/.CodexThemeSwitcher.app.staging"
 
 cd "$PROJECT_ROOT"
@@ -19,9 +20,14 @@ mkdir -p \
 
 cp "$BINARY_PATH" "$STAGING_PATH/Contents/MacOS/CodexThemeSwitcher"
 cp "$PROJECT_ROOT/Packaging/Info.plist" "$STAGING_PATH/Contents/Info.plist"
+cp "$PROJECT_ROOT/Packaging/AppIcon.icns" \
+  "$STAGING_PATH/Contents/Resources/AppIcon.icns"
 cp -R \
-  "$RESOURCE_BUNDLE" \
+  "$RUNTIME_RESOURCE_BUNDLE" \
   "$STAGING_PATH/Contents/Resources/CodexThemeSwitcher_CodexThemeRuntime.bundle"
+cp -R \
+  "$APP_RESOURCE_BUNDLE" \
+  "$STAGING_PATH/Contents/Resources/CodexThemeSwitcher_CodexThemeSwitcher.bundle"
 
 if [ -n "${CODESIGN_IDENTITY:-}" ]; then
   codesign \

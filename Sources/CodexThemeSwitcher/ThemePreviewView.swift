@@ -137,12 +137,28 @@ private struct ThemePreviewCanvas: View {
             }
             .padding(.bottom, 10)
 
-            PreviewSidebarRow(icon: "square.and.pencil", title: "New task", visual: visual)
-            PreviewSidebarRow(icon: "clock", title: "Scheduled", visual: visual)
-            PreviewSidebarRow(icon: "at", title: "Plugins", visual: visual)
-            PreviewSidebarRow(icon: "point.3.connected.trianglepath.dotted", title: "Pull requests", visual: visual)
+            PreviewSidebarRow(
+                icon: "square.and.pencil",
+                title: L10n.text("新增任務", "New task"),
+                visual: visual
+            )
+            PreviewSidebarRow(
+                icon: "clock",
+                title: L10n.text("排程", "Scheduled"),
+                visual: visual
+            )
+            PreviewSidebarRow(
+                icon: "at",
+                title: L10n.text("外掛", "Plugins"),
+                visual: visual
+            )
+            PreviewSidebarRow(
+                icon: "point.3.connected.trianglepath.dotted",
+                title: L10n.text("Pull request", "Pull requests"),
+                visual: visual
+            )
 
-            Text("Projects")
+            Text(L10n.text("專案", "Projects"))
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(visual.textSecondary)
                 .padding(.top, 11)
@@ -150,18 +166,18 @@ private struct ThemePreviewCanvas: View {
 
             PreviewSidebarRow(
                 icon: "folder",
-                title: "Codex Theme Switcher",
+                title: L10n.appName,
                 visual: visual,
                 selected: true
             )
             PreviewSidebarRow(
                 icon: "circle.fill",
-                title: "Image skin studio",
+                title: L10n.text("圖片外觀工作室", "Image skin studio"),
                 visual: visual
             )
             PreviewSidebarRow(
                 icon: "circle.fill",
-                title: "Shareable templates",
+                title: L10n.text("可分享模板", "Shareable templates"),
                 visual: visual
             )
 
@@ -169,7 +185,7 @@ private struct ThemePreviewCanvas: View {
 
             HStack {
                 Image(systemName: "gearshape")
-                Text("Settings")
+                Text(L10n.text("設定", "Settings"))
                     .font(.caption)
                 Spacer()
                 Image(systemName: "questionmark.circle")
@@ -220,7 +236,7 @@ private struct ThemePreviewCanvas: View {
 
             if surface == .chat {
                 VStack(spacing: 1) {
-                    Text("Codex Theme Switcher")
+                    Text(L10n.appName)
                         .font(.system(size: 11, weight: .semibold))
                     Text("main")
                         .font(.system(size: 9))
@@ -281,7 +297,10 @@ private struct ThemePreviewCanvas: View {
             .clipped()
 
             composer(
-                prompt: "Ask Codex anything",
+                prompt: L10n.text(
+                    "向 Codex 詢問任何事情",
+                    "Ask Codex anything"
+                ),
                 mode: .chat,
                 canvasSize: canvasSize,
                 sidebarWidth: sidebarWidth
@@ -323,7 +342,7 @@ private struct ThemePreviewCanvas: View {
                         .font(.system(size: 18, weight: .regular))
                         .foregroundStyle(visual.textSecondary)
 
-                    Text("What should we build?")
+                    Text(L10n.text("我們要做什麼？", "What should we build?"))
                         .font(.system(size: 25, weight: .regular))
                         .multilineTextAlignment(.center)
                 }
@@ -363,7 +382,7 @@ private struct ThemePreviewCanvas: View {
                 }
 
                 composer(
-                    prompt: "Do anything",
+                    prompt: L10n.text("輸入任何內容", "Do anything"),
                     mode: .home,
                     canvasSize: canvasSize,
                     sidebarWidth: sidebarWidth
@@ -384,10 +403,22 @@ private struct ThemePreviewCanvas: View {
         sidebarWidth: CGFloat
     ) -> some View {
         let suggestions = [
-            ("megaphone", "Explore and understand code"),
-            ("hammer", "Build a new feature"),
-            ("arrow.triangle.2.circlepath", "Review and suggest changes"),
-            ("ladybug", "Fix issues and failures")
+            (
+                "megaphone",
+                L10n.text("探索並理解程式碼", "Explore and understand code")
+            ),
+            (
+                "hammer",
+                L10n.text("建立新功能", "Build a new feature")
+            ),
+            (
+                "arrow.triangle.2.circlepath",
+                L10n.text("審查並提出變更建議", "Review and suggest changes")
+            ),
+            (
+                "ladybug",
+                L10n.text("修正問題與失敗", "Fix issues and failures")
+            )
         ]
 
         return HStack(spacing: 10) {
@@ -478,7 +509,12 @@ private struct ThemePreviewCanvas: View {
     }
 
     private var assistantMessage: some View {
-        Text("I’ll turn this into a menu bar app with live theme switching, a visual skin editor, and portable templates.")
+        Text(
+            L10n.text(
+                "我會把它做成選單列 App，支援即時切換主題、視覺化外觀編輯器與可攜式模板。",
+                "I’ll turn this into a menu bar app with live theme switching, a visual skin editor, and portable templates."
+            )
+        )
             .font(.system(size: visual.chatFontSize))
             .lineSpacing(visual.chatFontSize * 0.35)
         .shadow(
@@ -489,7 +525,12 @@ private struct ThemePreviewCanvas: View {
     }
 
     private var userMessage: some View {
-        Text("Make the customization as flexible as possible.")
+        Text(
+            L10n.text(
+                "讓客製化盡可能自由。",
+                "Make the customization as flexible as possible."
+            )
+        )
             .font(.system(size: visual.chatFontSize))
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -576,9 +617,14 @@ private struct ThemePreviewCanvas: View {
             Image(systemName: "checkmark.circle")
                 .foregroundStyle(visual.success)
             VStack(alignment: .leading, spacing: 4) {
-                Text("Theme applied")
+                Text(L10n.text("主題已套用", "Theme applied"))
                     .fontWeight(.semibold)
-                Text("All open Codex renderer surfaces are synchronized.")
+                Text(
+                    L10n.text(
+                        "所有已開啟的 Codex renderer 畫面皆已同步。",
+                        "All open Codex renderer surfaces are synchronized."
+                    )
+                )
                     .foregroundStyle(visual.textSecondary)
             }
             .font(.system(size: visual.chatFontSize - 1))
@@ -608,7 +654,11 @@ private struct ThemePreviewCanvas: View {
 
                 HStack(spacing: 5) {
                     Image(systemName: mode == .home ? "folder" : "gearshape")
-                    Text(mode == .home ? "Select project" : "Custom")
+                    Text(
+                        mode == .home
+                            ? L10n.text("選擇專案", "Select project")
+                            : L10n.text("自訂", "Custom")
+                    )
                 }
                 .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(visual.textSecondary)

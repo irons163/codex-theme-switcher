@@ -108,6 +108,7 @@ final class ThemeAppModel: ObservableObject {
     private var unsavedDrafts: [UUID: ThemeDocument] = [:]
     private var persistedDocuments: [UUID: ThemeDocument] = [:]
     private var draftHistories: [UUID: DraftHistoryState] = [:]
+    private var runtimeMutationGeneration: UInt = 0
 
     init() {
         repository = FileThemeRepository()
@@ -146,10 +147,11 @@ final class ThemeAppModel: ObservableObject {
     }
 
     var activeThemeName: String? {
-        activeThemeID.flatMap {
-            id in themes.first(where: { $0.id == id })
-        }?.metadata.name
-            ?? runtimeStatus?.activeThemeName
+        runtimeStatus?.activeThemeName
+    }
+
+    var appliedThemeID: UUID? {
+        runtimeStatus?.activeThemeID.flatMap(UUID.init(uuidString:))
     }
 
     var selectedTheme: ThemeDocument? {
@@ -184,23 +186,21 @@ final class ThemeAppModel: ObservableObject {
         redoDraftActionName != nil
     }
 
-    var menuBarSymbol: String {
-        if isBusy { return "paintpalette.fill" }
-        if isAttached && activeThemeID != nil {
-            return "paintpalette.fill"
-        }
-        return "paintpalette"
-    }
-
     var runtimeSummary: String {
         if runtime == nil {
             return L10n.text("找不到 runtime", "Runtime unavailable")
         }
         if isAttached {
-            let count = runtimeStatus?.injectedRendererCount ?? 0
+            if let activeThemeName {
+                return L10n.format(
+                    "已連接 ·「{0}」使用中",
+                    "Attached · “{0}” active",
+                    activeThemeName
+                )
+            }
             return L10n.text(
-                "已連接 \(count) 個 Codex 畫面",
-                "Attached to \(count) Codex surface\(count == 1 ? "" : "s")"
+                "已連接 · 尚未套用主題",
+                "Attached · No theme applied"
             )
         }
         if runtimeStatus?.isRunning == true {
@@ -210,6 +210,20 @@ final class ThemeAppModel: ObservableObject {
             )
         }
         return L10n.text("Codex 尚未連接", "Codex is not attached")
+    }
+
+    var launchAndAttachHelp: String {
+        if let activeThemeName {
+            return L10n.format(
+                "連接後會恢復「{0}」。若尚未啟用 CDP，Codex 可能會重新啟動。",
+                "Attaching will restore “{0}”. Codex may restart if CDP is not enabled.",
+                activeThemeName
+            )
+        }
+        return L10n.text(
+            "連接後不會自動套用主題；選好後按「套用」。若尚未啟用 CDP，Codex 可能會重新啟動。",
+            "No theme will be applied automatically. Choose one and click Apply after attaching. Codex may restart if CDP is not enabled."
+        )
     }
 
     func start() {
@@ -324,10 +338,14 @@ final class ThemeAppModel: ObservableObject {
         guard let id = selectedThemeID, !isSelectedBuiltIn else { return }
         Task {
             await perform {
-                if self.activeThemeID == id {
-                    if let runtime = self.runtime {
-                        _ = try await runtime.clear().requiringSuccess()
-                    }
+                let wasApplied = self.appliedThemeID == id
+                let wasRepositoryActive = self.activeThemeID == id
+                if wasApplied, let runtime = self.runtime {
+                    self.runtimeMutationGeneration &+= 1
+                    let result = try await runtime.clear().requiringSuccess()
+                    self.runtimeStatus = result.status
+                }
+                if wasRepositoryActive {
                     try await self.repository.setActiveThemeID(nil)
                     self.activeThemeID = nil
                 }
@@ -350,29 +368,27 @@ final class ThemeAppModel: ObservableObject {
                 guard let runtime = self.runtime else {
                     throw RuntimeLocationError.missingHelper
                 }
+                self.runtimeMutationGeneration &+= 1
                 let result = try await runtime.launch().requiringSuccess()
                 self.runtimeStatus = result.status
-                if let id = self.activeThemeID,
-                   let active = self.themes.first(where: { $0.id == id }) {
-                    let compiled = try self.compiler.compile(active)
-                    let applied = try await runtime.apply(
-                        css: compiled.css,
-                        themeID: active.id.uuidString,
-                        themeName: active.metadata.name,
-                        assets: compiled.runtimeAssets.map {
-                            ThemeRuntimeAsset(
-                                id: $0.id.uuidString.lowercased(),
-                                mediaType: $0.mediaType,
-                                dataBase64: $0.dataBase64
-                            )
-                        }
-                    ).requiringSuccess()
-                    self.runtimeStatus = applied.status
+                if let restoredThemeName = result.status?.activeThemeName {
+                    self.show(
+                        L10n.format(
+                            "已連接 Codex，並恢復「{0}」",
+                            "Codex attached. Restored “{0}”.",
+                            restoredThemeName
+                        ),
+                        style: .success
+                    )
+                } else {
+                    self.show(
+                        L10n.text(
+                            "已連接 Codex；選好主題後按「套用」",
+                            "Codex attached. Choose a theme, then click Apply."
+                        ),
+                        style: .success
+                    )
                 }
-                self.show(
-                    L10n.text("已連接 Codex", "Codex attached"),
-                    style: .success
-                )
             }
         }
     }
@@ -387,6 +403,7 @@ final class ThemeAppModel: ObservableObject {
                 guard self.isAttached else {
                     throw ThemeAppError.codexNotAttached
                 }
+                self.runtimeMutationGeneration &+= 1
 
                 var document = draft
                 if !self.isSelectedBuiltIn {
@@ -417,15 +434,16 @@ final class ThemeAppModel: ObservableObject {
                     }
                 ).requiringSuccess()
 
+                self.runtimeStatus = result.status
                 try await self.repository.setActiveThemeID(document.id)
                 self.activeThemeID = document.id
-                self.runtimeStatus = result.status
                 self.isDraftDirty = false
                 await self.reloadThemes(selecting: document.id)
                 self.show(
-                    L10n.text(
-                        "已套用「\(document.metadata.name)」",
-                        "Applied “\(document.metadata.name)”"
+                    L10n.format(
+                        "已套用「{0}」",
+                        "Applied “{0}”",
+                        document.metadata.name
                     ),
                     style: .success
                 )
@@ -442,6 +460,7 @@ final class ThemeAppModel: ObservableObject {
         Task {
             await perform {
                 if let runtime = self.runtime {
+                    self.runtimeMutationGeneration &+= 1
                     let result = try await runtime.clear().requiringSuccess()
                     self.runtimeStatus = result.status
                 }
@@ -462,28 +481,38 @@ final class ThemeAppModel: ObservableObject {
         Task {
             await perform {
                 if let runtime = self.runtime {
-                    _ = try await runtime.stop().requiringSuccess()
+                    self.runtimeMutationGeneration &+= 1
+                    let result = try await runtime.stop().requiringSuccess()
+                    self.runtimeStatus = result.status
                 }
-                await self.refreshRuntime(silently: true)
             }
         }
     }
 
     func refreshRuntime(silently: Bool = false) async {
-        guard let runtime else { return }
+        guard let runtime, !isBusy else { return }
+        let generation = runtimeMutationGeneration
         do {
             let result = try await runtime.status()
+            guard generation == runtimeMutationGeneration, !isBusy else {
+                return
+            }
             runtimeStatus = result.status
             if !result.ok, !silently {
                 show(
-                    result.error?.message
-                        ?? L10n.text("無法讀取 runtime", "Runtime unavailable"),
+                    AppErrorLocalization.runtimeMessage(
+                        code: result.error?.code,
+                        fallback: result.error?.message
+                    ),
                     style: .error
                 )
             }
         } catch {
             if !silently {
-                show(error.localizedDescription, style: .error)
+                show(
+                    AppErrorLocalization.message(for: error),
+                    style: .error
+                )
             }
         }
     }
@@ -573,7 +602,9 @@ final class ThemeAppModel: ObservableObject {
     func setSemanticValue(_ role: ThemeSemanticRole, value: String) {
         mutateDraft { document in
             if document.layers.isEmpty {
-                document.layers = [ThemeLayer(name: "Base")]
+                document.layers = [
+                    ThemeLayer(name: L10n.text("基礎", "Base"))
+                ]
             }
             for layerIndex in document.layers.indices.reversed() {
                 if let variableIndex = document.layers[layerIndex].variables
@@ -606,7 +637,9 @@ final class ThemeAppModel: ObservableObject {
     func setTokenValue(_ name: String, value: String) {
         mutateDraft { document in
             if document.layers.isEmpty {
-                document.layers = [ThemeLayer(name: "Base")]
+                document.layers = [
+                    ThemeLayer(name: L10n.text("基礎", "Base"))
+                ]
             }
             for layerIndex in document.layers.indices.reversed() {
                 if let variableIndex = document.layers[layerIndex].variables
@@ -629,7 +662,9 @@ final class ThemeAppModel: ObservableObject {
     func addVariable() {
         mutateDraft { document in
             if document.layers.isEmpty {
-                document.layers = [ThemeLayer(name: "Base")]
+                document.layers = [
+                    ThemeLayer(name: L10n.text("基礎", "Base"))
+                ]
             }
             document.layers[0].variables.append(
                 ThemeVariable(name: "--my-custom-token", value: "#339CFF")
@@ -658,9 +693,10 @@ final class ThemeAppModel: ObservableObject {
                 )
                 await self.reloadThemes(selecting: imported.id)
                 self.show(
-                    L10n.text(
-                        "已導入「\(imported.metadata.name)」",
-                        "Imported “\(imported.metadata.name)”"
+                    L10n.format(
+                        "已導入「{0}」",
+                        "Imported “{0}”",
+                        imported.metadata.name
                     ),
                     style: .success
                 )
@@ -735,15 +771,22 @@ final class ThemeAppModel: ObservableObject {
                 )
             }
             mutateDraft { $0.assets.append(contentsOf: assets) }
+            let englishMessage = assets.count == 1
+                ? "Added {0} asset"
+                : "Added {0} assets"
             show(
-                L10n.text(
-                    "已加入 \(assets.count) 個素材",
-                    "Added \(assets.count) asset\(assets.count == 1 ? "" : "s")"
+                L10n.format(
+                    "已加入 {0} 個素材",
+                    englishMessage,
+                    String(assets.count)
                 ),
                 style: .success
             )
         } catch {
-            show(error.localizedDescription, style: .error)
+            show(
+                AppErrorLocalization.message(for: error),
+                style: .error
+            )
         }
     }
 
@@ -818,15 +861,22 @@ final class ThemeAppModel: ObservableObject {
             mutateDraft { document in
                 document = candidate
             }
+            let appearanceName = appearance == .light
+                ? L10n.text("淺色", "Light")
+                : L10n.text("深色", "Dark")
             show(
-                L10n.text(
-                    "已設定\(appearance == .light ? "淺色" : "深色")背景",
-                    "\(appearance == .light ? "Light" : "Dark") background set"
+                L10n.format(
+                    "已設定{0}背景",
+                    "{0} background set",
+                    appearanceName
                 ),
                 style: .success
             )
         } catch {
-            show(error.localizedDescription, style: .error)
+            show(
+                AppErrorLocalization.message(for: error),
+                style: .error
+            )
         }
     }
 
@@ -887,12 +937,18 @@ final class ThemeAppModel: ObservableObject {
         from source: ThemeSkinAppearance,
         to destination: ThemeSkinAppearance
     ) {
+        let sourceName = source == .light
+            ? L10n.text("淺色", "Light")
+            : L10n.text("深色", "Dark")
+        let destinationName = destination == .light
+            ? L10n.text("淺色", "Light")
+            : L10n.text("深色", "Dark")
         mutateDraft(
-            actionName: L10n.text(
-                "複製\(source == .light ? "淺色" : "深色")到"
-                    + "\(destination == .light ? "淺色" : "深色")",
-                "Copy \(source == .light ? "light" : "dark") to "
-                    + "\(destination == .light ? "light" : "dark")"
+            actionName: L10n.format(
+                "複製{0}到{1}",
+                "Copy {0} to {1}",
+                sourceName,
+                destinationName
             ),
             coalesces: false
         ) { document in
@@ -975,7 +1031,10 @@ final class ThemeAppModel: ObservableObject {
             isLoaded = true
         } catch {
             isLoaded = true
-            show(error.localizedDescription, style: .error)
+            show(
+                AppErrorLocalization.message(for: error),
+                style: .error
+            )
         }
     }
 
@@ -986,7 +1045,10 @@ final class ThemeAppModel: ObservableObject {
         do {
             try await operation()
         } catch {
-            show(error.localizedDescription, style: .error)
+            show(
+                AppErrorLocalization.message(for: error),
+                style: .error
+            )
         }
     }
 
@@ -1146,23 +1208,26 @@ enum ThemeAppError: LocalizedError {
                 "Choose Launch + Attach Codex first. The first attachment may restart Codex."
             )
         case .assetTooLarge(let name):
-            return L10n.text(
-                "素材「\(name)」超過 16 MB。",
-                "Asset “\(name)” is larger than 16 MB."
+            return L10n.format(
+                "素材「{0}」超過 16 MB。",
+                "Asset “{0}” is larger than 16 MB.",
+                name
             )
         case .totalAssetsTooLarge(let bytes):
             let size = ByteCountFormatter.string(
                 fromByteCount: Int64(bytes),
                 countStyle: .file
             )
-            return L10n.text(
-                "加入後素材合計為 \(size)，超過 32 MB 上限。",
-                "Assets would total \(size), above the 32 MB limit."
+            return L10n.format(
+                "加入後素材合計為 {0}，超過 32 MB 上限。",
+                "Assets would total {0}, above the 32 MB limit.",
+                size
             )
         case .invalidSkinImage(let name):
-            return L10n.text(
-                "「\(name)」不是可解碼的 PNG、JPEG、WebP、GIF 或 AVIF 圖片。",
-                "“\(name)” is not a decodable PNG, JPEG, WebP, GIF, or AVIF image."
+            return L10n.format(
+                "「{0}」不是可解碼的 PNG、JPEG、WebP、GIF 或 AVIF 圖片。",
+                "“{0}” is not a decodable PNG, JPEG, WebP, GIF, or AVIF image.",
+                name
             )
         }
     }

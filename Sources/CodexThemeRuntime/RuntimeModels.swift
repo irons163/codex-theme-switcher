@@ -80,7 +80,10 @@ public struct ThemeRuntimeResult: Codable, Equatable, Sendable {
     public func requiringSuccess() throws -> ThemeRuntimeResult {
         guard ok else {
             throw ThemeRuntimeFailure(
-                message: error?.message ?? rawOutput ?? "Codex Theme runtime command failed."
+                message: error?.message
+                    ?? rawOutput
+                    ?? "Codex Theme runtime command failed.",
+                code: error?.code
             )
         }
         return self
@@ -89,9 +92,11 @@ public struct ThemeRuntimeResult: Codable, Equatable, Sendable {
 
 public struct ThemeRuntimeFailure: LocalizedError, Equatable, Sendable {
     public let message: String
+    public let code: String?
 
-    public init(message: String) {
+    public init(message: String, code: String? = nil) {
         self.message = message
+        self.code = code
     }
 
     public var errorDescription: String? { message }
