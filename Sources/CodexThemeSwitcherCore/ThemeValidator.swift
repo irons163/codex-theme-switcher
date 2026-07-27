@@ -321,7 +321,10 @@ public struct ThemeValidator: Sendable {
                     ("contentTint", variant.contentTint),
                     ("composerTint", variant.composerTint),
                     ("cardTint", variant.cardTint),
-                    ("borderColor", variant.borderColor)
+                    ("borderColor", variant.borderColor),
+                    ("centerPanelTint", variant.centerPanelTint),
+                    ("centerPanelBorderColor", variant.centerPanelBorderColor),
+                    ("centerPanelShadowColor", variant.centerPanelShadowColor)
                 ]
                 for (name, value) in cssValues {
                     totalCSSCharacters += value.count
@@ -363,7 +366,10 @@ public struct ThemeValidator: Sendable {
                     ("contentOpacity", variant.contentOpacity),
                     ("composerOpacity", variant.composerOpacity),
                     ("cardOpacity", variant.cardOpacity),
-                    ("borderOpacity", variant.borderOpacity)
+                    ("borderOpacity", variant.borderOpacity),
+                    ("centerPanelOpacity", variant.centerPanelOpacity),
+                    ("centerPanelBorderOpacity", variant.centerPanelBorderOpacity),
+                    ("centerPanelShadowOpacity", variant.centerPanelShadowOpacity)
                 ]
                 for (name, value) in unitValues
                 where !value.isFinite || !(0...1).contains(value) {
@@ -408,6 +414,41 @@ public struct ThemeValidator: Sendable {
                     .invalidSkinNumber,
                     path: "imageSkin.glass.\(item.name)",
                     message: "Glass value is outside the supported range."
+                )
+            }
+
+            let centerPanelValues: [
+                (name: String, value: Double, range: ClosedRange<Double>)
+            ] = [
+                ("backdropBlur", skin.centerPanel.backdropBlur, 0...80),
+                (
+                    "backdropSaturation",
+                    skin.centerPanel.backdropSaturation,
+                    0...3
+                ),
+                ("borderWidth", skin.centerPanel.borderWidth, 0...8),
+                ("cornerRadius", skin.centerPanel.cornerRadius, 0...64),
+                ("shadowBlur", skin.centerPanel.shadowBlur, 0...120),
+                ("shadowOffsetX", skin.centerPanel.shadowOffsetX, -120...120),
+                ("shadowOffsetY", skin.centerPanel.shadowOffsetY, -120...120),
+                ("maximumWidth", skin.centerPanel.maximumWidth, 320...1_600),
+                (
+                    "horizontalPadding",
+                    skin.centerPanel.horizontalPadding,
+                    0...120
+                ),
+                (
+                    "verticalPadding",
+                    skin.centerPanel.verticalPadding,
+                    0...120
+                )
+            ]
+            for item in centerPanelValues
+            where !item.value.isFinite || !item.range.contains(item.value) {
+                add(
+                    .invalidSkinNumber,
+                    path: "imageSkin.centerPanel.\(item.name)",
+                    message: "Center panel value is outside the supported range."
                 )
             }
         }

@@ -116,6 +116,18 @@ final class ThemeArchiveServiceTests: XCTestCase {
             dark.id
         )
         XCTAssertEqual(
+            inspection.theme.imageSkin?.centerPanel,
+            imageSkin.centerPanel
+        )
+        XCTAssertEqual(
+            inspection.theme.imageSkin?.light.centerPanelTint,
+            imageSkin.light.centerPanelTint
+        )
+        XCTAssertEqual(
+            inspection.theme.imageSkin?.dark.centerPanelBorderColor,
+            imageSkin.dark.centerPanelBorderColor
+        )
+        XCTAssertEqual(
             inspection.theme.assets.map(\.decodedData),
             [Data([1, 2, 3]), Data([4, 5, 6])]
         )

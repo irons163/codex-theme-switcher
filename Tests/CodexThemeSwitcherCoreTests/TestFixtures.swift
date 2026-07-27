@@ -118,7 +118,13 @@ enum TestFixtures {
                 cardTint: "#FFF8F2",
                 cardOpacity: 0.62,
                 borderColor: "#FFFFFF",
-                borderOpacity: 0.52
+                borderOpacity: 0.52,
+                centerPanelTint: "#FFF3E9",
+                centerPanelOpacity: 0.64,
+                centerPanelBorderColor: "#FFFDFC",
+                centerPanelBorderOpacity: 0.72,
+                centerPanelShadowColor: "#5A3828",
+                centerPanelShadowOpacity: 0.16
             ),
             dark: ThemeSkinVariant(
                 backgroundAssetID: darkAssetID,
@@ -150,7 +156,26 @@ enum TestFixtures {
                 cardTint: "#15130F",
                 cardOpacity: 0.66,
                 borderColor: "#D8AD64",
-                borderOpacity: 0.3
+                borderOpacity: 0.3,
+                centerPanelTint: "#090706",
+                centerPanelOpacity: 0.46,
+                centerPanelBorderColor: "#D8AD64",
+                centerPanelBorderOpacity: 0.34,
+                centerPanelShadowColor: "#000000",
+                centerPanelShadowOpacity: 0.38
+            ),
+            centerPanel: ThemeSkinCenterPanel(
+                isEnabled: true,
+                backdropBlur: 28,
+                backdropSaturation: 1.3,
+                borderWidth: 1.75,
+                cornerRadius: 24,
+                shadowBlur: 46,
+                shadowOffsetX: 3,
+                shadowOffsetY: 16,
+                maximumWidth: 880,
+                horizontalPadding: 34,
+                verticalPadding: 26
             ),
             glass: ThemeSkinGlass(
                 blurRadius: 24,

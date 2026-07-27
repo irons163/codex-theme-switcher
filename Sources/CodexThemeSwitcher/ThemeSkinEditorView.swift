@@ -5,6 +5,7 @@ import SwiftUI
 struct ThemeSkinEditorView: View {
     @ObservedObject var model: ThemeAppModel
     @State private var appearance: ThemeSkinAppearance = .dark
+    @State private var previewSurface: ThemePreviewSurface = .home
 
     private var skin: ThemeImageSkin {
         model.draft?.imageSkin ?? ThemeImageSkin(isEnabled: false)
@@ -30,6 +31,7 @@ struct ThemeSkinEditorView: View {
                     treatmentSection
                     overlaySection
                     surfacesSection
+                    centerPanelSection
                     glassSection
                     targetsSection
                 }
@@ -82,13 +84,23 @@ struct ThemeSkinEditorView: View {
 
     private var preview: some View {
         EditorSection(
-            title: L10n.text("即時 Home 預覽", "Live home preview"),
+            title: L10n.text("即時預覽", "Live preview"),
             subtitle: L10n.text(
-                "預覽會套用明暗版本與圖片濾鏡；玻璃材質為近似顯示，Codex 會使用精確 blur / saturation 數值。",
-                "Uses the selected appearance and image filters. Glass is approximated here; Codex uses the exact blur / saturation values."
+                "切換 Home／Chat 檢查中央面板邊界；玻璃材質為近似顯示，Codex 會使用精確 blur / saturation 數值。",
+                "Switch between Home and Chat to inspect the center-panel boundary. Glass is approximated here; Codex uses the exact blur / saturation values."
             )
         ) {
             HStack {
+                Picker(
+                    L10n.text("預覽畫面", "Preview surface"),
+                    selection: $previewSurface
+                ) {
+                    Text("Home").tag(ThemePreviewSurface.home)
+                    Text("Chat").tag(ThemePreviewSurface.chat)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 170)
+
                 Picker(
                     L10n.text("編輯版本", "Editing"),
                     selection: $appearance
@@ -122,7 +134,7 @@ struct ThemeSkinEditorView: View {
                 ThemePreviewView(
                     theme: theme,
                     appearance: appearance,
-                    surface: .home
+                    surface: previewSurface
                 )
                 .environment(
                     \.colorScheme,
@@ -615,6 +627,154 @@ struct ThemeSkinEditorView: View {
         }
     }
 
+    private var centerPanelSection: some View {
+        EditorSection(
+            title: L10n.text("中央內容面板", "Center content panel"),
+            subtitle: L10n.text(
+                "獨立包住 Home 標題或 Chat 對話文字，不會改到建議 Cards、Composer 或整片主內容背景。",
+                "Wraps only the Home heading or Chat transcript, without changing suggestion cards, the Composer, or the full main-content background."
+            )
+        ) {
+            Toggle(isOn: centerPanelBinding(\.isEnabled)) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(
+                        L10n.text(
+                            "啟用中央內容面板",
+                            "Enable center content panel"
+                        )
+                    )
+                    .font(.caption.weight(.semibold))
+                    Text(
+                        L10n.text(
+                            "可替文字加上獨立底色、邊框、留白、模糊與陰影。",
+                            "Give the text its own fill, border, spacing, blur, and shadow."
+                        )
+                    )
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
+            .padding(10)
+            .background(.quaternary.opacity(0.28))
+            .clipShape(RoundedRectangle(cornerRadius: 9))
+
+            LazyVGrid(
+                columns: [
+                    GridItem(.flexible(), spacing: 14),
+                    GridItem(.flexible(), spacing: 14)
+                ],
+                spacing: 12
+            ) {
+                SkinColorField(
+                    title: L10n.text("面板底色", "Panel fill"),
+                    value: variantBinding(\.centerPanelTint)
+                )
+                SkinValueSlider(
+                    title: L10n.text("底色不透明度", "Fill opacity"),
+                    value: variantBinding(\.centerPanelOpacity),
+                    range: 0...1,
+                    step: 0.01,
+                    format: { "\(Int($0 * 100))%" }
+                )
+                SkinColorField(
+                    title: L10n.text("面板邊框色", "Panel border"),
+                    value: variantBinding(\.centerPanelBorderColor)
+                )
+                SkinValueSlider(
+                    title: L10n.text("邊框不透明度", "Border opacity"),
+                    value: variantBinding(\.centerPanelBorderOpacity),
+                    range: 0...1,
+                    step: 0.01,
+                    format: { "\(Int($0 * 100))%" }
+                )
+                SkinValueSlider(
+                    title: L10n.text("邊框寬度", "Border width"),
+                    value: centerPanelBinding(\.borderWidth),
+                    range: 0...8,
+                    step: 0.25,
+                    format: { String(format: "%.2f px", $0) }
+                )
+                SkinValueSlider(
+                    title: L10n.text("面板圓角", "Panel radius"),
+                    value: centerPanelBinding(\.cornerRadius),
+                    range: 0...64,
+                    step: 1,
+                    format: { "\(Int($0)) px" }
+                )
+                SkinValueSlider(
+                    title: L10n.text("背景模糊", "Backdrop blur"),
+                    value: centerPanelBinding(\.backdropBlur),
+                    range: 0...80,
+                    step: 1,
+                    format: { "\(Int($0)) px" }
+                )
+                SkinValueSlider(
+                    title: L10n.text("玻璃飽和", "Glass saturation"),
+                    value: centerPanelBinding(\.backdropSaturation),
+                    range: 0...3,
+                    step: 0.01,
+                    format: { String(format: "%.2f×", $0) }
+                )
+                SkinColorField(
+                    title: L10n.text("陰影顏色", "Shadow color"),
+                    value: variantBinding(\.centerPanelShadowColor)
+                )
+                SkinValueSlider(
+                    title: L10n.text("陰影不透明度", "Shadow opacity"),
+                    value: variantBinding(\.centerPanelShadowOpacity),
+                    range: 0...1,
+                    step: 0.01,
+                    format: { "\(Int($0 * 100))%" }
+                )
+                SkinValueSlider(
+                    title: L10n.text("陰影擴散", "Shadow blur"),
+                    value: centerPanelBinding(\.shadowBlur),
+                    range: 0...120,
+                    step: 1,
+                    format: { "\(Int($0)) px" }
+                )
+                SkinValueSlider(
+                    title: L10n.text("陰影水平位移", "Shadow offset X"),
+                    value: centerPanelBinding(\.shadowOffsetX),
+                    range: -120...120,
+                    step: 1,
+                    format: { "\(Int($0)) px" }
+                )
+                SkinValueSlider(
+                    title: L10n.text("陰影垂直位移", "Shadow offset Y"),
+                    value: centerPanelBinding(\.shadowOffsetY),
+                    range: -120...120,
+                    step: 1,
+                    format: { "\(Int($0)) px" }
+                )
+                SkinValueSlider(
+                    title: L10n.text("最大寬度", "Maximum width"),
+                    value: centerPanelBinding(\.maximumWidth),
+                    range: 320...1_600,
+                    step: 10,
+                    format: { "\(Int($0)) px" }
+                )
+                SkinValueSlider(
+                    title: L10n.text("水平內距", "Horizontal padding"),
+                    value: centerPanelBinding(\.horizontalPadding),
+                    range: 0...120,
+                    step: 1,
+                    format: { "\(Int($0)) px" }
+                )
+                SkinValueSlider(
+                    title: L10n.text("垂直內距", "Vertical padding"),
+                    value: centerPanelBinding(\.verticalPadding),
+                    range: 0...120,
+                    step: 1,
+                    format: { "\(Int($0)) px" }
+                )
+            }
+            .disabled(!skin.centerPanel.isEnabled)
+            .opacity(skin.centerPanel.isEnabled ? 1 : 0.5)
+        }
+    }
+
     private var glassSection: some View {
         EditorSection(
             title: L10n.text("玻璃物理參數", "Glass material"),
@@ -864,6 +1024,21 @@ struct ThemeSkinEditorView: View {
                 model.mutateDraft { document in
                     var imageSkin = document.imageSkin ?? ThemeImageSkin()
                     imageSkin.glass[keyPath: keyPath] = value
+                    document.imageSkin = imageSkin
+                }
+            }
+        )
+    }
+
+    private func centerPanelBinding<Value>(
+        _ keyPath: WritableKeyPath<ThemeSkinCenterPanel, Value>
+    ) -> Binding<Value> {
+        Binding(
+            get: { skin.centerPanel[keyPath: keyPath] },
+            set: { value in
+                model.mutateDraft { document in
+                    var imageSkin = document.imageSkin ?? ThemeImageSkin()
+                    imageSkin.centerPanel[keyPath: keyPath] = value
                     document.imageSkin = imageSkin
                 }
             }

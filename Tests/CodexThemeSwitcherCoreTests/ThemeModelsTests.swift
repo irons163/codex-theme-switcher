@@ -115,6 +115,7 @@ final class ThemeModelsTests: XCTestCase {
         XCTAssertEqual(skin.wallpaperScope, .fullWindow)
         XCTAssertEqual(skin.light, expectedLight)
         XCTAssertEqual(skin.dark, .darkDefault)
+        XCTAssertEqual(skin.centerPanel, ThemeSkinCenterPanel())
         XCTAssertEqual(skin.glass, expectedGlass)
         XCTAssertEqual(skin.targets, expectedTargets)
 
@@ -123,6 +124,49 @@ final class ThemeModelsTests: XCTestCase {
             from: Data("{}".utf8)
         )
         XCTAssertEqual(allDefaults, ThemeImageSkin())
+    }
+
+    func testCenterPanelPartialSettingsUseAppearanceSpecificDefaults() throws {
+        let skin = try JSONDecoder().decode(
+            ThemeImageSkin.self,
+            from: Data(#"""
+            {
+              "light": {
+                "centerPanelOpacity": 0.71,
+                "centerPanelBorderColor": "#F0E0D0"
+              },
+              "dark": {
+                "centerPanelTint": "#020304",
+                "centerPanelShadowOpacity": 0.44
+              },
+              "centerPanel": {
+                "isEnabled": true,
+                "cornerRadius": 31,
+                "maximumWidth": 920
+              }
+            }
+            """#.utf8)
+        )
+
+        XCTAssertTrue(skin.centerPanel.isEnabled)
+        XCTAssertEqual(skin.centerPanel.cornerRadius, 31)
+        XCTAssertEqual(skin.centerPanel.maximumWidth, 920)
+        XCTAssertEqual(
+            skin.centerPanel.backdropBlur,
+            ThemeSkinCenterPanel().backdropBlur
+        )
+        XCTAssertEqual(skin.light.centerPanelOpacity, 0.71)
+        XCTAssertEqual(skin.light.centerPanelBorderColor, "#F0E0D0")
+        XCTAssertEqual(
+            skin.light.centerPanelTint,
+            ThemeSkinVariant.lightDefault.centerPanelTint
+        )
+        XCTAssertEqual(skin.dark.centerPanelTint, "#020304")
+        XCTAssertEqual(skin.dark.centerPanelShadowOpacity, 0.44)
+        XCTAssertEqual(
+            skin.dark.centerPanelBorderColor,
+            ThemeSkinVariant.darkDefault.centerPanelBorderColor
+        )
     }
 
     func testWallpaperScopeUsesStableValuesAndFutureSafeFallback() throws {

@@ -209,6 +209,9 @@ final class ThemeValidatorTests: XCTestCase {
         skin.light.overlayColor =
             #"red; background: u/**/rl("\68ttps://tracker.invalid/pixel")"#
         skin.dark.accentColor = #"@\69mport "tracker.css""#
+        skin.light.centerPanelBorderColor = "red; border: 8px"
+        skin.dark.centerPanelShadowColor =
+            #"u\72l("https://tracker.invalid/shadow")"#
         let result = validator.validate(
             TestFixtures.theme(imageSkin: skin)
         )
@@ -229,6 +232,20 @@ final class ThemeValidatorTests: XCTestCase {
             result.issues.contains {
                 $0.code == .unsafeImport
                     && $0.path == "imageSkin.dark.accentColor"
+            }
+        )
+        XCTAssertTrue(
+            result.issues.contains {
+                $0.code == .invalidSkinCSSValue
+                    && $0.path
+                        == "imageSkin.light.centerPanelBorderColor"
+            }
+        )
+        XCTAssertTrue(
+            result.issues.contains {
+                $0.code == .unsafeURL
+                    && $0.path
+                        == "imageSkin.dark.centerPanelShadowColor"
             }
         )
     }
@@ -282,8 +299,13 @@ final class ThemeValidatorTests: XCTestCase {
         skin.light.imageOpacity = .infinity
         skin.dark.zoom = 3.01
         skin.dark.imageBlur = -0.01
+        skin.light.centerPanelOpacity = 1.01
+        skin.dark.centerPanelShadowOpacity = .nan
         skin.glass.blurRadius = 80.01
         skin.glass.shadowOpacity = -0.01
+        skin.centerPanel.maximumWidth = 319.99
+        skin.centerPanel.horizontalPadding = 120.01
+        skin.centerPanel.shadowOffsetX = -.infinity
 
         let result = validator.validate(
             TestFixtures.theme(imageSkin: skin)
@@ -298,7 +320,16 @@ final class ThemeValidatorTests: XCTestCase {
         XCTAssertTrue(paths.contains("imageSkin.light.imageOpacity"))
         XCTAssertTrue(paths.contains("imageSkin.dark.zoom"))
         XCTAssertTrue(paths.contains("imageSkin.dark.imageBlur"))
+        XCTAssertTrue(paths.contains("imageSkin.light.centerPanelOpacity"))
+        XCTAssertTrue(
+            paths.contains("imageSkin.dark.centerPanelShadowOpacity")
+        )
         XCTAssertTrue(paths.contains("imageSkin.glass.blurRadius"))
         XCTAssertTrue(paths.contains("imageSkin.glass.shadowOpacity"))
+        XCTAssertTrue(paths.contains("imageSkin.centerPanel.maximumWidth"))
+        XCTAssertTrue(
+            paths.contains("imageSkin.centerPanel.horizontalPadding")
+        )
+        XCTAssertTrue(paths.contains("imageSkin.centerPanel.shadowOffsetX"))
     }
 }

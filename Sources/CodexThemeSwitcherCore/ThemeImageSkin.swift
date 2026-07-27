@@ -54,6 +54,7 @@ public struct ThemeImageSkin: Codable, Equatable, Sendable {
     public var wallpaperScope: ThemeSkinWallpaperScope
     public var light: ThemeSkinVariant
     public var dark: ThemeSkinVariant
+    public var centerPanel: ThemeSkinCenterPanel
     public var glass: ThemeSkinGlass
     public var targets: ThemeSkinTargets
 
@@ -62,6 +63,7 @@ public struct ThemeImageSkin: Codable, Equatable, Sendable {
         wallpaperScope: ThemeSkinWallpaperScope = .fullWindow,
         light: ThemeSkinVariant = .lightDefault,
         dark: ThemeSkinVariant = .darkDefault,
+        centerPanel: ThemeSkinCenterPanel = ThemeSkinCenterPanel(),
         glass: ThemeSkinGlass = ThemeSkinGlass(),
         targets: ThemeSkinTargets = ThemeSkinTargets()
     ) {
@@ -69,6 +71,7 @@ public struct ThemeImageSkin: Codable, Equatable, Sendable {
         self.wallpaperScope = wallpaperScope
         self.light = light
         self.dark = dark
+        self.centerPanel = centerPanel
         self.glass = glass
         self.targets = targets
     }
@@ -94,6 +97,7 @@ public struct ThemeImageSkin: Codable, Equatable, Sendable {
         case wallpaperScope
         case light
         case dark
+        case centerPanel
         case glass
         case targets
     }
@@ -132,6 +136,10 @@ public struct ThemeImageSkin: Codable, Equatable, Sendable {
         } else {
             dark = .darkDefault
         }
+        centerPanel = try values.decodeIfPresent(
+            ThemeSkinCenterPanel.self,
+            forKey: .centerPanel
+        ) ?? ThemeSkinCenterPanel()
         glass = try values.decodeIfPresent(
             ThemeSkinGlass.self,
             forKey: .glass
@@ -174,6 +182,12 @@ public struct ThemeSkinVariant: Codable, Equatable, Sendable {
     public var cardOpacity: Double
     public var borderColor: String
     public var borderOpacity: Double
+    public var centerPanelTint: String
+    public var centerPanelOpacity: Double
+    public var centerPanelBorderColor: String
+    public var centerPanelBorderOpacity: Double
+    public var centerPanelShadowColor: String
+    public var centerPanelShadowOpacity: Double
 
     public init(
         backgroundAssetID: UUID? = nil,
@@ -205,7 +219,13 @@ public struct ThemeSkinVariant: Codable, Equatable, Sendable {
         cardTint: String = "#15130F",
         cardOpacity: Double = 0.58,
         borderColor: String = "#D8B06C",
-        borderOpacity: Double = 0.24
+        borderOpacity: Double = 0.24,
+        centerPanelTint: String = "#08090C",
+        centerPanelOpacity: Double = 0.38,
+        centerPanelBorderColor: String = "#D8B06C",
+        centerPanelBorderOpacity: Double = 0.24,
+        centerPanelShadowColor: String = "#000000",
+        centerPanelShadowOpacity: Double = 0.24
     ) {
         self.backgroundAssetID = backgroundAssetID
         self.backgroundColor = backgroundColor
@@ -237,6 +257,12 @@ public struct ThemeSkinVariant: Codable, Equatable, Sendable {
         self.cardOpacity = cardOpacity
         self.borderColor = borderColor
         self.borderOpacity = borderOpacity
+        self.centerPanelTint = centerPanelTint
+        self.centerPanelOpacity = centerPanelOpacity
+        self.centerPanelBorderColor = centerPanelBorderColor
+        self.centerPanelBorderOpacity = centerPanelBorderOpacity
+        self.centerPanelShadowColor = centerPanelShadowColor
+        self.centerPanelShadowOpacity = centerPanelShadowOpacity
     }
 
     public static let darkDefault = ThemeSkinVariant()
@@ -264,7 +290,13 @@ public struct ThemeSkinVariant: Codable, Equatable, Sendable {
         cardTint: "#FFFCFA",
         cardOpacity: 0.58,
         borderColor: "#FFFFFF",
-        borderOpacity: 0.48
+        borderOpacity: 0.48,
+        centerPanelTint: "#FFF9F5",
+        centerPanelOpacity: 0.56,
+        centerPanelBorderColor: "#FFFFFF",
+        centerPanelBorderOpacity: 0.48,
+        centerPanelShadowColor: "#5A4638",
+        centerPanelShadowOpacity: 0.14
     )
 
     private enum CodingKeys: String, CodingKey, CaseIterable {
@@ -298,6 +330,12 @@ public struct ThemeSkinVariant: Codable, Equatable, Sendable {
         case cardOpacity
         case borderColor
         case borderOpacity
+        case centerPanelTint
+        case centerPanelOpacity
+        case centerPanelBorderColor
+        case centerPanelBorderOpacity
+        case centerPanelShadowColor
+        case centerPanelShadowOpacity
     }
 
     public init(from decoder: Decoder) throws {
@@ -434,6 +472,133 @@ public struct ThemeSkinVariant: Codable, Equatable, Sendable {
             Double.self,
             forKey: .borderOpacity
         ) ?? defaults.borderOpacity
+        centerPanelTint = try values.decodeIfPresent(
+            String.self,
+            forKey: .centerPanelTint
+        ) ?? defaults.centerPanelTint
+        centerPanelOpacity = try values.decodeIfPresent(
+            Double.self,
+            forKey: .centerPanelOpacity
+        ) ?? defaults.centerPanelOpacity
+        centerPanelBorderColor = try values.decodeIfPresent(
+            String.self,
+            forKey: .centerPanelBorderColor
+        ) ?? defaults.centerPanelBorderColor
+        centerPanelBorderOpacity = try values.decodeIfPresent(
+            Double.self,
+            forKey: .centerPanelBorderOpacity
+        ) ?? defaults.centerPanelBorderOpacity
+        centerPanelShadowColor = try values.decodeIfPresent(
+            String.self,
+            forKey: .centerPanelShadowColor
+        ) ?? defaults.centerPanelShadowColor
+        centerPanelShadowOpacity = try values.decodeIfPresent(
+            Double.self,
+            forKey: .centerPanelShadowOpacity
+        ) ?? defaults.centerPanelShadowOpacity
+    }
+}
+
+public struct ThemeSkinCenterPanel: Codable, Equatable, Sendable {
+    public var isEnabled: Bool
+    public var backdropBlur: Double
+    public var backdropSaturation: Double
+    public var borderWidth: Double
+    public var cornerRadius: Double
+    public var shadowBlur: Double
+    public var shadowOffsetX: Double
+    public var shadowOffsetY: Double
+    public var maximumWidth: Double
+    public var horizontalPadding: Double
+    public var verticalPadding: Double
+
+    public init(
+        isEnabled: Bool = false,
+        backdropBlur: Double = 18,
+        backdropSaturation: Double = 1.12,
+        borderWidth: Double = 1,
+        cornerRadius: Double = 20,
+        shadowBlur: Double = 32,
+        shadowOffsetX: Double = 0,
+        shadowOffsetY: Double = 18,
+        maximumWidth: Double = 768,
+        horizontalPadding: Double = 24,
+        verticalPadding: Double = 20
+    ) {
+        self.isEnabled = isEnabled
+        self.backdropBlur = backdropBlur
+        self.backdropSaturation = backdropSaturation
+        self.borderWidth = borderWidth
+        self.cornerRadius = cornerRadius
+        self.shadowBlur = shadowBlur
+        self.shadowOffsetX = shadowOffsetX
+        self.shadowOffsetY = shadowOffsetY
+        self.maximumWidth = maximumWidth
+        self.horizontalPadding = horizontalPadding
+        self.verticalPadding = verticalPadding
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case isEnabled
+        case backdropBlur
+        case backdropSaturation
+        case borderWidth
+        case cornerRadius
+        case shadowBlur
+        case shadowOffsetX
+        case shadowOffsetY
+        case maximumWidth
+        case horizontalPadding
+        case verticalPadding
+    }
+
+    public init(from decoder: Decoder) throws {
+        let defaults = ThemeSkinCenterPanel()
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        isEnabled = try values.decodeIfPresent(
+            Bool.self,
+            forKey: .isEnabled
+        ) ?? defaults.isEnabled
+        backdropBlur = try values.decodeIfPresent(
+            Double.self,
+            forKey: .backdropBlur
+        ) ?? defaults.backdropBlur
+        backdropSaturation = try values.decodeIfPresent(
+            Double.self,
+            forKey: .backdropSaturation
+        ) ?? defaults.backdropSaturation
+        borderWidth = try values.decodeIfPresent(
+            Double.self,
+            forKey: .borderWidth
+        ) ?? defaults.borderWidth
+        cornerRadius = try values.decodeIfPresent(
+            Double.self,
+            forKey: .cornerRadius
+        ) ?? defaults.cornerRadius
+        shadowBlur = try values.decodeIfPresent(
+            Double.self,
+            forKey: .shadowBlur
+        ) ?? defaults.shadowBlur
+        shadowOffsetX = try values.decodeIfPresent(
+            Double.self,
+            forKey: .shadowOffsetX
+        ) ?? defaults.shadowOffsetX
+        shadowOffsetY = try values.decodeIfPresent(
+            Double.self,
+            forKey: .shadowOffsetY
+        ) ?? defaults.shadowOffsetY
+        maximumWidth = try values.decodeIfPresent(
+            Double.self,
+            forKey: .maximumWidth
+        ) ?? defaults.maximumWidth
+        horizontalPadding = try values.decodeIfPresent(
+            Double.self,
+            forKey: .horizontalPadding
+        ) ?? defaults.horizontalPadding
+        verticalPadding = try values.decodeIfPresent(
+            Double.self,
+            forKey: .verticalPadding
+        ) ?? defaults.verticalPadding
     }
 }
 

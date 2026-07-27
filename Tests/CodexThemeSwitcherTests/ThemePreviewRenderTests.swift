@@ -209,6 +209,84 @@ final class ThemePreviewRenderTests: XCTestCase {
     }
 
     @MainActor
+    func testCenterPanelPreviewRendersHomeAndChatSurfaces() throws {
+        var skin = ThemeImageSkin()
+        skin.centerPanel = ThemeSkinCenterPanel(
+            isEnabled: true,
+            backdropBlur: 24,
+            backdropSaturation: 1.35,
+            borderWidth: 2,
+            cornerRadius: 28,
+            shadowBlur: 40,
+            shadowOffsetX: 8,
+            shadowOffsetY: 16,
+            maximumWidth: 520,
+            horizontalPadding: 32,
+            verticalPadding: 24
+        )
+        skin.dark.centerPanelTint = "#17110D"
+        skin.dark.centerPanelOpacity = 0.72
+        skin.dark.centerPanelBorderColor = "#E4B768"
+        skin.dark.centerPanelBorderOpacity = 0.74
+        skin.dark.centerPanelShadowColor = "#000000"
+        skin.dark.centerPanelShadowOpacity = 0.48
+
+        var theme = BuiltInThemes.midnight
+        theme.id = UUID()
+        theme.imageSkin = skin
+
+        for surface in ThemePreviewSurface.allCases {
+            let renderer = ImageRenderer(
+                content: ThemePreviewView(
+                    theme: theme,
+                    appearance: .dark,
+                    surface: surface
+                )
+                .environment(\.colorScheme, .dark)
+                .frame(width: 680, height: 420)
+            )
+            renderer.scale = 1
+            let image = try XCTUnwrap(renderer.nsImage)
+
+            XCTAssertEqual(image.size.width, 680, accuracy: 0.5)
+            XCTAssertEqual(image.size.height, 420, accuracy: 0.5)
+
+            if let directory = ProcessInfo.processInfo.environment[
+                "CTS_CENTER_PANEL_SNAPSHOT_DIR"
+            ],
+            let data = image.pngData {
+                let url = URL(fileURLWithPath: directory)
+                    .appendingPathComponent("\(surface.rawValue).png")
+                try data.write(to: url)
+            }
+        }
+
+        theme.imageSkin?.centerPanel.isEnabled = false
+        let legacyRenderer = ImageRenderer(
+            content: ThemePreviewView(
+                theme: theme,
+                appearance: .dark,
+                surface: .chat
+            )
+            .environment(\.colorScheme, .dark)
+            .frame(width: 680, height: 420)
+        )
+        legacyRenderer.scale = 1
+        let legacyImage = try XCTUnwrap(legacyRenderer.nsImage)
+        XCTAssertEqual(legacyImage.size.width, 680, accuracy: 0.5)
+        XCTAssertEqual(legacyImage.size.height, 420, accuracy: 0.5)
+
+        if let directory = ProcessInfo.processInfo.environment[
+            "CTS_CENTER_PANEL_SNAPSHOT_DIR"
+        ],
+        let data = legacyImage.pngData {
+            let url = URL(fileURLWithPath: directory)
+                .appendingPathComponent("chat-legacy.png")
+            try data.write(to: url)
+        }
+    }
+
+    @MainActor
     private func makeWallpaper() throws -> Data {
         let image = NSImage(size: NSSize(width: 1_600, height: 1_000))
         image.lockFocus()

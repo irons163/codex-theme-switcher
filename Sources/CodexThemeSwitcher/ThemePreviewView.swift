@@ -217,13 +217,14 @@ struct ThemePreviewView: View {
 
     private var chatSurface: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                assistantMessage
-                userMessage
-                codeBlock
-                assistantReply
+            centerPanel(legacyMaximumWidth: 600) {
+                VStack(alignment: .leading, spacing: 18) {
+                    assistantMessage
+                    userMessage
+                    codeBlock
+                    assistantReply
+                }
             }
-            .frame(maxWidth: 600)
             .padding(.horizontal, 28)
             .padding(.top, 28)
             .padding(.bottom, 100)
@@ -239,14 +240,15 @@ struct ThemePreviewView: View {
         VStack(spacing: 0) {
             Spacer(minLength: 16)
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text("What should we build?")
-                    .font(.system(size: 25, weight: .bold))
-                Text("Bring your workspace into a look that feels entirely yours.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(visual.textSecondary)
+            centerPanel(legacyMaximumWidth: 610) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("What should we build?")
+                        .font(.system(size: 25, weight: .bold))
+                    Text("Bring your workspace into a look that feels entirely yours.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(visual.textSecondary)
+                }
             }
-            .frame(maxWidth: 610, alignment: .leading)
             .padding(.horizontal, 24)
 
             Spacer(minLength: 16)
@@ -282,6 +284,70 @@ struct ThemePreviewView: View {
                 .frame(maxWidth: 650)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 18)
+        }
+    }
+
+    @ViewBuilder
+    private func centerPanel<Content: View>(
+        legacyMaximumWidth: CGFloat,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        if visual.centerPanelEnabled {
+            content()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(
+                    .horizontal,
+                    visual.centerPanelHorizontalPadding
+                )
+                .padding(
+                    .vertical,
+                    visual.centerPanelVerticalPadding
+                )
+                .frame(
+                    maxWidth: visual.centerPanelMaximumWidth,
+                    alignment: .leading
+                )
+                .background(visual.centerPanelBackground)
+                .background {
+                    if visual.centerPanelUsesMaterial {
+                        RoundedRectangle(
+                            cornerRadius: visual.centerPanelCornerRadius,
+                            style: .continuous
+                        )
+                        .fill(.ultraThinMaterial)
+                        .saturation(visual.centerPanelBackdropSaturation)
+                    }
+                }
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: visual.centerPanelCornerRadius,
+                        style: .continuous
+                    )
+                )
+                .overlay {
+                    RoundedRectangle(
+                        cornerRadius: visual.centerPanelCornerRadius,
+                        style: .continuous
+                    )
+                    .stroke(
+                        visual.centerPanelBorder,
+                        lineWidth: visual.centerPanelBorderWidth
+                    )
+                }
+                .shadow(
+                    color: visual.centerPanelShadow.opacity(
+                        visual.centerPanelShadowOpacity
+                    ),
+                    radius: visual.centerPanelShadowRadius,
+                    x: visual.centerPanelShadowOffsetX,
+                    y: visual.centerPanelShadowOffsetY
+                )
+        } else {
+            content()
+                .frame(
+                    maxWidth: legacyMaximumWidth,
+                    alignment: .leading
+                )
         }
     }
 
@@ -747,6 +813,9 @@ struct ThemeVisualSnapshot {
     let titlebarBackground: Color
     let composerBackground: Color
     let cardBackground: Color
+    let centerPanelBackground: Color
+    let centerPanelBorder: Color
+    let centerPanelShadow: Color
     let surface: Color
     let textPrimary: Color
     let textSecondary: Color
@@ -766,6 +835,17 @@ struct ThemeVisualSnapshot {
     let shadowOpacity: Double
     let shadowRadius: CGFloat
     let textShadowOpacity: Double
+    let centerPanelEnabled: Bool
+    let centerPanelBorderWidth: CGFloat
+    let centerPanelCornerRadius: CGFloat
+    let centerPanelBackdropSaturation: Double
+    let centerPanelShadowOpacity: Double
+    let centerPanelShadowRadius: CGFloat
+    let centerPanelShadowOffsetX: CGFloat
+    let centerPanelShadowOffsetY: CGFloat
+    let centerPanelMaximumWidth: CGFloat
+    let centerPanelHorizontalPadding: CGFloat
+    let centerPanelVerticalPadding: CGFloat
     let uiFont: Font
     let codeFont: Font
     let backgroundImage: NSImage?
@@ -776,6 +856,7 @@ struct ThemeVisualSnapshot {
     let titlebarUsesMaterial: Bool
     let composerUsesMaterial: Bool
     let cardUsesMaterial: Bool
+    let centerPanelUsesMaterial: Bool
 
     init(
         theme: ThemeDocument,
@@ -828,6 +909,35 @@ struct ThemeVisualSnapshot {
             semantic(.backgroundSecondary, "#1d1d1d")
         )
         let surfaceFallback = semantic(.surface, "#252525")
+        let centerPanel = activeSkin?.centerPanel
+            ?? ThemeSkinCenterPanel()
+
+        centerPanelEnabled = activeSkin != nil && centerPanel.isEnabled
+        centerPanelBackground = Color(
+            css: variant?.centerPanelTint ?? "#000000",
+            fallback: .clear
+        ).opacity(variant?.centerPanelOpacity ?? 0)
+        centerPanelBorder = Color(
+            css: variant?.centerPanelBorderColor ?? "#000000",
+            fallback: .clear
+        ).opacity(variant?.centerPanelBorderOpacity ?? 0)
+        centerPanelShadow = Color(
+            css: variant?.centerPanelShadowColor ?? "#000000",
+            fallback: .black
+        )
+        centerPanelBorderWidth = centerPanel.borderWidth
+        centerPanelCornerRadius = centerPanel.cornerRadius
+        centerPanelBackdropSaturation = centerPanel.backdropSaturation
+        centerPanelShadowOpacity =
+            variant?.centerPanelShadowOpacity ?? 0
+        centerPanelShadowRadius = centerPanel.shadowBlur
+        centerPanelShadowOffsetX = centerPanel.shadowOffsetX
+        centerPanelShadowOffsetY = centerPanel.shadowOffsetY
+        centerPanelMaximumWidth = centerPanel.maximumWidth
+        centerPanelHorizontalPadding = centerPanel.horizontalPadding
+        centerPanelVerticalPadding = centerPanel.verticalPadding
+        centerPanelUsesMaterial =
+            centerPanelEnabled && centerPanel.backdropBlur > 0
 
         if let variant, let activeSkin {
             contentBackground = Color(

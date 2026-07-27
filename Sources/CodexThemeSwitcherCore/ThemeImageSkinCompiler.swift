@@ -30,25 +30,29 @@ enum ThemeImageSkinCompiler {
 
         output.append(appearanceRule(
             selector: variableRoot,
-            variant: skin.light
+            variant: skin.light,
+            centerPanelEnabled: skin.centerPanel.isEnabled
         ))
         output.append(
             """
             @media (prefers-color-scheme: dark) {
             \(indent(appearanceRule(
                 selector: ":root:where(:not(.electron-light):not(.electron-dark))",
-                variant: skin.dark
+                variant: skin.dark,
+                centerPanelEnabled: skin.centerPanel.isEnabled
             )))
             }
             """
         )
         output.append(appearanceRule(
             selector: ":root:where(.electron-dark:not(.electron-light))",
-            variant: skin.dark
+            variant: skin.dark,
+            centerPanelEnabled: skin.centerPanel.isEnabled
         ))
         output.append(appearanceRule(
             selector: ":root:where(.electron-light)",
-            variant: skin.light
+            variant: skin.light,
+            centerPanelEnabled: skin.centerPanel.isEnabled
         ))
         output.append(foundationRules(skin))
 
@@ -57,7 +61,8 @@ enum ThemeImageSkinCompiler {
 
     private static func appearanceRule(
         selector: String,
-        variant: ThemeSkinVariant
+        variant: ThemeSkinVariant,
+        centerPanelEnabled: Bool
     ) -> String {
         let sizing: (size: String, repeatMode: String)
         switch variant.imageFit {
@@ -95,6 +100,23 @@ enum ThemeImageSkinCompiler {
         let insetValue = inset == 0
             ? "0px"
             : "-\(number(inset))px"
+        let centerPanelDeclarations = centerPanelEnabled
+            ? """
+
+              --cts-skin-center-panel-background: \(alphaColor(
+                  variant.centerPanelTint,
+                  variant.centerPanelOpacity
+              ));
+              --cts-skin-center-panel-border: \(alphaColor(
+                  variant.centerPanelBorderColor,
+                  variant.centerPanelBorderOpacity
+              ));
+              --cts-skin-center-panel-shadow: \(alphaColor(
+                  variant.centerPanelShadowColor,
+                  variant.centerPanelShadowOpacity
+              ));
+            """
+            : ""
 
         return """
         \(selector) {
@@ -120,6 +142,7 @@ enum ThemeImageSkinCompiler {
           --cts-skin-composer: \(alphaColor(variant.composerTint, variant.composerOpacity));
           --cts-skin-card: \(alphaColor(variant.cardTint, variant.cardOpacity));
           --cts-skin-border: \(alphaColor(variant.borderColor, variant.borderOpacity));
+        \(centerPanelDeclarations)
         }
         """
     }
@@ -134,6 +157,21 @@ enum ThemeImageSkinCompiler {
             "--cts-skin-shadow: 0 18px \(number(glass.shadowBlur))px rgb(0 0 0 / \(number(glass.shadowOpacity)));",
             "--cts-skin-text-shadow: 0 1px 3px rgb(0 0 0 / \(number(glass.textShadowOpacity)));"
         ]
+        if skin.centerPanel.isEnabled {
+            let panel = skin.centerPanel
+            rootDeclarations.append(contentsOf: [
+                "--cts-skin-center-panel-backdrop-blur: \(number(panel.backdropBlur))px;",
+                "--cts-skin-center-panel-backdrop-saturation: \(number(panel.backdropSaturation));",
+                "--cts-skin-center-panel-border-width: \(number(panel.borderWidth))px;",
+                "--cts-skin-center-panel-corner-radius: \(number(panel.cornerRadius))px;",
+                "--cts-skin-center-panel-shadow-blur: \(number(panel.shadowBlur))px;",
+                "--cts-skin-center-panel-shadow-offset-x: \(number(panel.shadowOffsetX))px;",
+                "--cts-skin-center-panel-shadow-offset-y: \(number(panel.shadowOffsetY))px;",
+                "--cts-skin-center-panel-maximum-width: \(number(panel.maximumWidth))px;",
+                "--cts-skin-center-panel-padding-x: \(number(panel.horizontalPadding))px;",
+                "--cts-skin-center-panel-padding-y: \(number(panel.verticalPadding))px;"
+            ])
+        }
         rootDeclarations.append(contentsOf: semanticTokenDeclarations(
             role: .textPrimary,
             value: "var(--cts-skin-text-primary)"
@@ -306,6 +344,10 @@ enum ThemeImageSkinCompiler {
             ))
         }
 
+        if skin.centerPanel.isEnabled {
+            rules.append(centerPanelRule())
+        }
+
         rules.append(
             """
             \(root) a,
@@ -315,6 +357,27 @@ enum ThemeImageSkinCompiler {
             """
         )
         return rules.joined(separator: "\n\n")
+    }
+
+    private static func centerPanelRule() -> String {
+        rule(
+            selectors: [
+                "[data-mcp-app-portal-target=\"true\"]:has(> [data-thread-find-target=\"conversation\"])",
+                "main.main-surface [role=\"main\"] div:has(> [data-feature=\"game-source\"])"
+            ],
+            declarations: [
+                "box-sizing: border-box !important;",
+                "width: 100% !important;",
+                "max-width: min(var(--cts-skin-center-panel-maximum-width), 100%) !important;",
+                "padding: var(--cts-skin-center-panel-padding-y) var(--cts-skin-center-panel-padding-x) !important;",
+                "background: var(--cts-skin-center-panel-background) !important;",
+                "border: var(--cts-skin-center-panel-border-width) solid var(--cts-skin-center-panel-border) !important;",
+                "border-radius: var(--cts-skin-center-panel-corner-radius) !important;",
+                "-webkit-backdrop-filter: blur(var(--cts-skin-center-panel-backdrop-blur)) saturate(var(--cts-skin-center-panel-backdrop-saturation));",
+                "backdrop-filter: blur(var(--cts-skin-center-panel-backdrop-blur)) saturate(var(--cts-skin-center-panel-backdrop-saturation));",
+                "box-shadow: var(--cts-skin-center-panel-shadow-offset-x) var(--cts-skin-center-panel-shadow-offset-y) var(--cts-skin-center-panel-shadow-blur) var(--cts-skin-center-panel-shadow) !important;"
+            ]
+        )
     }
 
     private static func wallpaperRules(for skin: ThemeImageSkin) -> String {

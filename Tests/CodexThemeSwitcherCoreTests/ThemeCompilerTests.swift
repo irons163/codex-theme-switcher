@@ -420,6 +420,117 @@ final class ThemeCompilerTests: XCTestCase {
         )
     }
 
+    func testDisabledCenterPanelEmitsNoPanelVariablesOrSelectors() throws {
+        let css = try ThemeCompiler()
+            .compile(TestFixtures.theme(imageSkin: ThemeImageSkin()))
+            .css
+
+        XCTAssertFalse(css.contains("--cts-skin-center-panel-"))
+        XCTAssertFalse(
+            css.contains(
+                "[data-thread-find-target=\"conversation\"]"
+            )
+        )
+        XCTAssertFalse(css.contains("[data-feature=\"game-source\"]"))
+    }
+
+    func testCenterPanelCompilesIndependentPaletteAndMaterialRules() throws {
+        var skin = ThemeImageSkin()
+        skin.targets.content = false
+        skin.centerPanel = ThemeSkinCenterPanel(
+            isEnabled: true,
+            backdropBlur: 27,
+            backdropSaturation: 1.35,
+            borderWidth: 2.25,
+            cornerRadius: 29,
+            shadowBlur: 51,
+            shadowOffsetX: -4,
+            shadowOffsetY: 13,
+            maximumWidth: 940,
+            horizontalPadding: 38,
+            verticalPadding: 31
+        )
+        skin.light.centerPanelTint = "#F1E2D3"
+        skin.light.centerPanelOpacity = 0.63
+        skin.light.centerPanelBorderColor = "#ABCDEF"
+        skin.light.centerPanelBorderOpacity = 0.42
+        skin.light.centerPanelShadowColor = "#654321"
+        skin.light.centerPanelShadowOpacity = 0.19
+
+        let css = try ThemeCompiler()
+            .compile(TestFixtures.theme(imageSkin: skin))
+            .css
+
+        XCTAssertTrue(
+            css.contains(
+                "--cts-skin-center-panel-background: "
+                    + "color-mix(in srgb, #F1E2D3 63%, transparent);"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "--cts-skin-center-panel-border: "
+                    + "color-mix(in srgb, #ABCDEF 42%, transparent);"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "--cts-skin-center-panel-shadow: "
+                    + "color-mix(in srgb, #654321 19%, transparent);"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "--cts-skin-center-panel-backdrop-blur: 27px;"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "--cts-skin-center-panel-backdrop-saturation: 1.35;"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "--cts-skin-center-panel-maximum-width: 940px;"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "[data-mcp-app-portal-target=\"true\"]:has("
+                    + "> [data-thread-find-target=\"conversation\"])"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "main.main-surface [role=\"main\"] div:has("
+                    + "> [data-feature=\"game-source\"])"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "padding: var(--cts-skin-center-panel-padding-y) "
+                    + "var(--cts-skin-center-panel-padding-x) !important;"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "border: var(--cts-skin-center-panel-border-width) "
+                    + "solid var(--cts-skin-center-panel-border) !important;"
+            )
+        )
+        XCTAssertFalse(
+            css.contains(
+                "opacity: var(--cts-skin-center-panel"
+            )
+        )
+        XCTAssertFalse(
+            css.contains(
+                "--color-token-main-surface-primary: "
+                    + "var(--cts-skin-content);"
+            )
+        )
+    }
+
     func testImageSkinUsesCodexTextTokensAndNarrowSurfaceSelectors() throws {
         var skin = TestFixtures.imageSkin(
             lightAssetID: nil,

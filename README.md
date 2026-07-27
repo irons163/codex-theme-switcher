@@ -17,7 +17,7 @@ Codex reload 或開新視窗後，runtime 也會自動補上主題。
   - Codex `--color-token-*` 介面、interaction、diff 與 terminal tokens。
 - 字型、字級、行高、內容寬度、間距、圓角、陰影、模糊、縮放與動畫。
 - 背景與玻璃（Image Skin）：明暗雙背景、Fit / Fill 等七種尺寸模式、焦點裁切、
-  可選全視窗或避開左側欄的壁紙畫布、濾鏡、overlay 與分區 glass。
+  可選全視窗或避開左側欄的壁紙畫布、濾鏡、overlay、分區 glass 與中央內容面板。
 - 任意 component declarations。
 - 任意 CSS selector rules。
 - 完整 raw CSS escape hatch。
@@ -43,6 +43,9 @@ Image Skin 可把 Codex 做成完整的圖片主題，而不只是替換色票�
 - Sidebar、main content、composer、card、menu、popover 與 code block 可分區設定
   glass fill、透明度、backdrop blur、邊框、圓角與陰影；調整 panel 透明度不會連帶
   淡化文字。
+- 「中央內容面板」獨立包住 Home Hero 或 Chat 對話紀錄，不包含建議 Cards 與
+  Composer。Light / Dark 可分別設定底色、邊框、陰影色與透明度；材質可調 blur、
+  saturation、邊框寬度、圓角、陰影位移／擴散、最大寬度及水平／垂直內距。
 - 預覽可切換 Light / Dark 與 Home / Chat，方便同時檢查背景裁切、文字對比和
   元件表面。
 - Image Skin 使用的背景會嵌入 `.codextheme`，導出後不依賴原始檔案路徑，
@@ -195,7 +198,7 @@ body {
 - `CodexThemeSwitcherCore`: theme schema、validator、compiler、repository、archive。
 - `CodexThemeRuntime`: async Swift runner 與 authenticated Node/CDP runtime。
 - `CodexThemeSwitcher`: AppKit/SwiftUI menu bar studio。
-- `Tests/`: 81 Swift tests。
+- `Tests/`: 85 Swift tests。
 - `test/`: 49 Node runtime tests。
 
 Selector rules 屬於 expert layer，Codex 更新後可能需要調整；基礎與
