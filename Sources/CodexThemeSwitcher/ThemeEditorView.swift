@@ -4,10 +4,13 @@ import SwiftUI
 
 struct ThemeEditorView: View {
     @ObservedObject var model: ThemeAppModel
+    @ObservedObject var updateModel: AppUpdateModel
 
     var body: some View {
         Group {
-            if let theme = model.draft {
+            if model.selectedPage == .settings {
+                AppSettingsPage(updateModel: updateModel)
+            } else if let theme = model.draft {
                 VStack(spacing: 0) {
                     if model.isSelectedBuiltIn {
                         builtInBanner(theme)
@@ -58,6 +61,8 @@ struct ThemeEditorView: View {
             AssetEditorPage(model: model)
         case .info:
             ThemeInfoEditorPage(model: model)
+        case .settings:
+            AppSettingsPage(updateModel: updateModel)
         }
     }
 

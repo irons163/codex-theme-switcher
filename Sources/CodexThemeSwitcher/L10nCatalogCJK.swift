@@ -862,6 +862,131 @@ enum L10nCatalogCJK {
             "対応していないテーマアーカイブ形式です：{0}。",
             "지원되지 않는 테마 아카이브 형식입니다: {0}."
         ),
+        .init("App updates", "App 更新", "Appのアップデート", "앱 업데이트"),
+        .init(
+            "Keep Codex Theme Switcher current with signed Sparkle updates.",
+            "通过已签名的 Sparkle 更新，让 Codex Theme Switcher 始终保持最新。",
+            "署名済みのSparkleアップデートで、Codex Theme Switcherを常に最新の状態に保ちます。",
+            "서명된 Sparkle 업데이트로 Codex Theme Switcher를 최신 상태로 유지합니다."
+        ),
+        .init("Current version", "当前版本", "現在のバージョン", "현재 버전"),
+        .init("Version {0} ({1})", "版本 {0}（{1}）", "バージョン{0}（{1}）", "버전 {0} ({1})"),
+        .init("Automatic update checks", "自动检查更新", "アップデートを自動確認", "자동 업데이트 확인"),
+        .init(
+            "Checks at launch and every 30 minutes.",
+            "启动时检查，之后每 30 分钟检查一次。",
+            "起動時と、その後30分ごとに確認します。",
+            "실행할 때와 이후 30분마다 확인합니다."
+        ),
+        .init("Update channel", "更新通道", "アップデートチャンネル", "업데이트 채널"),
+        .init("Stable", "正式版", "安定版", "안정 버전"),
+        .init("Beta", "Beta", "ベータ版", "베타"),
+        .init("Recommended releases.", "推荐版本。", "推奨リリースです。", "권장 릴리스입니다."),
+        .init(
+            "Prerelease builds may be less stable.",
+            "预发布版本可能不够稳定。",
+            "プレリリースビルドは安定性が低い場合があります。",
+            "사전 릴리스 빌드는 안정성이 낮을 수 있습니다."
+        ),
+        .init("Check for Updates…", "检查更新…", "アップデートを確認…", "업데이트 확인…"),
+        .init("Checking for updates…", "正在检查更新…", "アップデートを確認中…", "업데이트 확인 중…"),
+        .init(
+            "You're up to date ({0}).",
+            "当前已是最新版本（{0}）。",
+            "最新の状態です（{0}）。",
+            "최신 버전입니다({0})."
+        ),
+        .init(
+            "Version {0} is available.",
+            "版本 {0} 现已可用。",
+            "バージョン{0}を利用できます。",
+            "버전 {0}을(를) 사용할 수 있습니다."
+        ),
+        .init(
+            "Update check failed: {0}",
+            "检查更新失败：{0}",
+            "アップデートの確認に失敗しました：{0}",
+            "업데이트 확인 실패: {0}"
+        ),
+        .init("Update available", "有可用更新", "アップデートがあります", "사용 가능한 업데이트"),
+        .init("Install update", "安装更新", "アップデートをインストール", "업데이트 설치"),
+        .init("Download manually", "手动下载", "手動でダウンロード", "수동 다운로드"),
+        .init("Skip this version", "跳过此版本", "このバージョンをスキップ", "이 버전 건너뛰기"),
+        .init("Later", "稍后", "後で", "나중에"),
+        .init("Release notes", "更新说明", "リリースノート", "릴리스 노트"),
+        .init(
+            "No release notes were provided.",
+            "此版本未提供更新说明。",
+            "リリースノートは提供されていません。",
+            "릴리스 노트가 제공되지 않았습니다."
+        ),
+        .init("Published {0}", "发布于 {0}", "{0}に公開", "{0}에 게시"),
+        .init("Powered by Sparkle", "由 Sparkle 提供支持", "Sparkleを使用", "Sparkle 제공"),
+        .init("Show What's New", "查看新功能", "新機能を表示", "새로운 기능 보기"),
+        .init("What's New in {0}", "{0} 新功能", "{0}の新機能", "{0}의 새로운 기능"),
+        .init(
+            "Theme updates, your way.",
+            "主题更新，由你选择。",
+            "テーマのアップデートを、あなたらしく。",
+            "원하는 방식으로 테마를 업데이트하세요."
+        ),
+        .init(
+            "Seven interface languages follow your Mac automatically.",
+            "七种界面语言会自动跟随 Mac 的语言设置。",
+            "7つのインターフェイス言語がMacの設定に自動で対応します。",
+            "7개 인터페이스 언어가 Mac 언어 설정을 자동으로 따릅니다."
+        ),
+        .init(
+            "Choose Stable or Beta updates from Settings.",
+            "可在“设置”中选择正式版或 Beta 更新。",
+            "設定から安定版またはベータ版のアップデートを選択できます。",
+            "설정에서 안정 버전 또는 베타 업데이트를 선택하세요."
+        ),
+        .init(
+            "Sparkle verifies and installs signed app updates.",
+            "Sparkle 会验证并安装已签名的 App 更新。",
+            "Sparkleが署名済みのAppアップデートを検証してインストールします。",
+            "Sparkle이 서명된 앱 업데이트를 확인하고 설치합니다."
+        ),
+        .init("Done", "完成", "完了", "완료"),
+        .init("Open Releases", "打开 Releases", "リリースを開く", "릴리스 열기"),
+        .init(
+            "Invalid update response.",
+            "更新响应无效。",
+            "アップデートの応答が無効です。",
+            "업데이트 응답이 올바르지 않습니다."
+        ),
+        .init(
+            "Failed to decode update metadata.",
+            "无法解析更新元数据。",
+            "アップデートメタデータのデコードに失敗しました。",
+            "업데이트 메타데이터를 디코딩하지 못했습니다."
+        ),
+        .init(
+            "No update is available on this channel.",
+            "此更新通道暂无可用更新。",
+            "このチャンネルで利用できるアップデートはありません。",
+            "이 채널에서 사용할 수 있는 업데이트가 없습니다."
+        ),
+        .init(
+            "Unable to start Sparkle. Open the download page instead.",
+            "无法启动 Sparkle。请改为打开下载页面。",
+            "Sparkleを起動できません。代わりにダウンロードページを開いてください。",
+            "Sparkle을 시작할 수 없습니다. 대신 다운로드 페이지를 여세요."
+        ),
+        .init(
+            "Sparkle is available in the packaged app.",
+            "Sparkle 可在打包后的 App 中使用。",
+            "Sparkleはパッケージ版Appで利用できます。",
+            "Sparkle은 패키징된 앱에서 사용할 수 있습니다."
+        ),
+        .init(
+            "Sparkle is unavailable when running from SwiftPM.",
+            "从 SwiftPM 运行时无法使用 Sparkle。",
+            "SwiftPMからの実行中はSparkleを利用できません。",
+            "SwiftPM에서 실행 중일 때는 Sparkle을 사용할 수 없습니다."
+        ),
+        .init("Automatic checks are off.", "自动检查已关闭。", "自動確認はオフです。", "자동 확인이 꺼져 있습니다."),
         .init(
             "Unsupported theme archive version: {0}.",
             "不支持的主题归档版本：{0}。",

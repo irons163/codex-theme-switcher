@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ThemeSwitcherRootView: View {
     @ObservedObject var model: ThemeAppModel
+    @ObservedObject var updateModel: AppUpdateModel
 
     var body: some View {
         HStack(spacing: 0) {
@@ -17,7 +18,10 @@ struct ThemeSwitcherRootView: View {
                 Divider()
                 editorNavigation
                 Divider()
-                ThemeEditorView(model: model)
+                ThemeEditorView(
+                    model: model,
+                    updateModel: updateModel
+                )
             }
         }
         .background(.regularMaterial)
@@ -30,6 +34,19 @@ struct ThemeSwitcherRootView: View {
         }
         .task {
             model.start()
+            updateModel.start()
+            updateModel.presentLaunchAnnouncements()
+        }
+        .sheet(item: $updateModel.sheet) { sheet in
+            switch sheet {
+            case let .update(release):
+                AppUpdateSheetView(
+                    release: release,
+                    updateModel: updateModel
+                )
+            case .whatsNew:
+                WhatsNewSheetView(updateModel: updateModel)
+            }
         }
         .animation(.easeInOut(duration: 0.18), value: model.notice?.id)
     }
@@ -255,6 +272,15 @@ struct ThemeSwitcherRootView: View {
             )
 
             Menu {
+                Button(
+                    L10n.text(
+                        "檢查更新…",
+                        "Check for Updates…"
+                    )
+                ) {
+                    updateModel.checkForUpdates()
+                }
+                Divider()
                 Button(L10n.importTheme) { model.importTheme() }
                 Button(L10n.exportTheme) { model.exportSelected() }
                 Divider()

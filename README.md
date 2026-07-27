@@ -27,6 +27,10 @@ Codex reload 或開新視窗後，runtime 也會自動補上主題。
 - 單檔 `.codextheme` 導入／導出，方便分享。
 - 依 macOS 偏好語言自動切換英文、繁體中文、簡體中文、法文、西班牙文、日文或韓文；
   其他語言回退英文。
+- Sparkle 2 自動更新：可選 Stable／Beta 頻道，依 Apple Silicon／Intel 取得對應
+  安裝檔，並顯示相同七語系的版本說明。
+- 啟動時檢查更新，之後每 30 分鐘檢查一次；也能從設定或右上角選單手動檢查、
+  略過特定版本，或改用手動下載。
 
 ## 背景與玻璃 / Image Skin
 
@@ -71,6 +75,8 @@ Image Skin 圖片欄位只接受 raster asset（PNG、JPEG、WebP、GIF、AVIF�
    橘色圓點代表該主題仍有未儲存變更；切到其他主題再回來也不會遺失草稿。
 5. 按儲存後套用；要分享時按導出，會得到包含所有內嵌素材的單一
    `.codextheme`。收到模板的人可從同一位置導入。
+6. 「設定」分頁可開關自動更新、選擇 Stable／Beta、檢查新版本，以及重新顯示
+   目前版本的「新功能」。
 
 ## 安全模型
 
@@ -117,8 +123,29 @@ switcher。沒有提供 signing identity 時，script 會使用 ad-hoc signing�
 
 ```sh
 CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+SPARKLE_PUBLIC_ED_KEY="<base64 Ed25519 public key>" \
   scripts/package-app.sh
 ```
+
+正式封裝必須提供 Sparkle EdDSA 公鑰，script 會把它寫入 `SUPublicEDKey`，並拒絕
+任何 `SUAllowsInsecureUpdates` 設定。只有本機 ad-hoc 開發包會加入 local-only 的
+insecure allowance，不能拿來正式發布。
+
+## App 更新與發布
+
+- Stable feed：
+  `appcast-arm64.xml`、`appcast-x86_64.xml`
+- Beta feed：
+  `appcast-beta-arm64.xml`、`appcast-beta-x86_64.xml`
+- 更新 feed 固定放在 GitHub 最新 Stable Release；Beta release 只覆寫其中的
+  `appcast-beta-*`，因此固定 URL 不會因 GitHub 忽略 prerelease 而失效。
+- 每個 appcast enclosure 都必須有 `sparkle:edSignature`，正式 App 也必須內含
+  對應的 `SUPublicEDKey`。
+- 七份版本說明放在
+  `docs/release-notes/v<version>/release-notes.<language>.md`。
+
+完整 secrets、簽章、notarization 與 release 操作請見
+[`docs/UPDATES.md`](docs/UPDATES.md)。
 
 ## 第一次連接
 

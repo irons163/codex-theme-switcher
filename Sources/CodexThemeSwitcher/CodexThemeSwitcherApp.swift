@@ -3,15 +3,24 @@ import SwiftUI
 
 @main
 struct CodexThemeSwitcherApp: App {
-    @StateObject private var model = ThemeAppModel()
+    @StateObject private var model: ThemeAppModel
+    @StateObject private var updateModel: AppUpdateModel
 
     init() {
+        let themeModel = ThemeAppModel()
+        let appUpdateModel = AppUpdateModel()
+        _model = StateObject(wrappedValue: themeModel)
+        _updateModel = StateObject(wrappedValue: appUpdateModel)
         NSApplication.shared.setActivationPolicy(.accessory)
+        appUpdateModel.start()
     }
 
     var body: some Scene {
         MenuBarExtra {
-            ThemeSwitcherRootView(model: model)
+            ThemeSwitcherRootView(
+                model: model,
+                updateModel: updateModel
+            )
                 .frame(width: 920, height: 720)
         } label: {
             MenuBarBrandIcon()

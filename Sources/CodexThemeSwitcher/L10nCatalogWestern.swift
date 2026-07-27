@@ -933,6 +933,150 @@ enum L10nCatalogWestern {
             french: "Je vais en faire une app de barre des menus avec changement de thème en direct, éditeur visuel d’habillage et modèles portables.",
             spanish: "Lo convertiré en una app de barra de menús con cambio de tema en vivo, editor visual de apariencia y plantillas portátiles."
         ),
+        Entry(key: "App updates", french: "Mises à jour de l’app", spanish: "Actualizaciones de la app"),
+        Entry(
+            key: "Keep Codex Theme Switcher current with signed Sparkle updates.",
+            french: "Gardez Codex Theme Switcher à jour grâce aux mises à jour Sparkle signées.",
+            spanish: "Mantén Codex Theme Switcher al día con actualizaciones firmadas de Sparkle."
+        ),
+        Entry(key: "Current version", french: "Version actuelle", spanish: "Versión actual"),
+        Entry(key: "Version {0} ({1})", french: "Version {0} ({1})", spanish: "Versión {0} ({1})"),
+        Entry(
+            key: "Automatic update checks",
+            french: "Recherche automatique des mises à jour",
+            spanish: "Comprobaciones automáticas de actualizaciones"
+        ),
+        Entry(
+            key: "Checks at launch and every 30 minutes.",
+            french: "Vérifie au lancement, puis toutes les 30 minutes.",
+            spanish: "Busca actualizaciones al iniciar y cada 30 minutos."
+        ),
+        Entry(key: "Update channel", french: "Canal de mise à jour", spanish: "Canal de actualización"),
+        Entry(key: "Stable", french: "Stable", spanish: "Estable"),
+        Entry(key: "Beta", french: "Bêta", spanish: "Beta"),
+        Entry(key: "Recommended releases.", french: "Versions recommandées.", spanish: "Versiones recomendadas."),
+        Entry(
+            key: "Prerelease builds may be less stable.",
+            french: "Les versions préliminaires peuvent être moins stables.",
+            spanish: "Las versiones preliminares pueden ser menos estables."
+        ),
+        Entry(
+            key: "Check for Updates…",
+            french: "Rechercher les mises à jour…",
+            spanish: "Buscar actualizaciones…"
+        ),
+        Entry(
+            key: "Checking for updates…",
+            french: "Recherche de mises à jour…",
+            spanish: "Buscando actualizaciones…"
+        ),
+        Entry(
+            key: "You're up to date ({0}).",
+            french: "Vous utilisez la dernière version ({0}).",
+            spanish: "Estás al día ({0})."
+        ),
+        Entry(
+            key: "Version {0} is available.",
+            french: "La version {0} est disponible.",
+            spanish: "La versión {0} está disponible."
+        ),
+        Entry(
+            key: "Update check failed: {0}",
+            french: "Échec de la recherche de mises à jour : {0}",
+            spanish: "Error al buscar actualizaciones: {0}"
+        ),
+        Entry(
+            key: "Update available",
+            french: "Mise à jour disponible",
+            spanish: "Actualización disponible"
+        ),
+        Entry(
+            key: "Install update",
+            french: "Installer la mise à jour",
+            spanish: "Instalar actualización"
+        ),
+        Entry(
+            key: "Download manually",
+            french: "Télécharger manuellement",
+            spanish: "Descargar manualmente"
+        ),
+        Entry(
+            key: "Skip this version",
+            french: "Ignorer cette version",
+            spanish: "Omitir esta versión"
+        ),
+        Entry(key: "Later", french: "Plus tard", spanish: "Más tarde"),
+        Entry(key: "Release notes", french: "Notes de version", spanish: "Notas de la versión"),
+        Entry(
+            key: "No release notes were provided.",
+            french: "Aucune note de version n’a été fournie.",
+            spanish: "No se proporcionaron notas de la versión."
+        ),
+        Entry(key: "Published {0}", french: "Publié le {0}", spanish: "Publicado el {0}"),
+        Entry(key: "Powered by Sparkle", french: "Propulsé par Sparkle", spanish: "Con tecnología de Sparkle"),
+        Entry(
+            key: "Show What's New",
+            french: "Afficher les nouveautés",
+            spanish: "Mostrar novedades"
+        ),
+        Entry(key: "What's New in {0}", french: "Nouveautés de {0}", spanish: "Novedades de {0}"),
+        Entry(
+            key: "Theme updates, your way.",
+            french: "Mettez les thèmes à jour à votre façon.",
+            spanish: "Actualiza los temas a tu manera."
+        ),
+        Entry(
+            key: "Seven interface languages follow your Mac automatically.",
+            french: "Sept langues d’interface suivent automatiquement la langue de votre Mac.",
+            spanish: "Los siete idiomas de la interfaz siguen automáticamente el idioma de tu Mac."
+        ),
+        Entry(
+            key: "Choose Stable or Beta updates from Settings.",
+            french: "Choisissez les mises à jour stables ou bêta dans Réglages.",
+            spanish: "Elige actualizaciones estables o beta en Ajustes."
+        ),
+        Entry(
+            key: "Sparkle verifies and installs signed app updates.",
+            french: "Sparkle vérifie et installe les mises à jour signées de l’app.",
+            spanish: "Sparkle verifica e instala actualizaciones firmadas de la app."
+        ),
+        Entry(key: "Done", french: "Terminé", spanish: "Listo"),
+        Entry(key: "Open Releases", french: "Ouvrir les versions", spanish: "Abrir versiones"),
+        Entry(
+            key: "Invalid update response.",
+            french: "Réponse de mise à jour non valide.",
+            spanish: "Respuesta de actualización no válida."
+        ),
+        Entry(
+            key: "Failed to decode update metadata.",
+            french: "Échec du décodage des métadonnées de mise à jour.",
+            spanish: "No se pudieron decodificar los metadatos de actualización."
+        ),
+        Entry(
+            key: "No update is available on this channel.",
+            french: "Aucune mise à jour n’est disponible sur ce canal.",
+            spanish: "No hay actualizaciones disponibles en este canal."
+        ),
+        Entry(
+            key: "Unable to start Sparkle. Open the download page instead.",
+            french: "Impossible de démarrer Sparkle. Ouvrez plutôt la page de téléchargement.",
+            spanish: "No se pudo iniciar Sparkle. Abre la página de descarga."
+        ),
+        Entry(
+            key: "Sparkle is available in the packaged app.",
+            french: "Sparkle est disponible dans la version distribuée de l’app.",
+            spanish: "Sparkle está disponible en la versión empaquetada de la app."
+        ),
+        Entry(
+            key: "Sparkle is unavailable when running from SwiftPM.",
+            french: "Sparkle n’est pas disponible lors de l’exécution depuis SwiftPM.",
+            spanish: "Sparkle no está disponible al ejecutar desde SwiftPM."
+        ),
+        Entry(
+            key: "Automatic checks are off.",
+            french: "Les recherches automatiques sont désactivées.",
+            spanish: "Las comprobaciones automáticas están desactivadas."
+        ),
     ]
 
     static let french: [String: String] = Dictionary(

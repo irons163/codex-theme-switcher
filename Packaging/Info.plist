@@ -38,6 +38,12 @@
   <true/>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
+  <key>SUFeedURL</key>
+  <string>https://github.com/irons163/codex-theme-switcher/releases/latest/download/appcast-arm64.xml</string>
+  <key>SUEnableAutomaticChecks</key>
+  <false/>
+  <key>SUAutomaticallyUpdate</key>
+  <false/>
   <key>UTExportedTypeDeclarations</key>
   <array>
     <dict>

@@ -40,6 +40,7 @@ final class ThemeAppModel: ObservableObject {
         case rawCSS
         case assets
         case info
+        case settings
 
         var id: String { rawValue }
 
@@ -54,6 +55,7 @@ final class ThemeAppModel: ObservableObject {
             case .rawCSS: L10n.rawCSS
             case .assets: L10n.assets
             case .info: L10n.info
+            case .settings: L10n.text("設定", "Settings")
             }
         }
 
@@ -68,6 +70,7 @@ final class ThemeAppModel: ObservableObject {
             case .rawCSS: "chevron.left.forwardslash.chevron.right"
             case .assets: "photo.on.rectangle.angled"
             case .info: "info.circle"
+            case .settings: "gearshape"
             }
         }
     }

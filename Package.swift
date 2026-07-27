@@ -22,6 +22,12 @@ let package = Package(
             targets: ["CodexThemeSwitcher"]
         )
     ],
+    dependencies: [
+        .package(
+            url: "https://github.com/sparkle-project/Sparkle",
+            exact: "2.9.1"
+        )
+    ],
     targets: [
         .target(
             name: "CodexThemeSwitcherCore"
@@ -36,7 +42,8 @@ let package = Package(
             name: "CodexThemeSwitcher",
             dependencies: [
                 "CodexThemeSwitcherCore",
-                "CodexThemeRuntime"
+                "CodexThemeRuntime",
+                .product(name: "Sparkle", package: "Sparkle")
             ],
             resources: [
                 .process("Resources")
