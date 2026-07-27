@@ -1,0 +1,13 @@
+{
+  "name": "codex-theme-switcher-runtime",
+  "version": "0.2.1",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "check": "find Sources/CodexThemeRuntime/Resources -name '*.js' -print0 | xargs -0 -n1 node --check"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

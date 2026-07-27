@@ -1,0 +1,318 @@
+import Foundation
+import XCTest
+@testable import CodexThemeSwitcherCore
+
+final class ThemeCompilerTests: XCTestCase {
+    func testCompilesVariablesComponentsRulesAndRawCSSInOrder() throws {
+        var theme = TestFixtures.theme(rawCSS: ".raw { opacity: .75; }")
+        theme.layers[0].condition = .dark
+        theme.layers[0].components.append(
+            ThemeComponentOverride(
+                componentID: "future-component",
+                selectors: [".future"],
+                declarations: [
+                    ThemeCSSDeclaration(property: "padding", value: "8px")
+                ]
+            )
+        )
+
+        let compiled = try ThemeCompiler().compile(theme)
+
+        XCTAssertTrue(compiled.css.contains("@media (prefers-color-scheme: dark)"))
+        XCTAssertTrue(compiled.css.contains("--codex-theme-accent: #22aaff;"))
+        XCTAssertTrue(compiled.css.contains("--custom-radius: 14px;"))
+        XCTAssertTrue(
+            compiled.css.contains(
+                "[data-codex-composer-root] .composer-surface-chrome"
+            )
+        )
+        XCTAssertTrue(compiled.css.contains("border-radius: var(--custom-radius);"))
+        XCTAssertTrue(compiled.css.contains(".future {"))
+        XCTAssertTrue(compiled.css.contains("color: var(--codex-theme-accent) !important;"))
+
+        let variableRange = try XCTUnwrap(compiled.css.range(of: "--codex-theme-accent"))
+        let componentRange = try XCTUnwrap(
+            compiled.css.range(
+                of: "[data-codex-composer-root] .composer-surface-chrome"
+            )
+        )
+        let ruleRange = try XCTUnwrap(compiled.css.range(of: "\n  a {"))
+        let rawRange = try XCTUnwrap(compiled.css.range(of: ".raw {"))
+        XCTAssertLessThan(variableRange.lowerBound, componentRange.lowerBound)
+        XCTAssertLessThan(componentRange.lowerBound, ruleRange.lowerBound)
+        XCTAssertLessThan(ruleRange.lowerBound, rawRange.lowerBound)
+    }
+
+    func testUnknownComponentProducesWarningWithoutInvalidCSS() throws {
+        var theme = TestFixtures.theme()
+        theme.layers[0].components = [
+            ThemeComponentOverride(
+                componentID: "not-in-catalog",
+                declarations: [
+                    ThemeCSSDeclaration(property: "color", value: "red")
+                ]
+            )
+        ]
+
+        let compiled = try ThemeCompiler().compile(theme)
+
+        XCTAssertEqual(compiled.warnings.count, 1)
+        XCTAssertEqual(compiled.warnings.first?.code, .unknownComponent)
+        XCTAssertFalse(compiled.css.contains("not-in-catalog"))
+    }
+
+    func testInlinesEmbeddedAssetAsDataURL() throws {
+        let assetID = UUID()
+        let asset = ThemeAsset(
+            id: assetID,
+            name: "pixel.png",
+            mediaType: "image/png",
+            data: Data([0, 1, 2, 3])
+        )
+        let theme = TestFixtures.theme(
+            rawCSS: #".hero { background-image: theme-asset("\#(assetID.uuidString)"); }"#,
+            assets: [asset]
+        )
+
+        let compiled = try ThemeCompiler().compile(theme)
+
+        XCTAssertTrue(
+            compiled.css.contains(
+                #"url("data:image/png;base64,AAECAw==")"#
+            )
+        )
+        XCTAssertEqual(compiled.inlinedAssetIDs, [assetID])
+        XCTAssertFalse(compiled.css.contains("theme-asset("))
+    }
+
+    func testImageSkinCompilesBetweenStructuredAndAdvancedCSS() throws {
+        let light = TestFixtures.imageAsset(
+            name: "light.png",
+            bytes: [1, 2, 3]
+        )
+        let dark = TestFixtures.imageAsset(
+            name: "dark.webp",
+            mediaType: "image/webp",
+            bytes: [4, 5, 6]
+        )
+        let theme = TestFixtures.theme(
+            rawCSS: ":root { --cts-skin-accent: hotpink; }",
+            assets: [light, dark],
+            imageSkin: TestFixtures.imageSkin(
+                lightAssetID: light.id,
+                darkAssetID: dark.id
+            )
+        )
+
+        let compiled = try ThemeCompiler().compile(theme)
+
+        XCTAssertTrue(compiled.css.contains("/* Codex Theme Image Skin */"))
+        XCTAssertTrue(
+            compiled.css.contains("@media (prefers-color-scheme: dark)")
+        )
+        XCTAssertTrue(
+            compiled.css.contains(
+                ":root:where(.electron-light)"
+            )
+        )
+        XCTAssertTrue(
+            compiled.css.contains(
+                ":root:where(.electron-dark:not(.electron-light))"
+            )
+        )
+        XCTAssertTrue(
+            compiled.css.contains(#"url("data:image/png;base64,AQID")"#)
+        )
+        XCTAssertTrue(
+            compiled.css.contains(#"url("data:image/webp;base64,BAUG")"#)
+        )
+        XCTAssertEqual(compiled.inlinedAssetIDs, [light.id, dark.id])
+        XCTAssertFalse(compiled.css.contains("theme-asset("))
+
+        let skinRange = try XCTUnwrap(
+            compiled.css.range(of: "/* Codex Theme Image Skin */")
+        )
+        let layerRange = try XCTUnwrap(
+            compiled.css.range(of: "/* Layer: Base */")
+        )
+        let rawRange = try XCTUnwrap(
+            compiled.css.range(of: "--cts-skin-accent: hotpink")
+        )
+        XCTAssertLessThan(layerRange.lowerBound, skinRange.lowerBound)
+        XCTAssertLessThan(skinRange.lowerBound, rawRange.lowerBound)
+    }
+
+    func testImageSkinInlinesSharedLightAndDarkAssetOnlyOnce() throws {
+        let shared = TestFixtures.imageAsset(
+            name: "shared.jpg",
+            mediaType: "image/jpeg",
+            bytes: [0xFF, 0xD8, 0xFF]
+        )
+        let theme = TestFixtures.theme(
+            assets: [shared],
+            imageSkin: TestFixtures.imageSkin(
+                lightAssetID: shared.id,
+                darkAssetID: shared.id
+            )
+        )
+
+        let compiled = try ThemeCompiler().compile(theme)
+        let dataURL = #"url("data:image/jpeg;base64,/9j/")"#
+
+        XCTAssertEqual(
+            compiled.css.components(separatedBy: dataURL).count - 1,
+            1
+        )
+        XCTAssertEqual(compiled.inlinedAssetIDs, [shared.id])
+        XCTAssertFalse(compiled.css.contains("theme-asset("))
+    }
+
+    func testEveryImageFitCompilesExpectedBackgroundSizingAndRepeat() throws {
+        let cases: [
+            (
+                fit: ThemeSkinImageFit,
+                backgroundSize: String,
+                backgroundRepeat: String
+            )
+        ] = [
+            (.cover, "cover", "no-repeat"),
+            (.contain, "contain", "no-repeat"),
+            (.fill, "100% 100%", "no-repeat"),
+            (.fitWidth, "100% auto", "no-repeat"),
+            (.fitHeight, "auto 100%", "no-repeat"),
+            (.original, "auto", "no-repeat"),
+            (.tile, "auto", "repeat")
+        ]
+
+        XCTAssertEqual(ThemeSkinImageFit.allCases.count, cases.count)
+        for item in cases {
+            var skin = ThemeImageSkin()
+            skin.light.imageFit = item.fit
+            skin.dark.imageFit = item.fit
+
+            let css = try ThemeCompiler()
+                .compile(TestFixtures.theme(imageSkin: skin))
+                .css
+
+            XCTAssertTrue(
+                css.contains(
+                    "--cts-skin-background-size: "
+                        + item.backgroundSize
+                        + ";"
+                ),
+                "Missing background-size for \(item.fit)"
+            )
+            XCTAssertTrue(
+                css.contains(
+                    "--cts-skin-background-repeat: "
+                        + item.backgroundRepeat
+                        + ";"
+                ),
+                "Missing background-repeat for \(item.fit)"
+            )
+        }
+    }
+
+    func testFitModesAvoidOverscanWhileBlurredCoverKeepsEdgeProtection() throws {
+        var fitSkin = ThemeImageSkin()
+        fitSkin.light.imageFit = .contain
+        fitSkin.light.imageBlur = 18
+        fitSkin.dark.imageFit = .original
+        fitSkin.dark.imageBlur = 18
+
+        let fitCSS = try ThemeCompiler()
+            .compile(TestFixtures.theme(imageSkin: fitSkin))
+            .css
+        XCTAssertTrue(fitCSS.contains("--cts-skin-image-inset: 0px;"))
+        XCTAssertFalse(fitCSS.contains("--cts-skin-image-inset: -40px;"))
+
+        var coverSkin = ThemeImageSkin()
+        coverSkin.light.imageFit = .cover
+        coverSkin.light.imageBlur = 18
+        coverSkin.dark = coverSkin.light
+
+        let coverCSS = try ThemeCompiler()
+            .compile(TestFixtures.theme(imageSkin: coverSkin))
+            .css
+        XCTAssertTrue(
+            coverCSS.contains("--cts-skin-image-inset: -40px;")
+        )
+    }
+
+    func testImageSkinUsesCodexTextTokensAndNarrowSurfaceSelectors() throws {
+        var skin = TestFixtures.imageSkin(
+            lightAssetID: nil,
+            darkAssetID: nil
+        )
+        skin.targets = ThemeSkinTargets(
+            sidebar: false,
+            content: false,
+            titlebar: false,
+            composer: true,
+            cards: true,
+            popovers: true,
+            codeBlocks: true
+        )
+
+        let css = try ThemeCompiler()
+            .compile(TestFixtures.theme(imageSkin: skin))
+            .css
+
+        XCTAssertTrue(
+            css.contains(
+                "--color-token-foreground: var(--cts-skin-text-primary);"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "--color-token-primary: var(--cts-skin-accent);"
+            )
+        )
+        XCTAssertFalse(
+            css.contains(
+                "--color-token-primary: var(--cts-skin-accent) !important;"
+            )
+        )
+        XCTAssertFalse(css.contains("[data-app-action-sidebar-project-row]"))
+        XCTAssertFalse(css.contains("[role=\"dialog\"]"))
+        XCTAssertTrue(
+            css.contains("[role=\"menu\"][data-state=\"open\"]")
+        )
+        XCTAssertTrue(css.contains("[data-message-author-role] pre"))
+        XCTAssertFalse(
+            css.contains(
+                "--color-token-side-bar-background: var(--cts-skin-sidebar)"
+            )
+        )
+    }
+
+    func testMissingAssetThrowsPreciseError() {
+        let missing = UUID()
+        let theme = TestFixtures.theme(
+            rawCSS: #".hero { background: theme-asset(\#(missing.uuidString)); }"#
+        )
+
+        XCTAssertThrowsError(try ThemeCompiler().compile(theme)) { error in
+            XCTAssertEqual(error as? ThemeCompilationError, .missingAsset(missing))
+        }
+    }
+
+    func testUnsafeCSSFailsBeforeCompilation() {
+        let theme = TestFixtures.theme(
+            rawCSS: #".x { background: url(https://example.com/tracker.png); }"#
+        )
+
+        XCTAssertThrowsError(try ThemeCompiler().compile(theme)) { error in
+            guard case let ThemeCompilationError.validationFailed(validation) = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+            XCTAssertTrue(validation.issues.contains { $0.code == .unsafeURL })
+        }
+    }
+
+    func testEscaperHandlesIdentifiersStringsAndComments() {
+        XCTAssertEqual(CSSEscaper.escapeIdentifier("9 lives"), "\\39 \\20 lives")
+        XCTAssertEqual(CSSEscaper.escapeString("a\"b\\c\n"), "a\\\"b\\\\c\\a ")
+        XCTAssertFalse(CSSEscaper.escapeComment("name */ body").contains("*/"))
+    }
+}

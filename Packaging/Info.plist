@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key>
+  <string>CodexThemeSwitcher</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.phil.codex-theme-switcher</string>
+  <key>CFBundleName</key>
+  <string>Codex Theme Switcher</string>
+  <key>CFBundleDisplayName</key>
+  <string>Codex Theme Switcher</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>0.2.1</string>
+  <key>CFBundleVersion</key>
+  <string>3</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>13.0</string>
+  <key>LSUIElement</key>
+  <true/>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <key>NSPrincipalClass</key>
+  <string>NSApplication</string>
+  <key>UTExportedTypeDeclarations</key>
+  <array>
+    <dict>
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>public.json</string>
+        <string>public.data</string>
+      </array>
+      <key>UTTypeDescription</key>
+      <string>Codex Theme Template</string>
+      <key>UTTypeIdentifier</key>
+      <string>com.phil.codex-theme</string>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array>
+          <string>codextheme</string>
+        </array>
+        <key>public.mime-type</key>
+        <string>application/vnd.codex-theme+json</string>
+      </dict>
+    </dict>
+  </array>
+</dict>
+</plist>
