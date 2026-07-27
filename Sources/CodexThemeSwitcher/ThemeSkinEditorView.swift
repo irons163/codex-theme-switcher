@@ -4,8 +4,14 @@ import SwiftUI
 
 struct ThemeSkinEditorView: View {
     @ObservedObject var model: ThemeAppModel
-    @State private var appearance: ThemeSkinAppearance = .dark
-    @State private var previewSurface: ThemePreviewSurface = .home
+
+    private var appearance: ThemeSkinAppearance {
+        model.previewAppearance
+    }
+
+    private var previewSurface: ThemePreviewSurface {
+        model.previewSurface
+    }
 
     private var skin: ThemeImageSkin {
         model.draft?.imageSkin ?? ThemeImageSkin(isEnabled: false)
@@ -93,7 +99,7 @@ struct ThemeSkinEditorView: View {
             HStack {
                 Picker(
                     L10n.text("預覽畫面", "Preview surface"),
-                    selection: $previewSurface
+                    selection: $model.previewSurface
                 ) {
                     Text("Home").tag(ThemePreviewSurface.home)
                     Text("Chat").tag(ThemePreviewSurface.chat)
@@ -103,7 +109,7 @@ struct ThemeSkinEditorView: View {
 
                 Picker(
                     L10n.text("編輯版本", "Editing"),
-                    selection: $appearance
+                    selection: $model.previewAppearance
                 ) {
                     Label(L10n.text("淺色", "Light"), systemImage: "sun.max")
                         .tag(ThemeSkinAppearance.light)

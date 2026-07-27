@@ -32,6 +32,8 @@ final class ThemeAppModelDraftTests: XCTestCase {
             runtime: nil
         )
         await model.reloadThemes(selecting: first.id)
+        model.previewAppearance = .light
+        model.previewSurface = .chat
         model.mutateDraft { $0.metadata.name = "First — edited" }
 
         model.selectTheme(second.id)
@@ -44,6 +46,8 @@ final class ThemeAppModelDraftTests: XCTestCase {
         XCTAssertEqual(model.draft?.metadata.name, "First — edited")
         XCTAssertTrue(model.isDraftDirty)
         XCTAssertTrue(model.hasUnsavedChanges(for: first.id))
+        XCTAssertEqual(model.previewAppearance, .light)
+        XCTAssertEqual(model.previewSurface, .chat)
     }
 
     @MainActor

@@ -79,6 +79,8 @@ final class ThemeAppModel: ObservableObject {
     @Published private(set) var isLoaded = false
     @Published private(set) var isDraftDirty = false
     @Published var selectedPage: EditorPage = .preview
+    @Published var previewAppearance: ThemeSkinAppearance = .dark
+    @Published var previewSurface: ThemePreviewSurface = .home
     @Published var notice: Notice?
     @Published var searchText = ""
 

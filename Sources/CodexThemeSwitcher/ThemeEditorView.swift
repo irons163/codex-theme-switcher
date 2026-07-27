@@ -98,8 +98,6 @@ struct ThemeEditorView: View {
 private struct ThemePreviewPage: View {
     let theme: ThemeDocument
     @ObservedObject var model: ThemeAppModel
-    @State private var appearance: ThemeSkinAppearance = .dark
-    @State private var surface: ThemePreviewSurface = .home
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -133,7 +131,7 @@ private struct ThemePreviewPage: View {
             HStack(spacing: 10) {
                 Picker(
                     L10n.text("畫面", "Surface"),
-                    selection: $surface
+                    selection: $model.previewSurface
                 ) {
                     Text("Home").tag(ThemePreviewSurface.home)
                     Text("Chat").tag(ThemePreviewSurface.chat)
@@ -143,7 +141,7 @@ private struct ThemePreviewPage: View {
 
                 Picker(
                     L10n.text("外觀", "Appearance"),
-                    selection: $appearance
+                    selection: $model.previewAppearance
                 ) {
                     Label(
                         L10n.text("淺色", "Light"),
@@ -164,12 +162,12 @@ private struct ThemePreviewPage: View {
 
             ThemePreviewView(
                 theme: theme,
-                appearance: appearance,
-                surface: surface
+                appearance: model.previewAppearance,
+                surface: model.previewSurface
             )
             .environment(
                 \.colorScheme,
-                appearance == .dark ? .dark : .light
+                model.previewAppearance == .dark ? .dark : .light
             )
 
             HStack {
