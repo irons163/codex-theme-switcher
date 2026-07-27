@@ -5,6 +5,32 @@ import XCTest
 @testable import CodexThemeSwitcher
 
 final class ThemePreviewRenderTests: XCTestCase {
+    func testPreviewWallpaperScopeUsesMainContentWidthWhenRequested() {
+        let sidebarWidth = ThemePreviewLayout.sidebarWidth(
+            containerWidth: 680
+        )
+
+        XCTAssertEqual(sidebarWidth, 185, accuracy: 0.001)
+        XCTAssertEqual(
+            ThemePreviewLayout.wallpaperWidth(
+                containerWidth: 680,
+                sidebarWidth: sidebarWidth,
+                scope: .fullWindow
+            ),
+            680,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            ThemePreviewLayout.wallpaperWidth(
+                containerWidth: 680,
+                sidebarWidth: sidebarWidth,
+                scope: .mainContent
+            ),
+            495,
+            accuracy: 0.001
+        )
+    }
+
     func testSkinWallpaperLayoutResolvesNewIntrinsicSizingModes() {
         let imageSize = CGSize(width: 400, height: 200)
         let containerSize = CGSize(width: 300, height: 300)
@@ -107,6 +133,7 @@ final class ThemePreviewRenderTests: XCTestCase {
             data: wallpaper
         )
         var skin = ThemeImageSkin()
+        skin.wallpaperScope = .mainContent
         skin.dark.backgroundAssetID = asset.id
         skin.dark.positionX = 0.68
         skin.dark.scrimOpacity = 0.58

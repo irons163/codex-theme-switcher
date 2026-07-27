@@ -25,18 +25,27 @@ public struct CompiledTheme: Equatable, Sendable {
     public var themeID: UUID
     public var css: String
     public var warnings: [ThemeCompilationWarning]
-    public var inlinedAssetIDs: Set<UUID>
+    public var runtimeAssets: [ThemeAsset]
+
+    public var referencedAssetIDs: Set<UUID> {
+        Set(runtimeAssets.map(\.id))
+    }
+
+    @available(*, deprecated, renamed: "referencedAssetIDs")
+    public var inlinedAssetIDs: Set<UUID> {
+        referencedAssetIDs
+    }
 
     public init(
         themeID: UUID,
         css: String,
         warnings: [ThemeCompilationWarning] = [],
-        inlinedAssetIDs: Set<UUID> = []
+        runtimeAssets: [ThemeAsset] = []
     ) {
         self.themeID = themeID
         self.css = css
         self.warnings = warnings
-        self.inlinedAssetIDs = inlinedAssetIDs
+        self.runtimeAssets = runtimeAssets
     }
 }
 
@@ -281,13 +290,16 @@ public struct ThemeCompiler: Sendable {
         output.append(contentsOf: advancedCSSOutput)
 
         let unresolvedCSS = output.joined(separator: "\n\n") + "\n"
-        let inlined = try inlineAssets(in: unresolvedCSS, assets: document.assets)
+        let resolved = try externalizeAssets(
+            in: unresolvedCSS,
+            assets: document.assets
+        )
 
         return CompiledTheme(
             themeID: document.id,
-            css: inlined.css,
+            css: resolved.css,
             warnings: warnings,
-            inlinedAssetIDs: inlined.ids
+            runtimeAssets: resolved.assets
         )
     }
 
@@ -337,10 +349,10 @@ public struct ThemeCompiler: Sendable {
         }
     }
 
-    private func inlineAssets(
+    private func externalizeAssets(
         in css: String,
         assets: [ThemeAsset]
-    ) throws -> (css: String, ids: Set<UUID>) {
+    ) throws -> (css: String, assets: [ThemeAsset]) {
         let assetsByID = Dictionary(uniqueKeysWithValues: assets.map { ($0.id, $0) })
         guard let expression = try? NSRegularExpression(
             pattern: #"(?i)theme-asset\s*\(\s*(["']?)([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\1\s*\)"#
@@ -370,7 +382,7 @@ public struct ThemeCompiler: Sendable {
                 // a custom validator configuration is introduced later.
                 throw ThemeCompilationError.malformedAssetReference(id.uuidString)
             }
-            let replacement = #"url("data:\#(asset.mediaType);base64,\#(asset.dataBase64)")"#
+            let replacement = #"url("codex-theme-asset://\#(id.uuidString.lowercased())")"#
             result.replaceSubrange(fullMatchRange, with: replacement)
             referencedIDs.insert(id)
         }
@@ -384,7 +396,13 @@ public struct ThemeCompiler: Sendable {
             throw ThemeCompilationError.malformedAssetReference(preview)
         }
 
-        return (result, referencedIDs)
+        let runtimeAssets = referencedIDs
+            .compactMap { assetsByID[$0] }
+            .sorted {
+                $0.id.uuidString.lowercased()
+                    < $1.id.uuidString.lowercased()
+            }
+        return (result, runtimeAssets)
     }
 }
 

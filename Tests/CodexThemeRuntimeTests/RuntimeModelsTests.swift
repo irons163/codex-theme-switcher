@@ -152,4 +152,37 @@ final class RuntimeModelsTests: XCTestCase {
             ]
         )
     }
+
+    func testRuntimeThemePayloadEncodesAssetsWithoutNames() throws {
+        let payload = RuntimeThemePayload(
+            themeID: "theme-id",
+            themeName: "Theme Name",
+            css: #".hero{background:url("codex-theme-asset://asset")}"#,
+            assets: [
+                ThemeRuntimeAsset(
+                    id: "a8d603e1-f01d-48d0-bd8f-cbfe4d179a66",
+                    mediaType: "image/png",
+                    dataBase64: "AAECAw=="
+                )
+            ]
+        )
+        let object = try XCTUnwrap(
+            JSONSerialization.jsonObject(
+                with: JSONEncoder().encode(payload)
+            ) as? [String: Any]
+        )
+        let assets = try XCTUnwrap(
+            object["assets"] as? [[String: String]]
+        )
+
+        XCTAssertEqual(
+            assets,
+            [[
+                "id": "a8d603e1-f01d-48d0-bd8f-cbfe4d179a66",
+                "mediaType": "image/png",
+                "dataBase64": "AAECAw=="
+            ]]
+        )
+        XCTAssertNil(assets.first?["name"])
+    }
 }

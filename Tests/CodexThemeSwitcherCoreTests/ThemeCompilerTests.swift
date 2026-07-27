@@ -61,7 +61,7 @@ final class ThemeCompilerTests: XCTestCase {
         XCTAssertFalse(compiled.css.contains("not-in-catalog"))
     }
 
-    func testInlinesEmbeddedAssetAsDataURL() throws {
+    func testExternalizesEmbeddedAssetForRuntime() throws {
         let assetID = UUID()
         let asset = ThemeAsset(
             id: assetID,
@@ -78,11 +78,14 @@ final class ThemeCompilerTests: XCTestCase {
 
         XCTAssertTrue(
             compiled.css.contains(
-                #"url("data:image/png;base64,AAECAw==")"#
+                #"url("codex-theme-asset://\#(assetID.uuidString.lowercased())")"#
             )
         )
-        XCTAssertEqual(compiled.inlinedAssetIDs, [assetID])
+        XCTAssertEqual(compiled.runtimeAssets, [asset])
+        XCTAssertEqual(compiled.referencedAssetIDs, [assetID])
         XCTAssertFalse(compiled.css.contains("theme-asset("))
+        XCTAssertFalse(compiled.css.contains("base64"))
+        XCTAssertFalse(compiled.css.contains("data:"))
     }
 
     func testImageSkinCompilesBetweenStructuredAndAdvancedCSS() throws {
@@ -121,13 +124,24 @@ final class ThemeCompilerTests: XCTestCase {
             )
         )
         XCTAssertTrue(
-            compiled.css.contains(#"url("data:image/png;base64,AQID")"#)
+            compiled.css.contains(
+                #"url("codex-theme-asset://\#(light.id.uuidString.lowercased())")"#
+            )
         )
         XCTAssertTrue(
-            compiled.css.contains(#"url("data:image/webp;base64,BAUG")"#)
+            compiled.css.contains(
+                #"url("codex-theme-asset://\#(dark.id.uuidString.lowercased())")"#
+            )
         )
-        XCTAssertEqual(compiled.inlinedAssetIDs, [light.id, dark.id])
+        XCTAssertEqual(
+            compiled.runtimeAssets.map(\.id),
+            [light.id, dark.id].sorted {
+                $0.uuidString.lowercased() < $1.uuidString.lowercased()
+            }
+        )
+        XCTAssertEqual(compiled.referencedAssetIDs, [light.id, dark.id])
         XCTAssertFalse(compiled.css.contains("theme-asset("))
+        XCTAssertFalse(compiled.css.contains("base64"))
 
         let skinRange = try XCTUnwrap(
             compiled.css.range(of: "/* Codex Theme Image Skin */")
@@ -142,7 +156,7 @@ final class ThemeCompilerTests: XCTestCase {
         XCTAssertLessThan(skinRange.lowerBound, rawRange.lowerBound)
     }
 
-    func testImageSkinInlinesSharedLightAndDarkAssetOnlyOnce() throws {
+    func testImageSkinExternalizesSharedLightAndDarkAssetOnlyOnce() throws {
         let shared = TestFixtures.imageAsset(
             name: "shared.jpg",
             mediaType: "image/jpeg",
@@ -157,14 +171,99 @@ final class ThemeCompilerTests: XCTestCase {
         )
 
         let compiled = try ThemeCompiler().compile(theme)
-        let dataURL = #"url("data:image/jpeg;base64,/9j/")"#
+        let assetURL =
+            #"url("codex-theme-asset://\#(shared.id.uuidString.lowercased())")"#
 
         XCTAssertEqual(
-            compiled.css.components(separatedBy: dataURL).count - 1,
+            compiled.css.components(separatedBy: assetURL).count - 1,
             1
         )
-        XCTAssertEqual(compiled.inlinedAssetIDs, [shared.id])
+        XCTAssertEqual(compiled.runtimeAssets, [shared])
+        XCTAssertEqual(compiled.referencedAssetIDs, [shared.id])
         XCTAssertFalse(compiled.css.contains("theme-asset("))
+        XCTAssertFalse(compiled.css.contains("base64"))
+    }
+
+    func testRuntimeAssetsAreReferencedDeduplicatedAndUUIDSorted() throws {
+        let first = ThemeAsset(
+            id: try XCTUnwrap(UUID(
+                uuidString: "00000000-0000-4000-8000-000000000001"
+            )),
+            name: "first.png",
+            mediaType: "image/png",
+            data: Data([1])
+        )
+        let second = ThemeAsset(
+            id: try XCTUnwrap(UUID(
+                uuidString: "FFFFFFFF-FFFF-4FFF-BFFF-FFFFFFFFFFFF"
+            )),
+            name: "second.png",
+            mediaType: "image/png",
+            data: Data([2])
+        )
+        let unused = ThemeAsset(
+            id: try XCTUnwrap(UUID(
+                uuidString: "77777777-7777-4777-B777-777777777777"
+            )),
+            name: "unused.png",
+            mediaType: "image/png",
+            data: Data([3])
+        )
+        let theme = TestFixtures.theme(
+            rawCSS: """
+            .second {
+              background: theme-asset('\(second.id.uuidString.uppercased())');
+            }
+            .first {
+              background: theme-asset(\(first.id.uuidString));
+              mask-image: theme-asset("\(first.id.uuidString)");
+            }
+            """,
+            assets: [second, unused, first]
+        )
+
+        let compiled = try ThemeCompiler().compile(theme)
+
+        XCTAssertEqual(compiled.runtimeAssets, [first, second])
+        XCTAssertEqual(compiled.referencedAssetIDs, [first.id, second.id])
+        XCTAssertFalse(compiled.runtimeAssets.contains(unused))
+        XCTAssertEqual(
+            compiled.css.components(
+                separatedBy: "codex-theme-asset://\(first.id.uuidString.lowercased())"
+            ).count - 1,
+            2
+        )
+        XCTAssertTrue(
+            compiled.css.contains(
+                "codex-theme-asset://\(second.id.uuidString.lowercased())"
+            )
+        )
+    }
+
+    func testLargeRuntimeAssetDoesNotGrowCompiledCSS() throws {
+        let largeData = Data(repeating: 0xA5, count: 4 * 1_024 * 1_024)
+        let asset = ThemeAsset(
+            id: UUID(),
+            name: "large.png",
+            mediaType: "image/png",
+            data: largeData
+        )
+        let theme = TestFixtures.theme(
+            rawCSS: """
+            .hero {
+              background-image: theme-asset(\(asset.id.uuidString));
+            }
+            """,
+            assets: [asset]
+        )
+
+        let compiled = try ThemeCompiler().compile(theme)
+
+        XCTAssertEqual(compiled.runtimeAssets, [asset])
+        XCTAssertLessThan(compiled.css.utf8.count, 10_000)
+        XCTAssertFalse(compiled.css.contains(asset.dataBase64))
+        XCTAssertFalse(compiled.css.contains("base64"))
+        XCTAssertFalse(compiled.css.contains("data:"))
     }
 
     func testEveryImageFitCompilesExpectedBackgroundSizingAndRepeat() throws {
@@ -236,6 +335,88 @@ final class ThemeCompilerTests: XCTestCase {
             .css
         XCTAssertTrue(
             coverCSS.contains("--cts-skin-image-inset: -40px;")
+        )
+    }
+
+    func testFullWindowWallpaperKeepsViewportPseudoElements() throws {
+        let css = try ThemeCompiler()
+            .compile(TestFixtures.theme(imageSkin: ThemeImageSkin()))
+            .css
+
+        XCTAssertTrue(
+            css.contains(
+                "html:root[data-codex-theme-switcher-theme]::before {"
+            )
+        )
+        XCTAssertTrue(css.contains("position: fixed;"))
+        XCTAssertFalse(css.contains("main.main-surface::before"))
+        XCTAssertTrue(
+            css.contains(
+                "background-color: var(--cts-skin-content) !important;"
+            )
+        )
+    }
+
+    func testMainContentWallpaperReflowsInsideResizableContentPane() throws {
+        var skin = ThemeImageSkin()
+        skin.wallpaperScope = .mainContent
+
+        let css = try ThemeCompiler()
+            .compile(TestFixtures.theme(imageSkin: skin))
+            .css
+
+        XCTAssertFalse(
+            css.contains(
+                "html:root[data-codex-theme-switcher-theme]::before {"
+            )
+        )
+        XCTAssertTrue(css.contains("main.main-surface::before {"))
+        XCTAssertTrue(css.contains("main.main-surface::after {"))
+        XCTAssertTrue(css.contains("position: absolute;"))
+        XCTAssertTrue(css.contains("z-index: -2;"))
+        XCTAssertTrue(css.contains("z-index: -1;"))
+        XCTAssertTrue(
+            css.contains(
+                "background-size: var(--cts-skin-background-size);"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "linear-gradient(var(--cts-skin-content), var(--cts-skin-content))"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "[data-app-shell-main-content-layout]"
+            )
+        )
+        XCTAssertFalse(
+            css.contains(
+                "main.main-surface {\n"
+                    + "  background-color: var(--cts-skin-content) !important;"
+            )
+        )
+    }
+
+    func testMainContentWallpaperDoesNotDependOnContentGlassTarget() throws {
+        var skin = ThemeImageSkin()
+        skin.wallpaperScope = .mainContent
+        skin.targets.content = false
+
+        let css = try ThemeCompiler()
+            .compile(TestFixtures.theme(imageSkin: skin))
+            .css
+
+        XCTAssertTrue(css.contains("main.main-surface::before {"))
+        XCTAssertTrue(
+            css.contains(
+                "[data-app-shell-main-content-layout]"
+            )
+        )
+        XCTAssertFalse(
+            css.contains(
+                "linear-gradient(var(--cts-skin-content), var(--cts-skin-content))"
+            )
         )
     }
 

@@ -68,18 +68,21 @@ final class ThemeModelsTests: XCTestCase {
             mediaType: "image/jpeg",
             bytes: [0x40, 0x50, 0x60]
         )
+        var imageSkin = TestFixtures.imageSkin(
+            lightAssetID: light.id,
+            darkAssetID: dark.id
+        )
+        imageSkin.wallpaperScope = .mainContent
         let original = TestFixtures.theme(
             assets: [light, dark],
-            imageSkin: TestFixtures.imageSkin(
-                lightAssetID: light.id,
-                darkAssetID: dark.id
-            )
+            imageSkin: imageSkin
         )
 
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(ThemeDocument.self, from: data)
 
         XCTAssertEqual(decoded, original)
+        XCTAssertEqual(decoded.imageSkin?.wallpaperScope, .mainContent)
         XCTAssertEqual(decoded.imageSkin?.light.backgroundAssetID, light.id)
         XCTAssertEqual(decoded.imageSkin?.dark.backgroundAssetID, dark.id)
         XCTAssertEqual(decoded.assets.map(\.decodedData), [
@@ -109,6 +112,7 @@ final class ThemeModelsTests: XCTestCase {
         expectedTargets.cards = false
 
         XCTAssertFalse(skin.isEnabled)
+        XCTAssertEqual(skin.wallpaperScope, .fullWindow)
         XCTAssertEqual(skin.light, expectedLight)
         XCTAssertEqual(skin.dark, .darkDefault)
         XCTAssertEqual(skin.glass, expectedGlass)
@@ -119,6 +123,45 @@ final class ThemeModelsTests: XCTestCase {
             from: Data("{}".utf8)
         )
         XCTAssertEqual(allDefaults, ThemeImageSkin())
+    }
+
+    func testWallpaperScopeUsesStableValuesAndFutureSafeFallback() throws {
+        let cases: [
+            (
+                scope: ThemeSkinWallpaperScope,
+                rawValue: String
+            )
+        ] = [
+            (.fullWindow, "fullWindow"),
+            (.mainContent, "mainContent")
+        ]
+
+        XCTAssertEqual(ThemeSkinWallpaperScope.allCases.count, cases.count)
+        for item in cases {
+            var skin = ThemeImageSkin()
+            skin.wallpaperScope = item.scope
+            let data = try JSONEncoder().encode(skin)
+            let object = try XCTUnwrap(
+                JSONSerialization.jsonObject(with: data) as? [String: Any]
+            )
+            XCTAssertEqual(object["wallpaperScope"] as? String, item.rawValue)
+            XCTAssertEqual(
+                try JSONDecoder()
+                    .decode(ThemeImageSkin.self, from: data)
+                    .wallpaperScope,
+                item.scope
+            )
+        }
+
+        for value in ["null", #""futureFloatingPane""#] {
+            let skin = try JSONDecoder().decode(
+                ThemeImageSkin.self,
+                from: Data(
+                    #"{"wallpaperScope":\#(value)}"#.utf8
+                )
+            )
+            XCTAssertEqual(skin.wallpaperScope, .fullWindow)
+        }
     }
 
     func testEveryImageFitCaseRoundTripsItsStableRawValue() throws {

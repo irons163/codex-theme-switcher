@@ -15,7 +15,6 @@ const {
   readBundleValue,
 } = require("./cdp");
 const {
-  broadcastTheme,
   clearRenderers,
   injectRenderers,
 } = require("./injection");
@@ -28,8 +27,23 @@ const {
 const { sleep } = require("./processes");
 
 const APP_ID = "codex-theme-switcher";
-const PROTOCOL_VERSION = 1;
+const PROTOCOL_VERSION = 2;
 const MAX_THEME_CSS_BYTES = 64 * 1024 * 1024;
+const MAX_THEME_ASSET_BYTES = 16 * 1024 * 1024;
+const MAX_THEME_TOTAL_ASSET_BYTES = 32 * 1024 * 1024;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MEDIA_TYPE_PATTERN =
+  /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/i;
+const THEME_ASSET_URL_PATTERN =
+  /codex-theme-asset:\/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
+
+function collapseCompilerDataURLs(source) {
+  return source.replace(
+    /url\s*\(\s*(["']?)data:([a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+);base64,[a-z0-9+/=\s]*\1\s*\)/gi,
+    "url(data:application/octet-stream;base64,AA==)",
+  );
+}
 
 function removeCSSComments(source) {
   let result = "";
@@ -120,7 +134,7 @@ function decodeCSSEscapes(source) {
 }
 
 function normalizedCSSForSecurity(source) {
-  return decodeCSSEscapes(removeCSSComments(source));
+  return decodeCSSEscapes(removeCSSComments(collapseCompilerDataURLs(source)));
 }
 
 function isUnsafeThemeURL(rawValue) {
@@ -161,6 +175,79 @@ function activeThemePath(userRoot) {
   return path.join(runtimeDirectory(userRoot), "active-theme.json");
 }
 
+function decodeCanonicalBase64(value) {
+  if (typeof value !== "string" || value.length % 4 !== 0) {
+    throw Object.assign(new Error("Theme asset data is not valid Base64."), {
+      code: "invalid-theme-asset",
+    });
+  }
+  const padding = value.endsWith("==") ? 2 : value.endsWith("=") ? 1 : 0;
+  const contentLength = value.length - padding;
+  for (let index = 0; index < contentLength; index += 1) {
+    const code = value.charCodeAt(index);
+    const isUpper = code >= 65 && code <= 90;
+    const isLower = code >= 97 && code <= 122;
+    const isDigit = code >= 48 && code <= 57;
+    if (!isUpper && !isLower && !isDigit && code !== 43 && code !== 47) {
+      throw Object.assign(new Error("Theme asset data is not valid Base64."), {
+        code: "invalid-theme-asset",
+      });
+    }
+  }
+  for (let index = contentLength; index < value.length; index += 1) {
+    if (value.charCodeAt(index) !== 61) {
+      throw Object.assign(new Error("Theme asset data is not valid Base64."), {
+        code: "invalid-theme-asset",
+      });
+    }
+  }
+  const decoded = Buffer.from(value, "base64");
+  if (decoded.toString("base64") !== value) {
+    throw Object.assign(new Error("Theme asset data is not canonical Base64."), {
+      code: "invalid-theme-asset",
+    });
+  }
+  return decoded;
+}
+
+function assetFingerprint(mediaType, decoded) {
+  return crypto.createHash("sha256")
+    .update(mediaType)
+    .update("\0")
+    .update(decoded)
+    .digest("hex");
+}
+
+function themeDigest(themeID, css, assets) {
+  const digest = crypto.createHash("sha256")
+    .update(themeID)
+    .update("\0")
+    .update(css);
+  for (const asset of assets) {
+    digest
+      .update("\0")
+      .update(asset.id)
+      .update("\0")
+      .update(asset.fingerprint);
+  }
+  return digest.digest("hex");
+}
+
+function referencedThemeAssetIDs(css) {
+  const ids = new Set();
+  for (const match of css.matchAll(THEME_ASSET_URL_PATTERN)) {
+    ids.add(match[1].toLowerCase());
+  }
+  const withoutValidReferences = css.replace(THEME_ASSET_URL_PATTERN, "");
+  if (/codex-theme-asset:/i.test(withoutValidReferences)) {
+    throw Object.assign(
+      new Error("Compiled theme CSS contains a malformed asset URL."),
+      { code: "invalid-theme-asset" },
+    );
+  }
+  return ids;
+}
+
 function validateThemePayload(theme) {
   if (!theme || typeof theme !== "object") {
     throw Object.assign(new Error("Theme payload is missing."), {
@@ -195,10 +282,94 @@ function validateThemePayload(theme) {
       { code: "unsafe-css" },
     );
   }
+  if (theme.assets !== undefined && !Array.isArray(theme.assets)) {
+    throw Object.assign(new Error("Theme assets must be an array."), {
+      code: "invalid-theme-asset",
+    });
+  }
+
+  const assets = [];
+  const assetIDs = new Set();
+  let totalAssetBytes = 0;
+  for (const rawAsset of theme.assets || []) {
+    if (!rawAsset || typeof rawAsset !== "object") {
+      throw Object.assign(new Error("Theme asset is not an object."), {
+        code: "invalid-theme-asset",
+      });
+    }
+    if (typeof rawAsset.id !== "string" || !UUID_PATTERN.test(rawAsset.id)) {
+      throw Object.assign(new Error("Theme asset ID is not a valid UUID."), {
+        code: "invalid-theme-asset",
+      });
+    }
+    const id = rawAsset.id.toLowerCase();
+    if (assetIDs.has(id)) {
+      throw Object.assign(new Error(`Duplicate theme asset ID: ${id}`), {
+        code: "invalid-theme-asset",
+      });
+    }
+    assetIDs.add(id);
+
+    if (
+      typeof rawAsset.mediaType !== "string"
+      || !MEDIA_TYPE_PATTERN.test(rawAsset.mediaType)
+    ) {
+      throw Object.assign(
+        new Error(`Theme asset ${id} has an invalid media type.`),
+        { code: "invalid-theme-asset" },
+      );
+    }
+    const mediaType = rawAsset.mediaType.toLowerCase();
+    const decoded = decodeCanonicalBase64(rawAsset.dataBase64);
+    if (decoded.length > MAX_THEME_ASSET_BYTES) {
+      throw Object.assign(
+        new Error(`Theme asset ${id} exceeds the 16 MB limit.`),
+        { code: "theme-asset-too-large" },
+      );
+    }
+    totalAssetBytes += decoded.length;
+    if (totalAssetBytes > MAX_THEME_TOTAL_ASSET_BYTES) {
+      throw Object.assign(
+        new Error("Theme assets exceed the 32 MB combined limit."),
+        { code: "theme-assets-too-large" },
+      );
+    }
+    assets.push({
+      id,
+      mediaType,
+      dataBase64: rawAsset.dataBase64,
+      fingerprint: assetFingerprint(mediaType, decoded),
+      byteLength: decoded.length,
+    });
+  }
+  assets.sort((left, right) => left.id.localeCompare(right.id));
+
+  const referencedIDs = referencedThemeAssetIDs(theme.css);
+  for (const id of referencedIDs) {
+    if (!assetIDs.has(id)) {
+      throw Object.assign(
+        new Error(`Compiled theme CSS references missing asset ${id}.`),
+        { code: "missing-theme-asset" },
+      );
+    }
+  }
+  for (const id of assetIDs) {
+    if (!referencedIDs.has(id)) {
+      throw Object.assign(
+        new Error(`Theme payload contains unreferenced asset ${id}.`),
+        { code: "unreferenced-theme-asset" },
+      );
+    }
+  }
+
+  const themeID = theme.themeID.trim();
+  const css = theme.css;
   return {
-    themeID: theme.themeID.trim(),
+    themeID,
     themeName: theme.themeName.trim(),
-    css: theme.css,
+    css,
+    assets,
+    digest: themeDigest(themeID, css, assets),
   };
 }
 
@@ -310,6 +481,22 @@ async function serveBridge(options) {
     state.lastError = null;
   }
 
+  async function injectWhenReady(timeoutMs = 2000) {
+    const startedAt = Date.now();
+    let lastError = null;
+    do {
+      try {
+        await injectOnce();
+        return;
+      } catch (error) {
+        lastError = error;
+        if (error.code !== "missing-cdp-target") throw error;
+      }
+      await sleep(100);
+    } while (Date.now() - startedAt < timeoutMs);
+    throw lastError;
+  }
+
   async function launchAndInject() {
     if (state.launching) {
       const started = Date.now();
@@ -335,26 +522,23 @@ async function serveBridge(options) {
     const previous = state.activeTheme;
     state.activeTheme = validated;
     try {
-      const status = await cdpStatus(state.debugPort);
-      if (!status.hasCodexTarget) {
-        throw Object.assign(
-          new Error("Codex is not attached. Launch + Attach before applying."),
-          { code: "missing-cdp-target" },
-        );
-      }
-      await injectOnce();
-      await broadcastTheme(state.sessions, validated, log);
+      await injectWhenReady();
       await persistActiveTheme(options.userRoot, validated);
     } catch (error) {
       state.activeTheme = previous;
+      try {
+        await injectOnce();
+      } catch (rollbackError) {
+        log(`theme rollback failed: ${rollbackError.message}`);
+      }
       throw error;
     }
   }
 
   async function clearTheme() {
-    await clearRenderers(state.sessions, log);
     state.activeTheme = null;
     await removeActiveTheme(options.userRoot);
+    await clearRenderers(state.sessions, log);
   }
 
   async function bridgeStatus() {
@@ -393,7 +577,12 @@ async function serveBridge(options) {
     handleRequest(request, response).catch((error) => {
       state.lastError = error.message || String(error);
       log(`request failed: ${state.lastError}`);
-      const status = error.code === "payload-too-large" ? 413 : 500;
+      const status = [
+        "payload-too-large",
+        "theme-too-large",
+        "theme-asset-too-large",
+        "theme-assets-too-large",
+      ].includes(error.code) ? 413 : 500;
       writeJSON(response, status, {
         ok: false,
         error: {
@@ -422,7 +611,7 @@ async function serveBridge(options) {
       return;
     }
     if (request.method === "POST" && request.url === "/inject") {
-      await injectOnce();
+      await injectWhenReady();
       writeJSON(response, 200, await bridgeStatus());
       return;
     }
@@ -504,9 +693,39 @@ async function waitForBridge(options, timeoutMs = 6000) {
 
 async function startBridgeDaemon(options) {
   ensureTokenFile(options);
+
+  let existing = null;
   try {
-    return await waitForBridge(options, 500);
+    existing = await queryBridge(options);
   } catch {}
+  if (existing) {
+    if (existing.app !== APP_ID) {
+      throw new Error(
+        `Port ${options.bridgePort} belongs to an incompatible service.`,
+      );
+    }
+    if (existing.protocolVersion === PROTOCOL_VERSION) {
+      return existing;
+    }
+    await queryBridge(options, "/stop", "POST");
+    let released = false;
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      if (await portIsAvailable(options.bridgePort)) {
+        released = true;
+        break;
+      }
+      await sleep(50);
+    }
+    if (!released) {
+      throw new Error(
+        `Old theme runtime did not release port ${options.bridgePort}.`,
+      );
+    }
+  } else if (!(await portIsAvailable(options.bridgePort))) {
+    throw new Error(
+      `Port ${options.bridgePort} is occupied by an unavailable service.`,
+    );
+  }
 
   const logDirectory = path.join(options.userRoot, "Logs");
   await fsp.mkdir(logDirectory, { recursive: true, mode: 0o700 });
@@ -534,7 +753,9 @@ async function startBridgeDaemon(options) {
 
 module.exports = {
   APP_ID,
+  MAX_THEME_ASSET_BYTES,
   MAX_THEME_CSS_BYTES,
+  MAX_THEME_TOTAL_ASSET_BYTES,
   PROTOCOL_VERSION,
   activeThemePath,
   containsUnsafeThemeCSS,

@@ -193,6 +193,7 @@ enum ThemeImageSkinCompiler {
         let rootDeclarationText = rootDeclarations
             .map { "  \($0)" }
             .joined(separator: "\n")
+        let wallpaperRules = wallpaperRules(for: skin)
 
         var rules: [String] = [
             """
@@ -206,34 +207,7 @@ enum ThemeImageSkinCompiler {
               isolation: isolate;
             }
 
-            \(root)::before {
-              content: "";
-              position: fixed;
-              inset: var(--cts-skin-image-inset);
-              z-index: 0;
-              pointer-events: none;
-              background-image: var(--cts-skin-background-image);
-              background-size: var(--cts-skin-background-size);
-              background-repeat: var(--cts-skin-background-repeat);
-              background-position: var(--cts-skin-background-position);
-              mix-blend-mode: var(--cts-skin-image-blend);
-              filter: var(--cts-skin-image-filter);
-              opacity: var(--cts-skin-image-opacity);
-              transform: var(--cts-skin-image-transform);
-              transform-origin: var(--cts-skin-image-origin);
-            }
-
-            \(root)::after {
-              content: "";
-              position: fixed;
-              inset: 0;
-              z-index: 0;
-              pointer-events: none;
-              background:
-                var(--cts-skin-vignette),
-                var(--cts-skin-scrim),
-                linear-gradient(var(--cts-skin-overlay), var(--cts-skin-overlay));
-            }
+            \(wallpaperRules)
 
             \(root) body,
             \(root) body #root {
@@ -249,12 +223,16 @@ enum ThemeImageSkinCompiler {
         ]
 
         if skin.targets.content {
-            rules.append(surfaceRule(
-                selectors: [
-                    "main.main-surface"
-                ],
-                background: "var(--cts-skin-content)"
-            ))
+            if skin.wallpaperScope == .fullWindow {
+                rules.append(surfaceRule(
+                    selectors: [
+                        "main.main-surface"
+                    ],
+                    background: "var(--cts-skin-content)"
+                ))
+            }
+        }
+        if skin.targets.content || skin.wallpaperScope == .mainContent {
             rules.append(transparentRule(selectors: [
                 "[data-app-shell-main-content-layout]",
                 ".app-shell-main-content-frame"
@@ -337,6 +315,93 @@ enum ThemeImageSkinCompiler {
             """
         )
         return rules.joined(separator: "\n\n")
+    }
+
+    private static func wallpaperRules(for skin: ThemeImageSkin) -> String {
+        switch skin.wallpaperScope {
+        case .fullWindow:
+            return """
+            \(root)::before {
+              content: "";
+              position: fixed;
+              inset: var(--cts-skin-image-inset);
+              z-index: 0;
+              pointer-events: none;
+              background-image: var(--cts-skin-background-image);
+              background-size: var(--cts-skin-background-size);
+              background-repeat: var(--cts-skin-background-repeat);
+              background-position: var(--cts-skin-background-position);
+              mix-blend-mode: var(--cts-skin-image-blend);
+              filter: var(--cts-skin-image-filter);
+              opacity: var(--cts-skin-image-opacity);
+              transform: var(--cts-skin-image-transform);
+              transform-origin: var(--cts-skin-image-origin);
+            }
+
+            \(root)::after {
+              content: "";
+              position: fixed;
+              inset: 0;
+              z-index: 0;
+              pointer-events: none;
+              background:
+                var(--cts-skin-vignette),
+                var(--cts-skin-scrim),
+                linear-gradient(var(--cts-skin-overlay), var(--cts-skin-overlay));
+            }
+            """
+        case .mainContent:
+            var overlayLayers: [String] = []
+            if skin.targets.content {
+                overlayLayers.append(
+                    "linear-gradient(var(--cts-skin-content), var(--cts-skin-content))"
+                )
+            }
+            overlayLayers.append(contentsOf: [
+                "var(--cts-skin-vignette)",
+                "var(--cts-skin-scrim)",
+                "linear-gradient(var(--cts-skin-overlay), var(--cts-skin-overlay))"
+            ])
+            let overlayBackground = overlayLayers
+                .map { "    \($0)" }
+                .joined(separator: ",\n")
+            return """
+            \(root) main.main-surface {
+              position: relative;
+              isolation: isolate;
+              overflow: hidden;
+              background-color: var(--cts-skin-background-color) !important;
+              background-image: none !important;
+            }
+
+            \(root) main.main-surface::before {
+              content: "";
+              position: absolute;
+              inset: var(--cts-skin-image-inset);
+              z-index: -2;
+              pointer-events: none;
+              background-image: var(--cts-skin-background-image);
+              background-size: var(--cts-skin-background-size);
+              background-repeat: var(--cts-skin-background-repeat);
+              background-position: var(--cts-skin-background-position);
+              mix-blend-mode: var(--cts-skin-image-blend);
+              filter: var(--cts-skin-image-filter);
+              opacity: var(--cts-skin-image-opacity);
+              transform: var(--cts-skin-image-transform);
+              transform-origin: var(--cts-skin-image-origin);
+            }
+
+            \(root) main.main-surface::after {
+              content: "";
+              position: absolute;
+              inset: 0;
+              z-index: -1;
+              pointer-events: none;
+              background:
+            \(overlayBackground);
+            }
+            """
+        }
     }
 
     private static func surfaceRule(

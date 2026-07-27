@@ -97,8 +97,54 @@ public struct ThemeRuntimeFailure: LocalizedError, Equatable, Sendable {
     public var errorDescription: String? { message }
 }
 
+public struct ThemeRuntimeAsset: Codable, Equatable, Sendable, Identifiable {
+    public let id: String
+    public let mediaType: String
+    public let dataBase64: String
+
+    public init(
+        id: String,
+        mediaType: String,
+        dataBase64: String
+    ) {
+        self.id = id
+        self.mediaType = mediaType
+        self.dataBase64 = dataBase64
+    }
+}
+
 struct RuntimeThemePayload: Encodable, Sendable {
     let themeID: String
     let themeName: String
     let css: String
+    let assets: [ThemeRuntimeAsset]
+
+    init(
+        themeID: String,
+        themeName: String,
+        css: String,
+        assets: [ThemeRuntimeAsset] = []
+    ) {
+        self.themeID = themeID
+        self.themeName = themeName
+        self.css = css
+        self.assets = assets
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case themeID
+        case themeName
+        case css
+        case assets
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(themeID, forKey: .themeID)
+        try container.encode(themeName, forKey: .themeName)
+        try container.encode(css, forKey: .css)
+        if !assets.isEmpty {
+            try container.encode(assets, forKey: .assets)
+        }
+    }
 }

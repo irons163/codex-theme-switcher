@@ -17,12 +17,13 @@ Codex reload 或開新視窗後，runtime 也會自動補上主題。
   - Codex `--color-token-*` 介面、interaction、diff 與 terminal tokens。
 - 字型、字級、行高、內容寬度、間距、圓角、陰影、模糊、縮放與動畫。
 - 背景與玻璃（Image Skin）：明暗雙背景、Fit / Fill 等七種尺寸模式、焦點裁切、
-  濾鏡、overlay 與分區 glass。
+  可選全視窗或避開左側欄的壁紙畫布、濾鏡、overlay 與分區 glass。
 - 任意 component declarations。
 - 任意 CSS selector rules。
 - 完整 raw CSS escape hatch。
 - 多 layer 與 light / dark / custom media query。
-- PNG、JPEG、WebP、GIF 與字型等素材可內嵌為 data URL。
+- PNG、JPEG、WebP、GIF 與字型等素材可嵌入模板；runtime 會分段傳輸並建立
+  renderer-local Blob URL，因此大型 4K 圖片不會撞到 CSS declaration 長度限制。
 - 單檔 `.codextheme` 導入／導出，方便分享。
 - Traditional Chinese / English UI。
 
@@ -34,6 +35,9 @@ Image Skin 可把 Codex 做成完整的圖片主題，而不只是替換色票�
 - 背景支援 Fit（完整顯示）、Fill（等比例填滿裁切）、Stretch、Fit Width、
   Fit Height、Original 與 Tile；每種模式都能搭配焦點／起點、縮放、不透明度，
   以及亮度、對比、飽和度與模糊濾鏡。
+- 「壁紙避開左側欄」會把圖片、Fit / Fill、焦點、overlay、scrim 與 vignette
+  整組改以主內容區重新排版；側欄保留自己的背景底色與 glass。側欄拖曳改寬或
+  收合時，壁紙邊界會跟著實際 Codex layout 自動調整。
 - Overlay 可使用純色 scrim、線性漸層或 vignette，讓側欄、標題與輸入區在複雜
   圖片上仍保持清楚。
 - Sidebar、main content、composer、card、menu、popover 與 code block 可分區設定
@@ -170,7 +174,9 @@ body {
 }
 ```
 
-編譯時會安全改寫為 `data:` URL。
+編譯時會安全改寫為短的 `codex-theme-asset://` placeholder。Runtime 以 256 KiB
+區塊把素材送到每個 renderer，在 renderer 內建立 Blob URL 後才原子切換 style；
+相同素材會重用 Blob，切換或清除主題時也會撤銷不再使用的 URL。
 
 ## Local data
 
@@ -179,7 +185,7 @@ body {
   Themes/                 # user theme JSON
   active-theme.json       # repository active pointer
   Runtime/
-    active-theme.json     # runtime CSS snapshot
+    active-theme.json     # runtime CSS template、asset manifest 與資料
     bridge-token          # mode 0600
   Logs/runtime.log
 ```
@@ -189,8 +195,8 @@ body {
 - `CodexThemeSwitcherCore`: theme schema、validator、compiler、repository、archive。
 - `CodexThemeRuntime`: async Swift runner 與 authenticated Node/CDP runtime。
 - `CodexThemeSwitcher`: AppKit/SwiftUI menu bar studio。
-- `Tests/`: 64 Swift tests。
-- `test/`: 33 Node runtime tests。
+- `Tests/`: 81 Swift tests。
+- `test/`: 49 Node runtime tests。
 
 Selector rules 屬於 expert layer，Codex 更新後可能需要調整；基礎與
 `--color-token-*` layers 優先使用目前 Codex 自己的 CSS contract，較不依賴 React

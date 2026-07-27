@@ -41,13 +41,15 @@ public struct RuntimeHelperRunner: Sendable {
     public func apply(
         css: String,
         themeID: String,
-        themeName: String
+        themeName: String,
+        assets: [ThemeRuntimeAsset] = []
     ) async throws -> ThemeRuntimeResult {
         let input = try JSONEncoder().encode(
             RuntimeThemePayload(
                 themeID: themeID,
                 themeName: themeName,
-                css: css
+                css: css,
+                assets: assets
             )
         )
         return try await run(command: "apply", standardInput: input)
@@ -174,12 +176,14 @@ public actor ThemeRuntimeController {
     public func apply(
         css: String,
         themeID: String,
-        themeName: String
+        themeName: String,
+        assets: [ThemeRuntimeAsset] = []
     ) async throws -> ThemeRuntimeResult {
         try await runner.apply(
             css: css,
             themeID: themeID,
-            themeName: themeName
+            themeName: themeName,
+            assets: assets
         )
     }
 

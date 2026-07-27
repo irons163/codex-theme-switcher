@@ -327,7 +327,14 @@ final class ThemeAppModel: ObservableObject {
                     let applied = try await runtime.apply(
                         css: compiled.css,
                         themeID: active.id.uuidString,
-                        themeName: active.metadata.name
+                        themeName: active.metadata.name,
+                        assets: compiled.runtimeAssets.map {
+                            ThemeRuntimeAsset(
+                                id: $0.id.uuidString.lowercased(),
+                                mediaType: $0.mediaType,
+                                dataBase64: $0.dataBase64
+                            )
+                        }
                     ).requiringSuccess()
                     self.runtimeStatus = applied.status
                 }
@@ -369,7 +376,14 @@ final class ThemeAppModel: ObservableObject {
                 let result = try await runtime.apply(
                     css: compiled.css,
                     themeID: document.id.uuidString,
-                    themeName: document.metadata.name
+                    themeName: document.metadata.name,
+                    assets: compiled.runtimeAssets.map {
+                        ThemeRuntimeAsset(
+                            id: $0.id.uuidString.lowercased(),
+                            mediaType: $0.mediaType,
+                            dataBase64: $0.dataBase64
+                        )
+                    }
                 ).requiringSuccess()
 
                 try await self.repository.setActiveThemeID(document.id)

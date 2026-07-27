@@ -153,6 +153,44 @@ final class RuntimeHelperRunnerTests: XCTestCase {
         }
     }
 
+    func testApplyEncodesRuntimeAssetsOnStandardInput() async throws {
+        let fixture = try makeRunner()
+        let asset = ThemeRuntimeAsset(
+            id: "a8d603e1-f01d-48d0-bd8f-cbfe4d179a66",
+            mediaType: "image/png",
+            dataBase64: "AAECAw=="
+        )
+
+        let result = try await fixture.runner.apply(
+            css: #".hero{background:url("codex-theme-asset://a8d603e1-f01d-48d0-bd8f-cbfe4d179a66")}"#,
+            themeID: "with-asset",
+            themeName: "With asset",
+            assets: [asset]
+        )
+
+        let rawOutput = try XCTUnwrap(result.rawOutput)
+        let rawData = try XCTUnwrap(rawOutput.data(using: .utf8))
+        let wire = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: rawData)
+                as? [String: Any]
+        )
+        let input = try XCTUnwrap(wire["input"] as? [String: Any])
+        let assets = try XCTUnwrap(
+            input["assets"] as? [[String: String]]
+        )
+        XCTAssertEqual(
+            assets,
+            [[
+                "id": asset.id,
+                "mediaType": asset.mediaType,
+                "dataBase64": asset.dataBase64
+            ]]
+        )
+        XCTAssertFalse(
+            try XCTUnwrap(input["css"] as? String).contains("base64")
+        )
+    }
+
     func testNonzeroExitCannotReportSuccess() async throws {
         let fixture = try makeRunner()
 

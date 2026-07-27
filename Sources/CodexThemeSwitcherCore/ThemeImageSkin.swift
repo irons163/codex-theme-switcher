@@ -22,6 +22,13 @@ public enum ThemeSkinImageFit: String, Codable, CaseIterable, Sendable {
     case tile
 }
 
+public enum ThemeSkinWallpaperScope: String, Codable, CaseIterable, Sendable {
+    /// Size and position the wallpaper against the entire Codex window.
+    case fullWindow
+    /// Size and position the wallpaper inside Codex's main content pane.
+    case mainContent
+}
+
 public enum ThemeSkinScrimDirection: String, Codable, CaseIterable, Sendable {
     case none
     case left
@@ -44,6 +51,7 @@ public enum ThemeSkinBlendMode: String, Codable, CaseIterable, Sendable {
 /// image skins existed still decode without a migration.
 public struct ThemeImageSkin: Codable, Equatable, Sendable {
     public var isEnabled: Bool
+    public var wallpaperScope: ThemeSkinWallpaperScope
     public var light: ThemeSkinVariant
     public var dark: ThemeSkinVariant
     public var glass: ThemeSkinGlass
@@ -51,12 +59,14 @@ public struct ThemeImageSkin: Codable, Equatable, Sendable {
 
     public init(
         isEnabled: Bool = true,
+        wallpaperScope: ThemeSkinWallpaperScope = .fullWindow,
         light: ThemeSkinVariant = .lightDefault,
         dark: ThemeSkinVariant = .darkDefault,
         glass: ThemeSkinGlass = ThemeSkinGlass(),
         targets: ThemeSkinTargets = ThemeSkinTargets()
     ) {
         self.isEnabled = isEnabled
+        self.wallpaperScope = wallpaperScope
         self.light = light
         self.dark = dark
         self.glass = glass
@@ -81,6 +91,7 @@ public struct ThemeImageSkin: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case isEnabled
+        case wallpaperScope
         case light
         case dark
         case glass
@@ -93,6 +104,16 @@ public struct ThemeImageSkin: Codable, Equatable, Sendable {
             Bool.self,
             forKey: .isEnabled
         ) ?? true
+        if let rawWallpaperScope = try values.decodeIfPresent(
+            String.self,
+            forKey: .wallpaperScope
+        ) {
+            wallpaperScope = ThemeSkinWallpaperScope(
+                rawValue: rawWallpaperScope
+            ) ?? .fullWindow
+        } else {
+            wallpaperScope = .fullWindow
+        }
         if values.contains(.light),
            try !values.decodeNil(forKey: .light) {
             light = try ThemeSkinVariant(

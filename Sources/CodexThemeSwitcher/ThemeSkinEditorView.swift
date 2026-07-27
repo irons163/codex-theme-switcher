@@ -227,6 +227,30 @@ struct ThemeSkinEditorView: View {
                 focalGrid
             }
 
+            Toggle(isOn: wallpaperExcludesSidebarBinding) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(
+                        L10n.text(
+                            "壁紙避開左側欄",
+                            "Keep wallpaper out of sidebar"
+                        )
+                    )
+                    .font(.caption.weight(.semibold))
+                    Text(
+                        L10n.text(
+                            "開啟後，Fit／Fill、焦點與遮罩只以主內容區計算；側欄保留自己的底色與玻璃材質。",
+                            "Fit, fill, focal point, and overlays use only the main content area; the sidebar keeps its own base color and glass."
+                        )
+                    )
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
+            .padding(10)
+            .background(.quaternary.opacity(0.28))
+            .clipShape(RoundedRectangle(cornerRadius: 9))
+
             Divider()
 
             imageSizingControl
@@ -791,6 +815,21 @@ struct ThemeSkinEditorView: View {
                 model.mutateDraft { document in
                     var value = document.imageSkin ?? ThemeImageSkin()
                     value.isEnabled = enabled
+                    document.imageSkin = value
+                }
+            }
+        )
+    }
+
+    private var wallpaperExcludesSidebarBinding: Binding<Bool> {
+        Binding(
+            get: { skin.wallpaperScope == .mainContent },
+            set: { excludesSidebar in
+                model.mutateDraft { document in
+                    var value = document.imageSkin ?? ThemeImageSkin()
+                    value.wallpaperScope = excludesSidebar
+                        ? .mainContent
+                        : .fullWindow
                     document.imageSkin = value
                 }
             }

@@ -88,12 +88,14 @@ final class ThemeArchiveServiceTests: XCTestCase {
             mediaType: "image/jpeg",
             bytes: [4, 5, 6]
         )
+        var imageSkin = TestFixtures.imageSkin(
+            lightAssetID: light.id,
+            darkAssetID: dark.id
+        )
+        imageSkin.wallpaperScope = .mainContent
         let theme = TestFixtures.theme(
             assets: [light, dark],
-            imageSkin: TestFixtures.imageSkin(
-                lightAssetID: light.id,
-                darkAssetID: dark.id
-            )
+            imageSkin: imageSkin
         )
 
         try ThemeArchiveService().export(theme, to: url)
@@ -101,6 +103,10 @@ final class ThemeArchiveServiceTests: XCTestCase {
 
         XCTAssertEqual(inspection.archiveVersion, 1)
         XCTAssertEqual(inspection.theme, theme)
+        XCTAssertEqual(
+            inspection.theme.imageSkin?.wallpaperScope,
+            .mainContent
+        )
         XCTAssertEqual(
             inspection.theme.imageSkin?.light.backgroundAssetID,
             light.id

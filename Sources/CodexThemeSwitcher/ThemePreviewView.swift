@@ -37,12 +37,25 @@ struct ThemePreviewView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            ZStack {
+            let sidebarWidth = ThemePreviewLayout.sidebarWidth(
+                containerWidth: geometry.size.width
+            )
+            let wallpaperWidth = ThemePreviewLayout.wallpaperWidth(
+                containerWidth: geometry.size.width,
+                sidebarWidth: sidebarWidth,
+                scope: visual.wallpaperScope
+            )
+
+            ZStack(alignment: .trailing) {
                 wallpaper
+                    .frame(
+                        width: wallpaperWidth,
+                        height: geometry.size.height
+                    )
 
                 HStack(spacing: 0) {
                     previewSidebar
-                        .frame(width: min(185, geometry.size.width * 0.28))
+                        .frame(width: sidebarWidth)
 
                     VStack(spacing: 0) {
                         previewTitlebar
@@ -73,22 +86,24 @@ struct ThemePreviewView: View {
         .shadow(color: .black.opacity(0.14), radius: 20, y: 10)
     }
 
-    @ViewBuilder
     private var wallpaper: some View {
-        visual.backgroundPrimary
+        ZStack {
+            visual.backgroundPrimary
 
-        if let image = visual.backgroundImage,
-           let variant = visual.skinVariant {
-            SkinWallpaperView(image: image, variant: variant)
+            if let image = visual.backgroundImage,
+               let variant = visual.skinVariant {
+                SkinWallpaperView(image: image, variant: variant)
+            }
+
+            if let variant = visual.skinVariant {
+                Color(css: variant.overlayColor, fallback: .black)
+                    .opacity(variant.overlayOpacity)
+
+                SkinScrimView(variant: variant)
+                SkinVignetteView(opacity: variant.vignetteOpacity)
+            }
         }
-
-        if let variant = visual.skinVariant {
-            Color(css: variant.overlayColor, fallback: .black)
-                .opacity(variant.overlayOpacity)
-
-            SkinScrimView(variant: variant)
-            SkinVignetteView(opacity: variant.vignetteOpacity)
-        }
+        .clipped()
     }
 
     private var previewSidebar: some View {
@@ -433,6 +448,25 @@ struct ThemePreviewView: View {
     }
 }
 
+enum ThemePreviewLayout {
+    static func sidebarWidth(containerWidth: CGFloat) -> CGFloat {
+        min(185, containerWidth * 0.28)
+    }
+
+    static func wallpaperWidth(
+        containerWidth: CGFloat,
+        sidebarWidth: CGFloat,
+        scope: ThemeSkinWallpaperScope
+    ) -> CGFloat {
+        switch scope {
+        case .fullWindow:
+            containerWidth
+        case .mainContent:
+            max(0, containerWidth - sidebarWidth)
+        }
+    }
+}
+
 enum SkinWallpaperLayout {
     struct Resolution: Equatable {
         let renderedSize: CGSize
@@ -736,6 +770,7 @@ struct ThemeVisualSnapshot {
     let codeFont: Font
     let backgroundImage: NSImage?
     let skinVariant: ThemeSkinVariant?
+    let wallpaperScope: ThemeSkinWallpaperScope
     let contentUsesMaterial: Bool
     let sidebarUsesMaterial: Bool
     let titlebarUsesMaterial: Bool
@@ -774,6 +809,7 @@ struct ThemeVisualSnapshot {
         let activeSkin = theme.imageSkin.flatMap { $0.isEnabled ? $0 : nil }
         let variant = activeSkin?.variant(for: appearance)
         skinVariant = variant
+        wallpaperScope = activeSkin?.wallpaperScope ?? .fullWindow
 
         backgroundPrimary = Color(
             css: variant?.backgroundColor
