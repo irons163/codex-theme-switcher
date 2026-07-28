@@ -184,6 +184,19 @@ final class L10nTests: XCTestCase {
                     .japanese: "アセットを追加",
                     .korean: "에셋 추가"
                 ]
+            ),
+            (
+                "內建",
+                "BUILT-IN",
+                [
+                    .english: "BUILT-IN",
+                    .traditionalChinese: "內建",
+                    .simplifiedChinese: "内置",
+                    .french: "INTÉGRÉ",
+                    .spanish: "INTEGRADO",
+                    .japanese: "組み込み",
+                    .korean: "기본 제공"
+                ]
             )
         ]
 

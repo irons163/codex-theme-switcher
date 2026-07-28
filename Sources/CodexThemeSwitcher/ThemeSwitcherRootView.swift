@@ -26,6 +26,7 @@ struct ThemeSwitcherRootView: View {
                 )
             }
         }
+        .id(languageSettings.selection)
         .environment(\.locale, languageSettings.locale)
         .background(.regularMaterial)
         .overlay(alignment: .bottom) {
