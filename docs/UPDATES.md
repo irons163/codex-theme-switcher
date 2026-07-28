@@ -173,11 +173,11 @@ contain one, such as `-beta.1` or `-rc.1`.
 
 The first public release must be Stable because Beta appcasts need an existing
 Stable release as their host. Stable `v0.2.8` is the initial host release. The
-current source version is `v0.3.0-beta.4` with build `18`; publish it as a
+current source version is `v0.3.0-beta.5` with build `19`; publish it as a
 GitHub prerelease on the Beta channel. Its seven release-note files are under:
 
 ```text
-docs/release-notes/v0.3.0-beta.4/
+docs/release-notes/v0.3.0-beta.5/
   release-notes.en.md
   release-notes.zh-Hant.md
   release-notes.zh-Hans.md
