@@ -117,8 +117,32 @@ private struct ThemePreviewPage: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(theme.metadata.name)
+                    if model.isSelectedBuiltIn {
+                        Text(theme.metadata.name)
+                            .font(.title2.bold())
+                    } else {
+                        TextField(
+                            L10n.text("主題名稱", "Theme name"),
+                            text: Binding(
+                                get: {
+                                    model.draft?.metadata.name ?? ""
+                                },
+                                set: { value in
+                                    model.mutateDraft(
+                                        actionName: L10n.text(
+                                            "重新命名主題",
+                                            "Rename theme"
+                                        ),
+                                        coalescingKey: "metadata.name"
+                                    ) {
+                                        $0.metadata.name = value
+                                    }
+                                }
+                            )
+                        )
                         .font(.title2.bold())
+                        .textFieldStyle(.plain)
+                    }
                     Text(
                         theme.metadata.description.isEmpty
                             ? L10n.text(

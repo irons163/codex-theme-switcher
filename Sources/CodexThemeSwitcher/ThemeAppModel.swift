@@ -370,6 +370,27 @@ final class ThemeAppModel: ObservableObject {
         }
     }
 
+    @discardableResult
+    func renameTheme(_ id: UUID, to proposedName: String) -> Bool {
+        let name = proposedName.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        guard !name.isEmpty,
+              BuiltInThemes.theme(id: id) == nil,
+              themes.contains(where: { $0.id == id }) else {
+            return false
+        }
+
+        selectTheme(id)
+        mutateDraft(
+            actionName: L10n.text("重新命名主題", "Rename theme"),
+            coalesces: false
+        ) {
+            $0.metadata.name = name
+        }
+        return draft?.metadata.name == name
+    }
+
     func saveDraft() {
         guard var draft, !isSelectedBuiltIn else { return }
         draft.metadata.updatedAt = Date()

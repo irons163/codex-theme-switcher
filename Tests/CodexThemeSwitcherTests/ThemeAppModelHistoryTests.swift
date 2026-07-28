@@ -50,6 +50,51 @@ final class ThemeAppModelHistoryTests: XCTestCase {
     }
 
     @MainActor
+    func testRenameThemeTrimsNameAndIsUndoable() async throws {
+        let theme = makeTheme(name: "Original")
+        let fixture = try await makeModel(
+            documents: [theme],
+            selecting: theme.id
+        )
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        XCTAssertTrue(
+            fixture.model.renameTheme(theme.id, to: "  New name  ")
+        )
+        XCTAssertEqual(fixture.model.draft?.metadata.name, "New name")
+        XCTAssertEqual(
+            fixture.model.themes.first(where: { $0.id == theme.id })?
+                .metadata.name,
+            "New name"
+        )
+        XCTAssertTrue(fixture.model.isDraftDirty)
+        XCTAssertEqual(
+            fixture.model.undoDraftActionName,
+            L10n.text("重新命名主題", "Rename theme")
+        )
+
+        fixture.model.undoDraftChange()
+
+        XCTAssertEqual(fixture.model.draft?.metadata.name, "Original")
+        XCTAssertFalse(fixture.model.isDraftDirty)
+    }
+
+    @MainActor
+    func testRenameThemeRejectsBlankName() async throws {
+        let theme = makeTheme(name: "Original")
+        let fixture = try await makeModel(
+            documents: [theme],
+            selecting: theme.id
+        )
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        XCTAssertFalse(fixture.model.renameTheme(theme.id, to: " \n "))
+        XCTAssertEqual(fixture.model.draft?.metadata.name, "Original")
+        XCTAssertFalse(fixture.model.isDraftDirty)
+        XCTAssertFalse(fixture.model.canUndoDraft)
+    }
+
+    @MainActor
     func testContinuousMutationsWithSameKeyCoalesceIntoOneStep() async throws {
         var skin = ThemeImageSkin()
         skin.dark.imageOpacity = 0.45

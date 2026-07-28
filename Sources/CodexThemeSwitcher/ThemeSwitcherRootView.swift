@@ -6,6 +6,8 @@ struct ThemeSwitcherRootView: View {
     @ObservedObject var model: ThemeAppModel
     @ObservedObject var updateModel: AppUpdateModel
     @ObservedObject var languageSettings: AppLanguageSettings
+    @State private var renamingThemeID: UUID?
+    @State private var proposedThemeName = ""
 
     var body: some View {
         HStack(spacing: 0) {
@@ -159,11 +161,22 @@ struct ThemeSwitcherRootView: View {
                                 isSelected: model.selectedThemeID == theme.id,
                                 isActive: model.appliedThemeID == theme.id,
                                 isBuiltIn: BuiltInThemes.theme(id: theme.id) != nil,
-                                isDirty: model.hasUnsavedChanges(for: theme.id)
+                                isDirty: model.hasUnsavedChanges(for: theme.id),
+                                isRenaming: renamingThemeID == theme.id,
+                                proposedName: $proposedThemeName,
+                                onCommitRename: commitThemeRename,
+                                onCancelRename: cancelThemeRename
                             )
                             .contentShape(Rectangle())
                             .onTapGesture {
+                                if renamingThemeID != nil,
+                                   renamingThemeID != theme.id {
+                                    commitThemeRename()
+                                }
                                 model.selectTheme(theme.id)
+                            }
+                            .onTapGesture(count: 2) {
+                                beginThemeRename(theme)
                             }
                             .contextMenu {
                                 Button(L10n.apply) {
@@ -179,6 +192,14 @@ struct ThemeSwitcherRootView: View {
                                 }
                                 if BuiltInThemes.theme(id: theme.id) == nil {
                                     Divider()
+                                    Button(
+                                        L10n.text(
+                                            "重新命名",
+                                            "Rename"
+                                        )
+                                    ) {
+                                        beginThemeRename(theme)
+                                    }
                                     Button(
                                         L10n.text("刪除", "Delete"),
                                         role: .destructive
@@ -233,6 +254,32 @@ struct ThemeSwitcherRootView: View {
             .frame(height: 44)
         }
         .background(.thinMaterial)
+    }
+
+    private func beginThemeRename(_ theme: ThemeDocument) {
+        guard BuiltInThemes.theme(id: theme.id) == nil else { return }
+        if renamingThemeID != nil, renamingThemeID != theme.id {
+            commitThemeRename()
+        }
+        model.selectTheme(theme.id)
+        proposedThemeName = theme.metadata.name
+        renamingThemeID = theme.id
+    }
+
+    private func commitThemeRename() {
+        guard let id = renamingThemeID else { return }
+        let originalName = model.themes.first {
+            $0.id == id
+        }?.metadata.name ?? ""
+        if !model.renameTheme(id, to: proposedThemeName) {
+            proposedThemeName = originalName
+        }
+        renamingThemeID = nil
+    }
+
+    private func cancelThemeRename() {
+        renamingThemeID = nil
+        proposedThemeName = ""
     }
 
     private var runtimeToolbar: some View {
@@ -451,6 +498,10 @@ private struct ThemeLibraryRow: View {
     let isActive: Bool
     let isBuiltIn: Bool
     let isDirty: Bool
+    let isRenaming: Bool
+    @Binding var proposedName: String
+    let onCommitRename: () -> Void
+    let onCancelRename: () -> Void
 
     private var swatches: [Color] {
         let roles: [ThemeSemanticRole] = [
@@ -485,29 +536,37 @@ private struct ThemeLibraryRow: View {
             .frame(width: 40)
 
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    Text(theme.metadata.name)
-                        .font(.system(size: 12, weight: .medium))
-                        .lineLimit(1)
-                    if isBuiltIn {
-                        Text(L10n.text("內建", "BUILT-IN"))
-                            .font(.system(size: 6.5, weight: .bold))
-                            .tracking(0.4)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(.quaternary)
-                            .clipShape(Capsule())
-                    }
-                    if isDirty {
-                        Circle()
-                            .fill(.orange)
-                            .frame(width: 6, height: 6)
-                            .help(
-                                L10n.text(
-                                    "有尚未儲存的變更",
-                                    "Has unsaved changes"
+                if isRenaming {
+                    ThemeNameEditor(
+                        name: $proposedName,
+                        onCommit: onCommitRename,
+                        onCancel: onCancelRename
+                    )
+                } else {
+                    HStack(spacing: 4) {
+                        Text(theme.metadata.name)
+                            .font(.system(size: 12, weight: .medium))
+                            .lineLimit(1)
+                        if isBuiltIn {
+                            Text(L10n.text("內建", "BUILT-IN"))
+                                .font(.system(size: 6.5, weight: .bold))
+                                .tracking(0.4)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(.quaternary)
+                                .clipShape(Capsule())
+                        }
+                        if isDirty {
+                            Circle()
+                                .fill(.orange)
+                                .frame(width: 6, height: 6)
+                                .help(
+                                    L10n.text(
+                                        "有尚未儲存的變更",
+                                        "Has unsaved changes"
+                                    )
                                 )
-                            )
+                        }
                     }
                 }
                 Text(
@@ -540,6 +599,41 @@ private struct ThemeLibraryRow: View {
                     .stroke(Color.accentColor.opacity(0.18), lineWidth: 1)
             }
         }
+    }
+}
+
+private struct ThemeNameEditor: View {
+    @Binding var name: String
+    let onCommit: () -> Void
+    let onCancel: () -> Void
+    @FocusState private var isFocused: Bool
+    @State private var hasFinished = false
+
+    var body: some View {
+        TextField(L10n.text("主題名稱", "Theme name"), text: $name)
+            .font(.system(size: 12, weight: .medium))
+            .textFieldStyle(.roundedBorder)
+            .focused($isFocused)
+            .onSubmit {
+                finish(onCommit)
+            }
+            .onExitCommand {
+                finish(onCancel)
+            }
+            .onChange(of: isFocused) { focused in
+                if !focused {
+                    finish(onCommit)
+                }
+            }
+            .task {
+                isFocused = true
+            }
+    }
+
+    private func finish(_ action: () -> Void) {
+        guard !hasFinished else { return }
+        hasFinished = true
+        action()
     }
 }
 

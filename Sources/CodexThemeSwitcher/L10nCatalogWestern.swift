@@ -752,6 +752,13 @@ enum L10nCatalogWestern {
         Entry(key: "Info", french: "Informations", spanish: "Información"),
         Entry(key: "Apply", french: "Appliquer", spanish: "Aplicar"),
         Entry(key: "Save", french: "Enregistrer", spanish: "Guardar"),
+        Entry(key: "Rename", french: "Renommer", spanish: "Cambiar nombre"),
+        Entry(
+            key: "Rename theme",
+            french: "Renommer le thème",
+            spanish: "Cambiar el nombre del tema"
+        ),
+        Entry(key: "Theme name", french: "Nom du thème", spanish: "Nombre del tema"),
         Entry(
             key: "Make editable copy",
             french: "Créer une copie modifiable",
