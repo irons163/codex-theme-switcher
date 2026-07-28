@@ -277,6 +277,23 @@ final class AppUpdateSupportTests: XCTestCase {
         XCTAssertEqual(release.normalizedVersion, "2.0.0")
     }
 
+    @MainActor
+    func testAboutSheetCanBePresentedAndDismissed() {
+        let model = AppUpdateModel(
+            installer: StubUpdateInstaller(),
+            versionInfo: AppVersionInfo(
+                version: "0.3.0-beta.2",
+                build: "16"
+            )
+        )
+
+        model.showAbout()
+        XCTAssertEqual(model.sheet, .about)
+
+        model.dismissSheet()
+        XCTAssertNil(model.sheet)
+    }
+
     private func makeRelease(
         assets: [AppUpdateAsset]
     ) -> AppUpdateRelease {

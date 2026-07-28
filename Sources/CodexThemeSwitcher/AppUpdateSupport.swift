@@ -609,11 +609,14 @@ extension SparkleUpdateDriver: SPUUpdaterDelegate {
 }
 
 enum AppUpdateSheet: Identifiable, Equatable {
+    case about
     case update(AppUpdateRelease)
     case whatsNew(String)
 
     var id: String {
         switch self {
+        case .about:
+            "about"
         case let .update(release):
             "update-\(release.id)"
         case let .whatsNew(versionID):
@@ -865,6 +868,10 @@ final class AppUpdateModel: ObservableObject {
 
     func showWhatsNew() {
         sheet = .whatsNew(versionInfo.versionID)
+    }
+
+    func showAbout() {
+        sheet = .about
     }
 
     func dismissWhatsNew(markSeen: Bool) {

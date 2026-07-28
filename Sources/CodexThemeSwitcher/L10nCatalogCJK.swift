@@ -617,6 +617,7 @@ enum L10nCatalogCJK {
         .init("Chat", "对话", "チャット", "채팅"),
         .init("Projects", "项目", "プロジェクト", "프로젝트"),
         .init("Settings", "设置", "設定", "설정"),
+        .init("About {0}", "关于 {0}", "{0}について", "{0} 정보"),
         .init("New task", "新建任务", "新しいタスク", "새 작업"),
         .init("Scheduled", "计划任务", "スケジュール", "예약됨"),
         .init("Plugins", "插件", "プラグイン", "플러그인"),
@@ -868,6 +869,12 @@ enum L10nCatalogCJK {
             "通过已签名的 Sparkle 更新，让 Codex Theme Switcher 始终保持最新。",
             "署名済みのSparkleアップデートで、Codex Theme Switcherを常に最新の状態に保ちます。",
             "서명된 Sparkle 업데이트로 Codex Theme Switcher를 최신 상태로 유지합니다."
+        ),
+        .init(
+            "Manage the interface language, Codex application, and update preferences.",
+            "管理界面语言、Codex App 位置和更新偏好。",
+            "インターフェイス言語、Codex Appの場所、アップデート設定を管理します。",
+            "인터페이스 언어, Codex 앱 위치 및 업데이트 설정을 관리합니다."
         ),
         .init("Current version", "当前版本", "現在のバージョン", "현재 버전"),
         .init("Version {0} ({1})", "版本 {0}（{1}）", "バージョン{0}（{1}）", "버전 {0} ({1})"),

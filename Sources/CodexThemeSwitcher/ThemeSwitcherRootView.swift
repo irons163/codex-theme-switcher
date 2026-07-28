@@ -42,6 +42,8 @@ struct ThemeSwitcherRootView: View {
         }
         .sheet(item: $updateModel.sheet) { sheet in
             switch sheet {
+            case .about:
+                AboutAppSheetView(updateModel: updateModel)
             case let .update(release):
                 AppUpdateSheetView(
                     release: release,
@@ -275,6 +277,27 @@ struct ThemeSwitcherRootView: View {
             )
 
             Menu {
+                Button {
+                    updateModel.showAbout()
+                } label: {
+                    Label(
+                        L10n.format(
+                            "關於 {0}",
+                            "About {0}",
+                            L10n.appName
+                        ),
+                        systemImage: "info.circle"
+                    )
+                }
+                Button {
+                    model.selectedPage = .settings
+                } label: {
+                    Label(
+                        L10n.text("設定", "Settings"),
+                        systemImage: "gearshape"
+                    )
+                }
+                Divider()
                 Button(
                     L10n.text(
                         "檢查更新…",
@@ -309,40 +332,59 @@ struct ThemeSwitcherRootView: View {
     }
 
     private var editorNavigation: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 4) {
-                ForEach(ThemeAppModel.EditorPage.allCases) { page in
-                    Button {
-                        model.selectedPage = page
-                    } label: {
-                        Label(page.title, systemImage: page.symbol)
-                            .font(.caption)
-                            .padding(.horizontal, 9)
-                            .frame(height: 30)
-                            .background(
-                                model.selectedPage == page
-                                    ? Color.accentColor.opacity(0.14)
-                                    : .clear
-                            )
-                            .clipShape(
-                                RoundedRectangle(
-                                    cornerRadius: 7,
-                                    style: .continuous
-                                )
-                            )
+        HStack(spacing: 0) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 4) {
+                    ForEach(
+                        ThemeAppModel.EditorPage.allCases.filter {
+                            $0 != .settings
+                        }
+                    ) { page in
+                        editorNavigationButton(page)
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(
-                        model.selectedPage == page
-                            ? Color.accentColor
-                            : Color.secondary
-                    )
                 }
+                .padding(.leading, 10)
+                .padding(.trailing, 6)
             }
-            .padding(.horizontal, 10)
+
+            Divider()
+                .frame(height: 24)
+
+            editorNavigationButton(.settings)
+                .padding(.horizontal, 8)
         }
         .frame(height: 43)
         .background(.bar)
+    }
+
+    private func editorNavigationButton(
+        _ page: ThemeAppModel.EditorPage
+    ) -> some View {
+        Button {
+            model.selectedPage = page
+        } label: {
+            Label(page.title, systemImage: page.symbol)
+                .font(.caption)
+                .padding(.horizontal, 9)
+                .frame(height: 30)
+                .background(
+                    model.selectedPage == page
+                        ? Color.accentColor.opacity(0.14)
+                        : .clear
+                )
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: 7,
+                        style: .continuous
+                    )
+                )
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(
+            model.selectedPage == page
+                ? Color.accentColor
+                : Color.secondary
+        )
     }
 }
 

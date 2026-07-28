@@ -881,6 +881,7 @@ enum L10nCatalogWestern {
         Entry(key: "Chat", french: "Discussion", spanish: "Chat"),
         Entry(key: "Projects", french: "Projets", spanish: "Proyectos"),
         Entry(key: "Settings", french: "Réglages", spanish: "Ajustes"),
+        Entry(key: "About {0}", french: "À propos de {0}", spanish: "Acerca de {0}"),
         Entry(
             key: "What should we build?",
             french: "Que devons-nous créer ?",
@@ -938,6 +939,11 @@ enum L10nCatalogWestern {
             key: "Keep Codex Theme Switcher current with signed Sparkle updates.",
             french: "Gardez Codex Theme Switcher à jour grâce aux mises à jour Sparkle signées.",
             spanish: "Mantén Codex Theme Switcher al día con actualizaciones firmadas de Sparkle."
+        ),
+        Entry(
+            key: "Manage the interface language, Codex application, and update preferences.",
+            french: "Gérez la langue de l’interface, l’emplacement de l’app Codex et les préférences de mise à jour.",
+            spanish: "Gestiona el idioma de la interfaz, la ubicación de la app Codex y las preferencias de actualización."
         ),
         Entry(key: "Current version", french: "Version actuelle", spanish: "Versión actual"),
         Entry(key: "Version {0} ({1})", french: "Version {0} ({1})", spanish: "Versión {0} ({1})"),

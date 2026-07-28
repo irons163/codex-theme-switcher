@@ -9,10 +9,10 @@ struct AppSettingsPage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 EditorIntro(
-                    title: L10n.text("App 更新", "App updates"),
+                    title: L10n.text("設定", "Settings"),
                     description: L10n.text(
-                        "透過具簽章的 Sparkle 更新，讓 Codex 主題切換器保持最新。",
-                        "Keep Codex Theme Switcher current with signed Sparkle updates."
+                        "管理介面語言、Codex App 位置與更新偏好。",
+                        "Manage the interface language, Codex application, and update preferences."
                     )
                 )
 
@@ -309,6 +309,88 @@ struct AppSettingsPage: View {
             }
             .padding(18)
         }
+    }
+}
+
+struct AboutAppSheetView: View {
+    @ObservedObject var updateModel: AppUpdateModel
+
+    var body: some View {
+        VStack(spacing: 18) {
+            AppBrandIcon(height: 72)
+
+            VStack(spacing: 5) {
+                Text(L10n.appName)
+                    .font(.title2.bold())
+                Text(
+                    L10n.format(
+                        "版本 {0}（{1}）",
+                        "Version {0} ({1})",
+                        updateModel.versionInfo.version,
+                        updateModel.versionInfo.build
+                    )
+                )
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 8) {
+                Image(
+                    systemName: updateModel.channel == .stable
+                        ? "checkmark.shield.fill"
+                        : "flask.fill"
+                )
+                .foregroundStyle(
+                    updateModel.channel == .stable
+                        ? Color.green
+                        : Color.orange
+                )
+                Text(L10n.text("更新頻道", "Update channel"))
+                    .foregroundStyle(.secondary)
+                Text(updateModel.channel.title)
+                    .fontWeight(.semibold)
+            }
+            .font(.subheadline)
+
+            Divider()
+
+            HStack {
+                Button(
+                    L10n.text(
+                        "開啟 Releases",
+                        "Open Releases"
+                    )
+                ) {
+                    updateModel.openReleasesPage()
+                }
+                .buttonStyle(.borderless)
+
+                Spacer()
+
+                if updateModel.isChecking {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+
+                Button(
+                    L10n.text(
+                        "檢查更新…",
+                        "Check for Updates…"
+                    )
+                ) {
+                    updateModel.checkForUpdates()
+                }
+                .buttonStyle(.bordered)
+                .disabled(updateModel.isChecking)
+
+                Button(L10n.text("完成", "Done")) {
+                    updateModel.dismissSheet()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(24)
+        .frame(width: 470)
     }
 }
 
