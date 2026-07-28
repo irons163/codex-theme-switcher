@@ -5,11 +5,16 @@ import SwiftUI
 struct ThemeEditorView: View {
     @ObservedObject var model: ThemeAppModel
     @ObservedObject var updateModel: AppUpdateModel
+    @ObservedObject var languageSettings: AppLanguageSettings
 
     var body: some View {
         Group {
             if model.selectedPage == .settings {
-                AppSettingsPage(model: model, updateModel: updateModel)
+                AppSettingsPage(
+                    model: model,
+                    updateModel: updateModel,
+                    languageSettings: languageSettings
+                )
             } else if let theme = model.draft {
                 VStack(spacing: 0) {
                     if model.isSelectedBuiltIn {
@@ -62,7 +67,11 @@ struct ThemeEditorView: View {
         case .info:
             ThemeInfoEditorPage(model: model)
         case .settings:
-            AppSettingsPage(model: model, updateModel: updateModel)
+            AppSettingsPage(
+                model: model,
+                updateModel: updateModel,
+                languageSettings: languageSettings
+            )
         }
     }
 

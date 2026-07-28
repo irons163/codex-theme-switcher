@@ -1026,9 +1026,9 @@ enum L10nCatalogWestern {
             spanish: "Actualiza los temas a tu manera."
         ),
         Entry(
-            key: "Seven interface languages follow your Mac automatically.",
-            french: "Sept langues d’interface suivent automatiquement la langue de votre Mac.",
-            spanish: "Los siete idiomas de la interfaz siguen automáticamente el idioma de tu Mac."
+            key: "Follow your Mac automatically or choose from seven interface languages.",
+            french: "Suivez automatiquement la langue de votre Mac ou choisissez parmi sept langues d’interface.",
+            spanish: "Sigue automáticamente el idioma de tu Mac o elige entre siete idiomas de interfaz."
         ),
         Entry(
             key: "Choose Stable or Beta updates from Settings.",
@@ -1131,6 +1131,26 @@ enum L10nCatalogWestern {
             key: "Automatic Codex discovery enabled",
             french: "Détection automatique de Codex activée",
             spanish: "Detección automática de Codex activada"
+        ),
+        Entry(
+            key: "Interface language",
+            french: "Langue de l’interface",
+            spanish: "Idioma de la interfaz"
+        ),
+        Entry(
+            key: "Follow your Mac automatically or choose a language for this app.",
+            french: "Suivez automatiquement la langue de votre Mac ou choisissez une langue pour cette app.",
+            spanish: "Sigue automáticamente el idioma de tu Mac o elige un idioma para esta app."
+        ),
+        Entry(
+            key: "Automatic (System)",
+            french: "Automatique (système)",
+            spanish: "Automático (sistema)"
+        ),
+        Entry(
+            key: "Language changes take effect immediately.",
+            french: "Les changements de langue prennent effet immédiatement.",
+            spanish: "Los cambios de idioma se aplican inmediatamente."
         ),
         Entry(
             key: "“{0}” is not a valid Codex application.",

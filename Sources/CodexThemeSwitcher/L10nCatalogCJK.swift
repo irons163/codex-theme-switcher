@@ -931,10 +931,10 @@ enum L10nCatalogCJK {
             "원하는 방식으로 테마를 업데이트하세요."
         ),
         .init(
-            "Seven interface languages follow your Mac automatically.",
-            "七种界面语言会自动跟随 Mac 的语言设置。",
-            "7つのインターフェイス言語がMacの設定に自動で対応します。",
-            "7개 인터페이스 언어가 Mac 언어 설정을 자동으로 따릅니다."
+            "Follow your Mac automatically or choose from seven interface languages.",
+            "可自动跟随 Mac，或手动选择七种界面语言。",
+            "Macの設定に自動で合わせるか、7つのインターフェイス言語から選択できます。",
+            "Mac 언어를 자동으로 따르거나 7개 인터페이스 언어 중에서 선택할 수 있습니다."
         ),
         .init(
             "Choose Stable or Beta updates from Settings.",
@@ -1043,6 +1043,30 @@ enum L10nCatalogCJK {
             "已启用 Codex 自动检测",
             "Codexの自動検出を有効にしました",
             "Codex 자동 감지를 사용합니다"
+        ),
+        .init(
+            "Interface language",
+            "界面语言",
+            "インターフェイス言語",
+            "인터페이스 언어"
+        ),
+        .init(
+            "Follow your Mac automatically or choose a language for this app.",
+            "自动跟随 Mac，或为此 App 选择语言。",
+            "Macの設定に自動で合わせるか、このAppで使用する言語を選択します。",
+            "Mac 언어를 자동으로 따르거나 이 앱에서 사용할 언어를 선택하세요."
+        ),
+        .init(
+            "Automatic (System)",
+            "自动（跟随系统）",
+            "自動（システム）",
+            "자동(시스템)"
+        ),
+        .init(
+            "Language changes take effect immediately.",
+            "语言更改会立即生效。",
+            "言語の変更はすぐに反映されます。",
+            "언어 변경 사항은 즉시 적용됩니다."
         ),
         .init(
             "“{0}” is not a valid Codex application.",

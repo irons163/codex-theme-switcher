@@ -5,6 +5,7 @@ import SwiftUI
 struct ThemeSwitcherRootView: View {
     @ObservedObject var model: ThemeAppModel
     @ObservedObject var updateModel: AppUpdateModel
+    @ObservedObject var languageSettings: AppLanguageSettings
 
     var body: some View {
         HStack(spacing: 0) {
@@ -20,10 +21,12 @@ struct ThemeSwitcherRootView: View {
                 Divider()
                 ThemeEditorView(
                     model: model,
-                    updateModel: updateModel
+                    updateModel: updateModel,
+                    languageSettings: languageSettings
                 )
             }
         }
+        .environment(\.locale, languageSettings.locale)
         .background(.regularMaterial)
         .overlay(alignment: .bottom) {
             if let notice = model.notice {

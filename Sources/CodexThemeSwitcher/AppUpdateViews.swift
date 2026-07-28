@@ -3,6 +3,7 @@ import SwiftUI
 struct AppSettingsPage: View {
     @ObservedObject var model: ThemeAppModel
     @ObservedObject var updateModel: AppUpdateModel
+    @ObservedObject var languageSettings: AppLanguageSettings
 
     var body: some View {
         ScrollView {
@@ -14,6 +15,58 @@ struct AppSettingsPage: View {
                         "Keep Codex Theme Switcher current with signed Sparkle updates."
                     )
                 )
+
+                EditorSection(
+                    title: L10n.text(
+                        "介面語言",
+                        "Interface language"
+                    ),
+                    subtitle: L10n.text(
+                        "自動跟隨 Mac，或為此 App 選擇語言。",
+                        "Follow your Mac automatically or choose a language for this app."
+                    )
+                ) {
+                    HStack(spacing: 12) {
+                        Label(
+                            L10n.text(
+                                "介面語言",
+                                "Interface language"
+                            ),
+                            systemImage: "globe"
+                        )
+                        .font(.subheadline.weight(.semibold))
+
+                        Spacer()
+
+                        Picker(
+                            L10n.text(
+                                "介面語言",
+                                "Interface language"
+                            ),
+                            selection: $languageSettings.selection
+                        ) {
+                            ForEach(
+                                AppLanguagePreference.allCases
+                            ) { preference in
+                                Text(preference.title)
+                                    .tag(preference)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .frame(width: 220)
+                    }
+
+                    Label(
+                        L10n.text(
+                            "語言變更會立即生效。",
+                            "Language changes take effect immediately."
+                        ),
+                        systemImage: "checkmark.circle"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
 
                 EditorSection(
                     title: L10n.text(
@@ -368,29 +421,31 @@ struct AppUpdateSheetView: View {
 struct WhatsNewSheetView: View {
     @ObservedObject var updateModel: AppUpdateModel
 
-    private let improvements: [(String, String)] = [
-        (
-            "globe",
-            L10n.text(
-                "七種介面語言會自動跟隨 Mac。",
-                "Seven interface languages follow your Mac automatically."
+    private var improvements: [(String, String)] {
+        [
+            (
+                "globe",
+                L10n.text(
+                    "可自動跟隨 Mac，或手動選擇七種介面語言。",
+                    "Follow your Mac automatically or choose from seven interface languages."
+                )
+            ),
+            (
+                "point.3.connected.trianglepath.dotted",
+                L10n.text(
+                    "可在設定中選擇穩定版或 Beta 更新。",
+                    "Choose Stable or Beta updates from Settings."
+                )
+            ),
+            (
+                "checkmark.shield",
+                L10n.text(
+                    "Sparkle 會驗證並安裝具簽章的 App 更新。",
+                    "Sparkle verifies and installs signed app updates."
+                )
             )
-        ),
-        (
-            "point.3.connected.trianglepath.dotted",
-            L10n.text(
-                "可在設定中選擇穩定版或 Beta 更新。",
-                "Choose Stable or Beta updates from Settings."
-            )
-        ),
-        (
-            "checkmark.shield",
-            L10n.text(
-                "Sparkle 會驗證並安裝具簽章的 App 更新。",
-                "Sparkle verifies and installs signed app updates."
-            )
-        )
-    ]
+        ]
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {

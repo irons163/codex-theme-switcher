@@ -5,12 +5,17 @@ import SwiftUI
 struct CodexThemeSwitcherApp: App {
     @StateObject private var model: ThemeAppModel
     @StateObject private var updateModel: AppUpdateModel
+    @StateObject private var languageSettings: AppLanguageSettings
 
     init() {
         let themeModel = ThemeAppModel()
         let appUpdateModel = AppUpdateModel()
+        let appLanguageSettings = AppLanguageSettings()
         _model = StateObject(wrappedValue: themeModel)
         _updateModel = StateObject(wrappedValue: appUpdateModel)
+        _languageSettings = StateObject(
+            wrappedValue: appLanguageSettings
+        )
         NSApplication.shared.setActivationPolicy(.accessory)
         appUpdateModel.start()
     }
@@ -19,7 +24,8 @@ struct CodexThemeSwitcherApp: App {
         MenuBarExtra {
             ThemeSwitcherRootView(
                 model: model,
-                updateModel: updateModel
+                updateModel: updateModel,
+                languageSettings: languageSettings
             )
                 .frame(width: 920, height: 720)
         } label: {

@@ -56,9 +56,9 @@ Codex doit encore être vérifié après application du thème.
   modèles ; le runtime les transfère par fragments et crée des Blob URL propres au moteur de rendu,
   afin que les grandes images 4K ne dépassent pas la limite de longueur des déclarations CSS.
 - Importation et exportation dans un fichier `.codextheme` unique pour faciliter le partage.
-- Basculement automatique entre l’anglais, le chinois traditionnel, le chinois simplifié, le
-  français, l’espagnol, le japonais et le coréen selon la langue préférée de macOS ; les autres
-  langues utilisent l’anglais par défaut.
+- Suit par défaut la langue préférée de macOS, avec sélection manuelle dans Réglages parmi
+  l’anglais, le chinois traditionnel, le chinois simplifié, le français, l’espagnol, le japonais
+  et le coréen ; en mode automatique, les autres langues utilisent l’anglais.
 - Mises à jour automatiques Sparkle 2 : choix du canal Stable ou Beta, téléchargement de
   l’installateur adapté à Apple Silicon ou Intel et notes de version dans les mêmes sept langues.
 - Recherche de mises à jour au lancement puis toutes les 30 minutes ; il est aussi possible de la

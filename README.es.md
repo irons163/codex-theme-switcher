@@ -56,9 +56,9 @@ después de aplicar el tema.
   runtime los transfiere por fragmentos y crea Blob URL locales al proceso de renderizado, por lo
   que las imágenes 4K grandes no superan el límite de longitud de las declaraciones CSS.
 - Importación y exportación en un único archivo `.codextheme` para facilitar el intercambio.
-- Cambio automático entre inglés, chino tradicional, chino simplificado, francés, español,
-  japonés y coreano según el idioma preferido de macOS; los demás idiomas usan inglés como
-  alternativa.
+- Sigue de forma predeterminada el idioma preferido de macOS, o permite elegir manualmente en
+  Ajustes entre inglés, chino tradicional, chino simplificado, francés, español, japonés y
+  coreano; en modo automático, los demás idiomas usan inglés.
 - Actualizaciones automáticas con Sparkle 2: permite elegir el canal Stable o Beta, obtener el
   instalador correcto para Apple Silicon o Intel y consultar las notas de la versión en los mismos
   siete idiomas.

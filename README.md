@@ -52,9 +52,9 @@ final rendering in Codex should still be verified after applying the theme.
   them in chunks and creates renderer-local Blob URLs, so large 4K images do not hit CSS declaration
   length limits.
 - Single-file `.codextheme` import/export for easy sharing.
-- Automatically switches among English, Traditional Chinese, Simplified Chinese, French, Spanish,
-  Japanese, and Korean according to the preferred macOS language; all other languages fall back
-  to English.
+- Follows the preferred macOS language by default, or lets you choose English, Traditional Chinese,
+  Simplified Chinese, French, Spanish, Japanese, or Korean from Settings; unsupported automatic
+  languages fall back to English.
 - Sparkle 2 automatic updates: choose the Stable or Beta channel, receive the correct installer for
   Apple Silicon or Intel, and view release notes in the same seven languages.
 - Checks for updates at launch and every 30 minutes afterward; updates can also be checked manually

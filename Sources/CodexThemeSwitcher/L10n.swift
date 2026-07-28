@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 enum AppLanguage: String, CaseIterable, Sendable {
@@ -8,6 +9,25 @@ enum AppLanguage: String, CaseIterable, Sendable {
     case spanish = "es"
     case japanese = "ja"
     case korean = "ko"
+
+    var nativeName: String {
+        switch self {
+        case .english:
+            "English"
+        case .traditionalChinese:
+            "繁體中文"
+        case .simplifiedChinese:
+            "简体中文"
+        case .french:
+            "Français"
+        case .spanish:
+            "Español"
+        case .japanese:
+            "日本語"
+        case .korean:
+            "한국어"
+        }
+    }
 
     static func resolve(
         preferredLanguages: [String]
@@ -68,6 +88,99 @@ enum AppLanguage: String, CaseIterable, Sendable {
     }
 }
 
+enum AppLanguagePreference: String, CaseIterable, Identifiable, Sendable {
+    case automatic
+    case english = "en"
+    case traditionalChinese = "zh-Hant"
+    case simplifiedChinese = "zh-Hans"
+    case french = "fr"
+    case spanish = "es"
+    case japanese = "ja"
+    case korean = "ko"
+
+    var id: String { rawValue }
+
+    var language: AppLanguage? {
+        switch self {
+        case .automatic:
+            nil
+        case .english:
+            .english
+        case .traditionalChinese:
+            .traditionalChinese
+        case .simplifiedChinese:
+            .simplifiedChinese
+        case .french:
+            .french
+        case .spanish:
+            .spanish
+        case .japanese:
+            .japanese
+        case .korean:
+            .korean
+        }
+    }
+
+    var title: String {
+        language?.nativeName
+            ?? L10n.text(
+                "自動（跟隨系統）",
+                "Automatic (System)"
+            )
+    }
+}
+
+final class AppLanguageSettings: ObservableObject {
+    static let storageKey = "interfaceLanguage"
+
+    @Published var selection: AppLanguagePreference {
+        didSet {
+            guard selection != oldValue else { return }
+            if selection == .automatic {
+                defaults.removeObject(forKey: Self.storageKey)
+            } else {
+                defaults.set(selection.rawValue, forKey: Self.storageKey)
+            }
+        }
+    }
+
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        selection = Self.preference(defaults: defaults)
+    }
+
+    func resolvedLanguage(
+        preferredLanguages: [String] = Locale.preferredLanguages
+    ) -> AppLanguage {
+        selection.language
+            ?? AppLanguage.resolve(preferredLanguages: preferredLanguages)
+    }
+
+    var locale: Locale {
+        Locale(identifier: resolvedLanguage().rawValue)
+    }
+
+    static func resolvedLanguage(
+        defaults: UserDefaults = .standard,
+        preferredLanguages: [String] = Locale.preferredLanguages
+    ) -> AppLanguage {
+        preference(defaults: defaults).language
+            ?? AppLanguage.resolve(preferredLanguages: preferredLanguages)
+    }
+
+    private static func preference(
+        defaults: UserDefaults
+    ) -> AppLanguagePreference {
+        guard let rawValue = defaults.string(forKey: storageKey),
+              let preference = AppLanguagePreference(rawValue: rawValue) else {
+            return .automatic
+        }
+        return preference
+    }
+}
+
 enum L10nCatalog {
     static let translations: [AppLanguage: [String: String]] = [
         .simplifiedChinese: L10nCatalogCJK.simplifiedChinese,
@@ -87,9 +200,7 @@ enum L10nCatalog {
 
 enum L10n {
     static var language: AppLanguage {
-        AppLanguage.resolve(
-            preferredLanguages: Locale.preferredLanguages
-        )
+        AppLanguageSettings.resolvedLanguage()
     }
 
     static func text(_ zhHant: String, _ en: String) -> String {

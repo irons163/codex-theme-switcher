@@ -47,8 +47,8 @@ Agent CLI 可在無視窗環境產生 Light／Dark × Home／Chat PNG，供 AI a
 - PNG、JPEG、WebP、GIF 與字型等素材可嵌入模板；runtime 會分段傳輸並建立
   renderer-local Blob URL，因此大型 4K 圖片不會撞到 CSS declaration 長度限制。
 - 單檔 `.codextheme` 導入／導出，方便分享。
-- 依 macOS 偏好語言自動切換英文、繁體中文、簡體中文、法文、西班牙文、日文或韓文；
-  其他語言回退英文。
+- 預設依 macOS 偏好語言自動切換，也可在設定中手動選擇英文、繁體中文、簡體中文、
+  法文、西班牙文、日文或韓文；自動模式遇到其他語言時回退英文。
 - Sparkle 2 自動更新：可選 Stable／Beta 頻道，依 Apple Silicon／Intel 取得對應
   安裝檔，並顯示相同七語系的版本說明。
 - 啟動時檢查更新，之後每 30 分鐘檢查一次；也能從設定或右上角選單手動檢查、

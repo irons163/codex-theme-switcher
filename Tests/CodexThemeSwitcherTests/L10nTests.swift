@@ -77,6 +77,67 @@ final class L10nTests: XCTestCase {
         )
     }
 
+    func testLanguageSettingsPersistManualSelectionAndRestoreAutomatic() {
+        let suiteName = "L10nTests.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Unable to create isolated defaults")
+        }
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let settings = AppLanguageSettings(defaults: defaults)
+        XCTAssertEqual(settings.selection, .automatic)
+        XCTAssertEqual(
+            settings.resolvedLanguage(preferredLanguages: ["fr-FR"]),
+            .french
+        )
+
+        settings.selection = .japanese
+        XCTAssertEqual(
+            defaults.string(forKey: AppLanguageSettings.storageKey),
+            AppLanguagePreference.japanese.rawValue
+        )
+        XCTAssertEqual(
+            settings.resolvedLanguage(preferredLanguages: ["fr-FR"]),
+            .japanese
+        )
+        XCTAssertEqual(
+            AppLanguageSettings(defaults: defaults).selection,
+            .japanese
+        )
+
+        settings.selection = .automatic
+        XCTAssertNil(
+            defaults.object(forKey: AppLanguageSettings.storageKey)
+        )
+        XCTAssertEqual(
+            settings.resolvedLanguage(preferredLanguages: ["ko-KR"]),
+            .korean
+        )
+    }
+
+    func testLanguageSettingsIgnoreInvalidStoredPreference() {
+        let suiteName = "L10nTests.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Unable to create isolated defaults")
+        }
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+        defaults.set(
+            "de-DE",
+            forKey: AppLanguageSettings.storageKey
+        )
+
+        let settings = AppLanguageSettings(defaults: defaults)
+        XCTAssertEqual(settings.selection, .automatic)
+        XCTAssertEqual(
+            settings.resolvedLanguage(preferredLanguages: ["es-MX"]),
+            .spanish
+        )
+    }
+
     func testTextReturnsExpectedTranslationForExplicitLanguage() {
         let cases: [
             (
