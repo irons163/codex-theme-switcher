@@ -172,12 +172,12 @@ Stable versions must not contain a prerelease suffix. Beta versions must
 contain one, such as `-beta.1` or `-rc.1`.
 
 The first public release must be Stable because Beta appcasts need an existing
-Stable release as their host. For the current source version, publish `v0.2.8`
-with prerelease disabled before publishing any Beta. Its seven release-note
-files must be placed under:
+Stable release as their host. Stable `v0.2.8` is the initial host release. The
+current source version is `v0.2.9-beta.1` with build `11`; publish it as a
+GitHub prerelease on the Beta channel. Its seven release-note files are under:
 
 ```text
-docs/release-notes/v0.2.8/
+docs/release-notes/v0.2.9-beta.1/
   release-notes.en.md
   release-notes.zh-Hant.md
   release-notes.zh-Hans.md
