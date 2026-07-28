@@ -4,12 +4,32 @@ Codex Theme Switcher uses Sparkle 2 for in-app updates. Release artifacts are
 Developer ID signed, notarized by Apple, and signed again with the app's Sparkle
 Ed25519 key. Unsigned update archives are not accepted.
 
-The release implementation is split across:
+Continuous integration is defined in `.github/workflows/ci.yml`. The release
+implementation is split across:
 
 - `.github/workflows/release.yml`
 - `scripts/build-release-dmg.sh`
 - `scripts/generate-sparkle-appcast.sh`
 - `scripts/test-generate-sparkle-appcast.sh`
+
+## Continuous integration
+
+The CI workflow runs for pull requests, pushes to `main`, and manual
+`workflow_dispatch` runs. Its macOS matrix covers native Apple Silicon
+(`arm64`) and native Intel (`x86_64`) runners instead of relying on emulation for
+architecture validation.
+
+Both architecture lanes perform:
+
+- Swift build and test validation
+- Node runtime tests and JavaScript syntax checks
+- an ad-hoc application packaging smoke test, including the packaged Agent CLI
+
+The Apple Silicon lane also runs the Sparkle appcast generator test once for
+the matrix.
+
+CI does not publish releases and must not receive Apple notarization, Developer
+ID, or Sparkle private-key secrets.
 
 ## Update feeds
 
@@ -77,7 +97,13 @@ Every enclosure must contain a non-empty `sparkle:edSignature`.
 
 ## Required GitHub Actions secrets
 
-Configure these repository secrets:
+Configure this repository-level secret because the read-only `prepare` job
+validates it before entering the release Environment:
+
+- `SPARKLE_PUBLIC_ED_KEY`
+
+Configure the remaining credentials as secrets in the
+`release-production` Environment:
 
 - `APPLE_CERTIFICATE_P12_BASE64`
 - `APPLE_CERTIFICATE_PASSWORD`
@@ -87,11 +113,37 @@ Configure these repository secrets:
 - `APPLE_API_ISSUER_ID`
 - `APPLE_API_PRIVATE_KEY_BASE64`
 - `SPARKLE_ED_PRIVATE_KEY`
-- `SPARKLE_PUBLIC_ED_KEY`
 
 `APPLE_CERTIFICATE_P12_BASE64` must contain a Developer ID Application
 certificate and its private key. `APPLE_API_PRIVATE_KEY_BASE64` is the
 base64-encoded App Store Connect API key used by `notarytool`.
+
+All nine values must currently be configured manually before the first release.
+GitHub never returns a secret's value after it has been stored, so neither the
+GitHub UI, API, nor `gh` can copy the secret values from the AIAgentPool
+repository. Obtain each value from its original secure source or rotate and
+recreate it; do not copy values through workflow logs.
+
+## Repository rules and release environment
+
+The repository files do not create or enforce GitHub rulesets, protected tags,
+or Environment review policies. Configure these settings manually before
+enabling releases:
+
+- Protect `main`: require pull requests, successful CI checks, and Code Owner
+  review; block force pushes and deletion.
+- Protect `v*` tags: restrict tag creation to release maintainers and block tag
+  updates, force moves, and deletion.
+- Configure the `release-production` Environment used by the release workflow:
+  require review by `@irons163`, restrict deployments to protected `v*` tags,
+  and scope release credentials as tightly as the workflow permits. When
+  manually rerunning a release, dispatch the workflow with its Git ref set to
+  the same release tag so the Environment tag policy still matches.
+
+The repository's `.github/CODEOWNERS` assigns release workflows, packaging,
+release scripts, dependency manifests, and localized release notes to
+`@irons163`. Code Owner review is only mandatory when the `main` ruleset is
+configured to require it.
 
 ## Version requirements
 
@@ -111,10 +163,29 @@ Examples:
 | `v0.3.0` | Stable | `0.3.0` | `13` |
 
 Never reuse a build number. Sparkle uses `CFBundleVersion` /
-`sparkle:version` as the authoritative update ordering value.
+`sparkle:version` as the authoritative update ordering value. The release
+workflow reads previously published Stable and Beta appcasts and rejects a
+lower build or a build number already assigned to another release. Re-running
+the same tag and version remains idempotent.
 
 Stable versions must not contain a prerelease suffix. Beta versions must
 contain one, such as `-beta.1` or `-rc.1`.
+
+The first public release must be Stable because Beta appcasts need an existing
+Stable release as their host. For the current source version, publish `v0.2.8`
+with prerelease disabled before publishing any Beta. Its seven release-note
+files must be placed under:
+
+```text
+docs/release-notes/v0.2.8/
+  release-notes.en.md
+  release-notes.zh-Hant.md
+  release-notes.zh-Hans.md
+  release-notes.fr.md
+  release-notes.es.md
+  release-notes.ja.md
+  release-notes.ko.md
+```
 
 ## Localized release notes
 
@@ -157,31 +228,58 @@ The workflow:
 
 1. Verifies the tag, channel, bundle versions, public Sparkle key secret, and
    all localized release notes.
-2. Builds separate arm64 and x86_64 SwiftPM executables.
-3. Embeds and signs Sparkle's framework and nested helpers.
-4. Signs the app and DMG with Developer ID and hardened runtime.
-5. Generates matching dSYM archives.
-6. Notarizes and staples both DMGs.
-7. Signs the final, stapled DMG bytes with Sparkle Ed25519.
-8. Verifies that signature against `SPARKLE_PUBLIC_ED_KEY`, preventing a
+2. Rejects build numbers that do not advance existing Stable and Beta feeds.
+3. Resolves the release tag once and pins every job to the same immutable source
+   commit.
+4. Builds separate arm64 and x86_64 SwiftPM executables.
+5. Embeds and signs Sparkle's framework and nested helpers.
+6. Signs the app and DMG with Developer ID and hardened runtime.
+7. Generates matching dSYM archives.
+8. Notarizes and staples both DMGs.
+9. Signs the final, stapled DMG bytes with Sparkle Ed25519.
+10. Verifies that signature against `SPARKLE_PUBLIC_ED_KEY`, preventing a
    mismatched public/private key pair from shipping.
-9. Uploads DMGs, dSYMs, and localized notes to the GitHub Release.
-10. Generates appcasts with mandatory EdDSA signatures and publishes the
-   appropriate Stable or Beta feeds.
+11. Uploads DMGs, dSYMs, a `SHA256SUMS` manifest, and localized notes to the
+    GitHub Release.
+12. Generates appcasts with mandatory EdDSA signatures and publishes the
+    appropriate Stable or Beta feeds.
 
 `workflow_dispatch` can rerun an already published release by providing its tag
 and channel. The selected channel must match the GitHub Release's prerelease
 state.
 
+Release publication is serialized with `cancel-in-progress: false` so Stable
+and Beta feed writes cannot run concurrently. `queue: max` retains up to 100
+pending releases instead of replacing an older pending run. Permissions are
+assigned per job: validation and build jobs are read-only, while only the
+publish job receives `contents: write`. Every checkout disables persisted Git
+credentials, and official GitHub actions are pinned to full commit SHAs rather
+than mutable version tags.
+
+The workflow uses Sparkle `2.9.1` consistently with `Package.resolved`. Before
+extracting the downloaded `Sparkle-2.9.1.tar.xz`, it verifies the archive
+against the repository-pinned SHA-256 value. A Sparkle upgrade must update the
+version, dependency lock, download URL, and reviewed SHA-256 together.
+
 ## Local validation
 
-The appcast generator test does not need signing credentials:
+Run the same unprivileged checks used by CI:
 
 ```bash
+bash -n scripts/*.sh
+swift build
+swift test
+npm test
+npm run check
 scripts/test-generate-sparkle-appcast.sh
+scripts/test-validate-release-build-order.sh
+CONFIGURATION=release ARCHS="$(uname -m)" scripts/package-app.sh
+test -x dist/CodexThemeSwitcher.app/Contents/Helpers/codex-theme
+dist/CodexThemeSwitcher.app/Contents/Helpers/codex-theme capabilities
+codesign --verify --deep --strict dist/CodexThemeSwitcher.app
 ```
 
-It verifies:
+The appcast generator test verifies:
 
 - arm64 and x86_64 output
 - the fixed repository slug

@@ -1,0 +1,131 @@
+name: CI
+
+"on":
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - name: Select latest Xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          XCODE_APP="$(
+            find /Applications -maxdepth 1 -type d -name 'Xcode*.app' \
+              | sort -V \
+              | tail -n 1
+          )"
+          if [[ -z "${XCODE_APP:-}" ]]; then
+            echo "No Xcode installation found under /Applications." >&2
+            exit 1
+          fi
+
+          echo "DEVELOPER_DIR=${XCODE_APP}/Contents/Developer" >> "$GITHUB_ENV"
+          export DEVELOPER_DIR="${XCODE_APP}/Contents/Developer"
+          echo "Selected Xcode: ${XCODE_APP}"
+          xcodebuild -version
+          swift --version
+
+      - name: Verify native runner architecture
+        shell: bash
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+
+          ACTUAL_ARCH="$(uname -m)"
+          echo "Runner architecture: ${ACTUAL_ARCH}"
+          if [[ "$ACTUAL_ARCH" != "$EXPECTED_ARCH" ]]; then
+            echo "Expected native ${EXPECTED_ARCH} runner, got ${ACTUAL_ARCH}." >&2
+            exit 1
+          fi
+
+      - name: Check shell syntax
+        shell: bash
+        run: bash -n scripts/*.sh
+
+      - name: Test release build ordering
+        run: scripts/test-validate-release-build-order.sh
+
+      - name: Build Swift package
+        run: swift build
+
+      - name: Test Swift package
+        run: swift test
+
+      - name: Test JavaScript runtime
+        run: npm test
+
+      - name: Check JavaScript syntax
+        run: npm run check
+
+      - name: Test Sparkle appcast generator
+        if: matrix.arch == 'arm64'
+        run: scripts/test-generate-sparkle-appcast.sh
+
+      - name: Package app
+        shell: bash
+        run: CONFIGURATION=release ARCHS="${{ matrix.arch }}" scripts/package-app.sh
+
+      - name: Verify packaged architecture and code signature
+        shell: bash
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+
+          APP_PATH="dist/CodexThemeSwitcher.app"
+          APP_BINARY="${APP_PATH}/Contents/MacOS/CodexThemeSwitcher"
+          AGENT_CLI="${APP_PATH}/Contents/Helpers/codex-theme"
+
+          for binary in "$APP_BINARY" "$AGENT_CLI"; do
+            if [[ ! -x "$binary" ]]; then
+              echo "Missing packaged executable: ${binary}" >&2
+              exit 1
+            fi
+
+            BINARY_ARCHS="$(lipo -archs "$binary")"
+            echo "${binary}: ${BINARY_ARCHS}"
+            if [[ "$BINARY_ARCHS" != "$EXPECTED_ARCH" ]]; then
+              echo "Expected ${binary} to contain only ${EXPECTED_ARCH}; got ${BINARY_ARCHS}." >&2
+              exit 1
+            fi
+
+            codesign --verify --strict --verbose=2 "$binary"
+          done
+
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
