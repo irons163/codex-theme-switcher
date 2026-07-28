@@ -85,7 +85,23 @@ jobs:
         run: swift build
 
       - name: Test Swift package
-        run: swift test
+        shell: bash
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$TARGET_ARCH" == "x86_64" ]]; then
+            # GitHub's headless Intel runner has no Metal device. A second
+            # SwiftUI ImageRenderer invocation aborts inside MTLLoader. The
+            # arm64 lane retains full renderer coverage.
+            swift test \
+              --skip 'CodexThemeAgentCLITests.CodexThemeAgentCLITests/testChatPreviewRendersMessageContentRegion' \
+              --skip 'CodexThemeAgentCLITests.CodexThemeAgentCLITests/testPreviewWarnsWhenAssetMIMEIsDisguisedPDF' \
+              --skip 'CodexThemeAgentCLITests.CodexThemeAgentCLITests/testPreviewWritesPNGAndReportsApproximation'
+          else
+            swift test
+          fi
 
       - name: Test JavaScript runtime
         run: npm test
