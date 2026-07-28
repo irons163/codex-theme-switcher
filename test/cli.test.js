@@ -1,6 +1,8 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
@@ -62,6 +64,7 @@ test("resolveOptions applies explicit values and derives token path", () => {
   assert.equal(resolved.userRoot, "/tmp/custom-root");
   assert.equal(resolved.debugPort, 6100);
   assert.equal(resolved.bridgePort, 6101);
+  assert.equal(resolved.bridgePortPinned, true);
   assert.equal(
     resolved.tokenFile,
     path.join("/tmp/custom-root", "Runtime", "bridge-token"),
@@ -79,6 +82,7 @@ test("resolveOptions honors environment ports and defaults", { concurrency: fals
     assert.equal(resolved.codexApp, "/Applications/Codex.app");
     assert.equal(resolved.debugPort, 6200);
     assert.equal(resolved.bridgePort, 6201);
+    assert.equal(resolved.bridgePortPinned, true);
     assert.equal(
       resolved.userRoot,
       path.join(
@@ -94,6 +98,32 @@ test("resolveOptions honors environment ports and defaults", { concurrency: fals
     } else {
       process.env.CODEX_THEME_SWITCHER_DEBUG_PORT = previousDebug;
     }
+    if (previousBridge === undefined) {
+      delete process.env.CODEX_THEME_SWITCHER_BRIDGE_PORT;
+    } else {
+      process.env.CODEX_THEME_SWITCHER_BRIDGE_PORT = previousBridge;
+    }
+  }
+});
+
+test("resolveOptions reuses a persisted dynamic bridge port", {
+  concurrency: false,
+}, (t) => {
+  const previousBridge = process.env.CODEX_THEME_SWITCHER_BRIDGE_PORT;
+  const userRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "codex-theme-cli-port-test-"),
+  );
+  t.after(() => fs.rmSync(userRoot, { recursive: true, force: true }));
+  try {
+    delete process.env.CODEX_THEME_SWITCHER_BRIDGE_PORT;
+    const runtimeDirectory = path.join(userRoot, "Runtime");
+    fs.mkdirSync(runtimeDirectory, { recursive: true });
+    fs.writeFileSync(path.join(runtimeDirectory, "bridge-port"), "63123\n");
+
+    const resolved = resolveOptions({ "user-root": userRoot });
+    assert.equal(resolved.bridgePort, 63123);
+    assert.equal(resolved.bridgePortPinned, false);
+  } finally {
     if (previousBridge === undefined) {
       delete process.env.CODEX_THEME_SWITCHER_BRIDGE_PORT;
     } else {

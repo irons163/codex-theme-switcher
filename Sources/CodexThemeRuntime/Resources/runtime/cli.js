@@ -12,6 +12,7 @@ const {
 } = require("./lib/cdp");
 const {
   loadActiveTheme,
+  readPersistedBridgePort,
   removeActiveTheme,
   serveBridge,
   startBridgeDaemon,
@@ -149,6 +150,11 @@ function resolveOptions(options) {
       "Application Support",
       "CodexThemeSwitcher",
     );
+  const configuredBridgePort = options["bridge-port"]
+    ?? process.env.CODEX_THEME_SWITCHER_BRIDGE_PORT;
+  const bridgePortPinned = String(
+    configuredBridgePort ?? "",
+  ).trim().length > 0;
   return {
     cliPath: __filename,
     codexApp: options["codex-app"] || "/Applications/Codex.app",
@@ -159,10 +165,11 @@ function resolveOptions(options) {
         || 57340,
     ),
     bridgePort: Number(
-      options["bridge-port"]
-        || process.env.CODEX_THEME_SWITCHER_BRIDGE_PORT
+      (bridgePortPinned ? configuredBridgePort : null)
+        || readPersistedBridgePort(userRoot)
         || 57342,
     ),
+    bridgePortPinned,
     tokenFile: path.join(userRoot, "Runtime", "bridge-token"),
   };
 }

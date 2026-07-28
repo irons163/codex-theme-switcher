@@ -187,6 +187,44 @@ function activeThemePath(userRoot) {
   return path.join(runtimeDirectory(userRoot), "active-theme.json");
 }
 
+function bridgePortPath(userRoot) {
+  return path.join(runtimeDirectory(userRoot), "bridge-port");
+}
+
+function validBridgePort(value) {
+  return Number.isInteger(value) && value > 0 && value <= 65_535;
+}
+
+function readPersistedBridgePort(userRoot) {
+  try {
+    const rawValue = fs.readFileSync(
+      bridgePortPath(userRoot),
+      "utf8",
+    ).trim();
+    if (!/^\d+$/.test(rawValue)) return null;
+    const value = Number(rawValue);
+    return validBridgePort(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistBridgePort(userRoot, bridgePort) {
+  if (!validBridgePort(bridgePort)) {
+    throw new Error(`Invalid bridge port: ${bridgePort}.`);
+  }
+  const directory = runtimeDirectory(userRoot);
+  fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+  const destination = bridgePortPath(userRoot);
+  const temporary = path.join(
+    directory,
+    `.bridge-port.${process.pid}.${crypto.randomUUID()}.tmp`,
+  );
+  fs.writeFileSync(temporary, `${bridgePort}\n`, { mode: 0o600 });
+  fs.renameSync(temporary, destination);
+  fs.chmodSync(destination, 0o600);
+}
+
 function decodeCanonicalBase64(value) {
   if (typeof value !== "string" || value.length % 4 !== 0) {
     throw Object.assign(new Error("Theme asset data is not valid Base64."), {
@@ -731,33 +769,44 @@ async function startBridgeDaemon(options) {
   } catch {}
   if (existing) {
     if (existing.app !== APP_ID) {
-      throw new Error(
-        `Port ${options.bridgePort} belongs to an incompatible service.`,
-      );
-    }
-    if (existing.protocolVersion === PROTOCOL_VERSION) {
-      return existing;
-    }
-    await queryBridge(options, "/stop", "POST");
-    let released = false;
-    for (let attempt = 0; attempt < 60; attempt += 1) {
-      if (await portIsAvailable(options.bridgePort)) {
-        released = true;
-        break;
+      if (options.bridgePortPinned === true) {
+        throw new Error(
+          `Port ${options.bridgePort} belongs to an incompatible service.`,
+        );
       }
-      await sleep(50);
-    }
-    if (!released) {
-      throw new Error(
-        `Old theme runtime did not release port ${options.bridgePort}.`,
-      );
+      options.bridgePort = await findAvailablePort(options.bridgePort + 1);
+    } else if (existing.protocolVersion === PROTOCOL_VERSION) {
+      persistBridgePort(options.userRoot, options.bridgePort);
+      return existing;
+    } else {
+      await queryBridge(options, "/stop", "POST");
+      let released = false;
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        if (await portIsAvailable(options.bridgePort)) {
+          released = true;
+          break;
+        }
+        await sleep(50);
+      }
+      if (!released) {
+        if (options.bridgePortPinned === true) {
+          throw new Error(
+            `Old theme runtime did not release port ${options.bridgePort}.`,
+          );
+        }
+        options.bridgePort = await findAvailablePort(options.bridgePort + 1);
+      }
     }
   } else if (!(await portIsAvailable(options.bridgePort))) {
-    throw new Error(
-      `Port ${options.bridgePort} is occupied by an unavailable service.`,
-    );
+    if (options.bridgePortPinned === true) {
+      throw new Error(
+        `Port ${options.bridgePort} is occupied by an unavailable service.`,
+      );
+    }
+    options.bridgePort = await findAvailablePort(options.bridgePort + 1);
   }
 
+  persistBridgePort(options.userRoot, options.bridgePort);
   const logDirectory = path.join(options.userRoot, "Logs");
   await fsp.mkdir(logDirectory, { recursive: true, mode: 0o700 });
   const logFD = fs.openSync(path.join(logDirectory, "runtime.log"), "a");
@@ -789,11 +838,14 @@ module.exports = {
   MAX_THEME_TOTAL_ASSET_BYTES,
   PROTOCOL_VERSION,
   activeThemePath,
+  bridgePortPath,
   containsUnsafeThemeCSS,
   createMutationQueue,
   ensureTokenFile,
   loadActiveTheme,
   persistActiveTheme,
+  persistBridgePort,
+  readPersistedBridgePort,
   removeActiveTheme,
   serveBridge,
   startBridgeDaemon,

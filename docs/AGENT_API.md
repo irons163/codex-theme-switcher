@@ -127,8 +127,10 @@ selector、custom media 或只能近似呈現的 component declaration，回應�
 - `--input <path|->`：讀 ThemeDocument 或 `.codextheme`；`-` 表示 stdin。
 - `--id <uuid>`：直接使用 repository 內的主題。
 - `--root <directory>`：改用另一個 Theme Switcher 資料目錄。它只隔離 theme、
-  runtime snapshot／token 等檔案，**不會**隔離真實 Codex process、CDP port 或
-  bridge port；請勿把它當成 `attach`／`apply`／`clear` 的 sandbox。
+  runtime snapshot／token 等檔案，**不會**隔離真實 Codex process 或 CDP port；
+  請勿把它當成 `attach`／`apply`／`clear` 的 sandbox。Runtime bridge 會優先使用
+  `57342`；若該 port 已被其他 user-root 或服務占用，則只在 loopback 上選擇下一個
+  可用 port，並保存於各自的 `Runtime/bridge-port`，供後續命令重用。
 - 搭配非預設 `--root` 執行 `attach`／`apply`／`clear` 是明確禁止的。CLI 會在任何
   repository 或 runtime mutation 前，以 exit 2 和
   `error.code = "custom_root_runtime_unsupported"` 拒絕。要操作真實 Codex 必須
