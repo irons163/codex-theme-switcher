@@ -2,6 +2,8 @@
 
 [English](README.en.md) | [繁體中文](README.md) | [简体中文](README.zh-Hans.md) | **Français** | [Español](README.es.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
+![Codex avec un arrière-plan illustré, des effets de verre et des composants personnalisés par Codex Theme Switcher](docs/images/codex-theme-showcase.jpg)
+
 Un studio de thèmes natif pour la barre des menus de macOS. Il ne crée pas de fenêtre principale
 classique, n’apparaît pas dans le Dock et ne modifie, ne signe à nouveau ni n’écrase
 `Codex.app` / `ChatGPT.app`.

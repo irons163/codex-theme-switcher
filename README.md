@@ -2,6 +2,8 @@
 
 [English](README.en.md) | **繁體中文** | [简体中文](README.zh-Hans.md) | [Français](README.fr.md) | [Español](README.es.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
+![Codex Theme Switcher 套用圖片背景、玻璃效果與自訂元件的實際 Codex 畫面](docs/images/codex-theme-showcase.jpg)
+
 原生 macOS menu bar 主題工作室。它不建立一般主視窗、不出現在 Dock，也不修改、
 重簽或覆寫 `Codex.app` / `ChatGPT.app`。
 

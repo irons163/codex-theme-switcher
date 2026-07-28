@@ -2,6 +2,8 @@
 
 [English](README.en.md) | [繁體中文](README.md) | [简体中文](README.zh-Hans.md) | [Français](README.fr.md) | [Español](README.es.md) | [日本語](README.ja.md) | **한국어**
 
+![Codex Theme Switcher로 이미지 배경, 유리 효과, 사용자 지정 구성 요소를 적용한 실제 Codex 화면](docs/images/codex-theme-showcase.jpg)
+
 네이티브 macOS menu bar 테마 스튜디오입니다. 일반 메인 창을 만들지 않고 Dock에도
 표시되지 않습니다. 또한 `Codex.app` / `ChatGPT.app`을 수정하거나 다시 서명하거나
 덮어쓰지 않습니다.

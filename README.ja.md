@@ -2,6 +2,8 @@
 
 [English](README.en.md) | [繁體中文](README.md) | [简体中文](README.zh-Hans.md) | [Français](README.fr.md) | [Español](README.es.md) | **日本語** | [한국어](README.ko.md)
 
+![Codex Theme Switcher で画像背景、ガラス効果、カスタムコンポーネントを適用した実際の Codex 画面](docs/images/codex-theme-showcase.jpg)
+
 ネイティブの macOS menu bar テーマスタジオです。通常のメインウィンドウを作成せず、
 Dock にも表示されません。また、`Codex.app` / `ChatGPT.app` の変更、再署名、
 上書きも行いません。
