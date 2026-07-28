@@ -1,6 +1,6 @@
 # Codex Theme Switcher
 
-[English](README.en.md) | [繁體中文](README.md) | **简体中文** | [Français](README.fr.md) | [Español](README.es.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+[English](README.md) | [繁體中文](README.zh-Hant.md) | **简体中文** | [Français](README.fr.md) | [Español](README.es.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 ![Codex Theme Switcher 应用图片背景、玻璃效果与自定义组件后的真实 Codex 界面](docs/images/codex-theme-showcase.jpg)
 
