@@ -36,6 +36,9 @@ Codex doit encore être vérifié après application du thème.
   l’aperçu et l’état du runtime se trouvent dans le panneau de la barre des menus.
 - Trois modèles intégrés : Midnight, Paper et High Contrast.
 - Application en un clic, restauration du style d’origine de Codex et reconnexion du moteur de rendu.
+- Détecte Codex via un emplacement enregistré, l’app en cours d’exécution, Launch Services et les
+  dossiers courants ; les réglages permettent aussi de choisir Codex sur un disque externe ou dans
+  tout autre dossier.
 - Système visuel de couleurs :
   - Couleurs sémantiques de base.
   - Tokens d’interface, d’interaction, de diff et de terminal Codex `--color-token-*`.

@@ -57,7 +57,7 @@ private struct ParsedAgentArguments {
         values allowedValues: Set<String> = [],
         flags allowedFlags: Set<String> = []
     ) throws {
-        let globalValues: Set<String> = ["root"]
+        let globalValues: Set<String> = ["codex-app", "root"]
         let globalFlags: Set<String> = ["help"]
         if let unknown = Set(values.keys)
             .subtracting(allowedValues.union(globalValues))
@@ -96,6 +96,7 @@ public struct CodexThemeAgentCLI {
 
     private static let valueOptions: Set<String> = [
         "appearance",
+        "codex-app",
         "collision",
         "height",
         "id",
@@ -330,6 +331,7 @@ public struct CodexThemeAgentCLI {
             let code = switch error {
             case .missingHelper: "runtime_helper_not_found"
             case .missingNode: "node_runtime_not_found"
+            case .invalidCodexApp: "codex_app_invalid"
             }
             return failure(
                 command: fallbackCommand,
@@ -1014,7 +1016,8 @@ public struct CodexThemeAgentCLI {
         ThemeRuntimeController(
             runner: RuntimeHelperRunner(
                 helperScript: try RuntimeLocator.helperScriptURL(),
-                codexApp: RuntimeLocator.defaultCodexApp,
+                codexApp: parsed.value("codex-app").map(fileURL)
+                    ?? RuntimeLocator.defaultCodexApp,
                 userRoot: rootURL(parsed)
             )
         )
@@ -1334,6 +1337,15 @@ public struct CodexThemeAgentCLI {
                 "warning": "Raw CSS and arbitrary selectors are reported but not executed by the native preview."
             ],
             "protocolVersion": Self.protocolVersion,
+            "runtime": [
+                "codexAppOption": "--codex-app <path>",
+                "codexAppResolution": [
+                    "saved_preference",
+                    "running_application",
+                    "launch_services",
+                    "known_locations"
+                ]
+            ],
             "schemaVersion": ThemeDocument.currentSchemaVersion,
             "security": [
                 "applyAcceptsRawCompiledCSS": false,
@@ -1361,10 +1373,11 @@ public struct CodexThemeAgentCLI {
           compile, install (alias: import), export, preview, status, attach,
           apply, clear
 
-        All command responses are JSON. --root <directory> changes only the
-        Theme Switcher data root; it does not sandbox the real Codex process or
-        CDP ports. attach/apply/clear reject non-default roots. Use --input -
-        for stdin.
+        All command responses are JSON. --codex-app <path> overrides automatic
+        Codex discovery for runtime commands. --root <directory> changes only
+        the Theme Switcher data root; it does not sandbox the real Codex
+        process or CDP ports. attach/apply/clear reject non-default roots. Use
+        --input - for stdin.
         """
         return [
             "command": command ?? NSNull(),

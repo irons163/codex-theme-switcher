@@ -136,6 +136,11 @@ enum AppErrorLocalization {
                 "找不到相容的 Node.js runtime。",
                 "A compatible Node.js runtime was not found."
             )
+        case .invalidCodexApp:
+            return L10n.text(
+                "選取的 App 不是有效的 Codex。",
+                "The selected application is not a valid Codex app."
+            )
         }
     }
 

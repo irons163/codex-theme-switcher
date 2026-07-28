@@ -36,6 +36,8 @@ selector rules、raw CSS、および実際の Codex renderer における最終�
   すべてを menu bar panel に集約。
 - 3 つの組み込みテンプレート：Midnight、Paper、High Contrast。
 - ワンクリックでの適用、Codex の元のスタイルへの復元、renderer の再接続。
+- 保存した場所、実行中の App、Launch Services、一般的なディレクトリから Codex を
+  自動検出。設定では外付けディスクや任意のフォルダにある Codex App も選択可能。
 - ビジュアルカラーシステム：
   - 基本 semantic colors。
   - Codex `--color-token-*` インターフェース、interaction、diff、terminal tokens。

@@ -97,6 +97,8 @@ final class ThemeAppModel: ObservableObject {
     @Published private(set) var isDraftDirty = false
     @Published private(set) var undoDraftActionName: String?
     @Published private(set) var redoDraftActionName: String?
+    @Published private(set) var codexAppURL: URL
+    @Published private(set) var hasCustomCodexApp: Bool
     @Published var selectedPage: EditorPage = .preview
     @Published var previewAppearance: ThemeSkinAppearance = .dark
     @Published var previewSurface: ThemePreviewSurface = .home
@@ -106,7 +108,7 @@ final class ThemeAppModel: ObservableObject {
     private let repository: FileThemeRepository
     private let archiveService: ThemeArchiveService
     private let compiler: ThemeCompiler
-    private let runtime: ThemeRuntimeController?
+    private var runtime: ThemeRuntimeController?
     private var monitorTask: Task<Void, Never>?
     private var unsavedDrafts: [UUID: ThemeDocument] = [:]
     private var persistedDocuments: [UUID: ThemeDocument] = [:]
@@ -114,18 +116,27 @@ final class ThemeAppModel: ObservableObject {
     private var runtimeMutationGeneration: UInt = 0
 
     init() {
+        let resolvedCodexApp = RuntimeLocator.defaultCodexApp
+        codexAppURL = resolvedCodexApp
+        hasCustomCodexApp = RuntimeLocator.persistedCodexApp() != nil
         repository = FileThemeRepository()
         archiveService = ThemeArchiveService()
         compiler = ThemeCompiler()
-        runtime = try? ThemeRuntimeController.standard()
+        runtime = try? ThemeRuntimeController.standard(
+            codexApp: resolvedCodexApp
+        )
     }
 
     init(
         repository: FileThemeRepository,
         archiveService: ThemeArchiveService = ThemeArchiveService(),
         compiler: ThemeCompiler = ThemeCompiler(),
+        codexAppURL: URL = RuntimeLocator.defaultCodexApp,
+        hasCustomCodexApp: Bool = false,
         runtime: ThemeRuntimeController?
     ) {
+        self.codexAppURL = codexAppURL
+        self.hasCustomCodexApp = hasCustomCodexApp
         self.repository = repository
         self.archiveService = archiveService
         self.compiler = compiler
@@ -179,6 +190,10 @@ final class ThemeAppModel: ObservableObject {
         runtimeStatus?.bridgeRunning == true
             && runtimeStatus?.hasCodexTarget == true
             && runtimeStatus?.isInjected == true
+    }
+
+    var codexAppIsAvailable: Bool {
+        RuntimeLocator.isCodexDesktopApp(codexAppURL)
     }
 
     var canUndoDraft: Bool {
@@ -246,6 +261,43 @@ final class ThemeAppModel: ObservableObject {
                 guard !Task.isCancelled else { return }
                 await self?.refreshRuntime(silently: true)
             }
+        }
+    }
+
+    func chooseCodexApplication() {
+        let panel = NSOpenPanel()
+        panel.title = L10n.text(
+            "選擇 Codex App",
+            "Choose Codex application"
+        )
+        panel.prompt = L10n.text("選擇", "Choose")
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.treatsFilePackagesAsDirectories = false
+        panel.allowedContentTypes = [.applicationBundle]
+        if codexAppIsAvailable {
+            panel.directoryURL = codexAppURL.deletingLastPathComponent()
+        }
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard RuntimeLocator.isCodexDesktopApp(url) else {
+            show(
+                ThemeAppError.invalidCodexApplication(
+                    url.lastPathComponent
+                ).localizedDescription,
+                style: .error
+            )
+            return
+        }
+        Task {
+            await configureCodexApplication(url, persist: true)
+        }
+    }
+
+    func useAutomaticCodexApplication() {
+        Task {
+            await configureCodexApplication(nil, persist: false)
         }
     }
 
@@ -517,6 +569,60 @@ final class ThemeAppModel: ObservableObject {
                     style: .error
                 )
             }
+        }
+    }
+
+    private func configureCodexApplication(
+        _ selectedURL: URL?,
+        persist: Bool
+    ) async {
+        await perform {
+            let resolvedURL: URL
+            if let selectedURL {
+                resolvedURL = selectedURL.standardizedFileURL
+                    .resolvingSymlinksInPath()
+                guard RuntimeLocator.isCodexDesktopApp(resolvedURL) else {
+                    throw ThemeAppError.invalidCodexApplication(
+                        selectedURL.lastPathComponent
+                    )
+                }
+            } else {
+                resolvedURL = RuntimeLocator.automaticCodexApp()
+                    ?? URL(fileURLWithPath: "/Applications/Codex.app")
+            }
+
+            let nextRuntime = try ThemeRuntimeController.standard(
+                codexApp: resolvedURL
+            )
+            if persist {
+                try RuntimeLocator.persistCodexApp(resolvedURL)
+            } else {
+                try RuntimeLocator.clearPersistedCodexApp()
+            }
+
+            self.runtimeMutationGeneration &+= 1
+            if let runtime = self.runtime {
+                _ = try? await runtime.stop()
+            }
+            self.runtime = nextRuntime
+            self.codexAppURL = resolvedURL
+            self.hasCustomCodexApp = persist
+            self.runtimeStatus = nil
+
+            let result = try await nextRuntime.status()
+            self.runtimeStatus = result.status
+            self.show(
+                persist
+                    ? L10n.text(
+                        "已保存 Codex App 位置",
+                        "Codex application location saved"
+                    )
+                    : L10n.text(
+                        "已改用自動偵測 Codex",
+                        "Automatic Codex discovery enabled"
+                    ),
+                style: .success
+            )
         }
     }
 
@@ -1202,6 +1308,7 @@ enum ThemeAppError: LocalizedError {
     case assetTooLarge(String)
     case totalAssetsTooLarge(Int)
     case invalidSkinImage(String)
+    case invalidCodexApplication(String)
 
     var errorDescription: String? {
         switch self {
@@ -1230,6 +1337,12 @@ enum ThemeAppError: LocalizedError {
             return L10n.format(
                 "「{0}」不是可解碼的 PNG、JPEG、WebP、GIF 或 AVIF 圖片。",
                 "“{0}” is not a decodable PNG, JPEG, WebP, GIF, or AVIF image.",
+                name
+            )
+        case .invalidCodexApplication(let name):
+            return L10n.format(
+                "「{0}」不是有效的 Codex App。",
+                "“{0}” is not a valid Codex application.",
                 name
             )
         }

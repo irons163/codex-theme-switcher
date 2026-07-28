@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct AppSettingsPage: View {
+    @ObservedObject var model: ThemeAppModel
     @ObservedObject var updateModel: AppUpdateModel
 
     var body: some View {
@@ -13,6 +14,77 @@ struct AppSettingsPage: View {
                         "Keep Codex Theme Switcher current with signed Sparkle updates."
                     )
                 )
+
+                EditorSection(
+                    title: L10n.text(
+                        "Codex App 位置",
+                        "Codex application"
+                    ),
+                    subtitle: L10n.text(
+                        "自動尋找正在執行或已安裝的 Codex，也可指定其他位置。",
+                        "Automatically finds a running or installed Codex, or lets you choose another location."
+                    )
+                ) {
+                    HStack(spacing: 10) {
+                        Image(
+                            systemName: model.codexAppIsAvailable
+                                ? "checkmark.circle.fill"
+                                : "exclamationmark.triangle.fill"
+                        )
+                        .foregroundStyle(
+                            model.codexAppIsAvailable
+                                ? Color.green
+                                : Color.orange
+                        )
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(
+                                model.codexAppIsAvailable
+                                    ? (
+                                        model.hasCustomCodexApp
+                                            ? L10n.text(
+                                                "使用自訂位置",
+                                                "Using a custom location"
+                                            )
+                                            : L10n.text(
+                                                "已自動找到 Codex",
+                                                "Codex detected automatically"
+                                            )
+                                    )
+                                    : L10n.text(
+                                        "找不到 Codex App",
+                                        "Codex application not found"
+                                    )
+                            )
+                            .font(.subheadline.weight(.semibold))
+
+                            Text(model.codexAppURL.path)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                                .lineLimit(2)
+                        }
+
+                        Spacer()
+
+                        Button(L10n.text("選擇…", "Choose…")) {
+                            model.chooseCodexApplication()
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        if model.hasCustomCodexApp {
+                            Button(
+                                L10n.text(
+                                    "改用自動偵測",
+                                    "Use Automatic"
+                                )
+                            ) {
+                                model.useAutomaticCodexApplication()
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                }
 
                 EditorSection(
                     title: L10n.text("目前版本", "Current version"),

@@ -9,7 +9,7 @@ struct ThemeEditorView: View {
     var body: some View {
         Group {
             if model.selectedPage == .settings {
-                AppSettingsPage(updateModel: updateModel)
+                AppSettingsPage(model: model, updateModel: updateModel)
             } else if let theme = model.draft {
                 VStack(spacing: 0) {
                     if model.isSelectedBuiltIn {
@@ -62,7 +62,7 @@ struct ThemeEditorView: View {
         case .info:
             ThemeInfoEditorPage(model: model)
         case .settings:
-            AppSettingsPage(updateModel: updateModel)
+            AppSettingsPage(model: model, updateModel: updateModel)
         }
     }
 

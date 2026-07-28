@@ -38,6 +38,30 @@ final class RuntimeLocatorTests: XCTestCase {
         return url
     }
 
+    private func makeCodexApp(at url: URL) throws -> URL {
+        let executableName = "Codex"
+        _ = try makeExecutable(
+            at: url.appendingPathComponent(
+                "Contents/MacOS/\(executableName)"
+            )
+        )
+        let info: [String: Any] = [
+            "CFBundleExecutable": executableName,
+            "CFBundleIdentifier": RuntimeLocator.codexBundleIdentifier,
+            "CFBundleName": "Codex",
+            "CFBundlePackageType": "APPL"
+        ]
+        let data = try PropertyListSerialization.data(
+            fromPropertyList: info,
+            format: .xml,
+            options: 0
+        )
+        try data.write(
+            to: url.appendingPathComponent("Contents/Info.plist")
+        )
+        return url
+    }
+
     func testHelperScriptCanBeLocatedAndExists() throws {
         let helper = try RuntimeLocator.helperScriptURL()
         XCTAssertTrue(FileManager.default.fileExists(atPath: helper.path))
@@ -58,6 +82,114 @@ final class RuntimeLocatorTests: XCTestCase {
             RuntimeLocator.defaultUserRoot.standardizedFileURL,
             expected.standardizedFileURL
         )
+    }
+
+    func testResolverHonorsSavedRunningRegisteredAndKnownOrder() {
+        let root = FileManager.default.temporaryDirectory
+        let saved = root.appendingPathComponent("Saved.app")
+        let running = root.appendingPathComponent("Running.app")
+        let registered = root.appendingPathComponent("Registered.app")
+        let known = root.appendingPathComponent("Known.app")
+        let validPaths = Set([
+            saved.path,
+            running.path,
+            registered.path,
+            known.path
+        ])
+
+        let resolved = RuntimeLocator.resolveCodexApp(
+            persistedURL: saved,
+            runningURLs: [running],
+            registeredURL: registered,
+            candidates: [known],
+            validator: { validPaths.contains($0.path) }
+        )
+        XCTAssertEqual(resolved?.path, saved.path)
+
+        let automatic = RuntimeLocator.resolveCodexApp(
+            persistedURL: nil,
+            runningURLs: [running],
+            registeredURL: registered,
+            candidates: [known],
+            validator: { validPaths.contains($0.path) }
+        )
+        XCTAssertEqual(automatic?.path, running.path)
+
+        let registeredFallback = RuntimeLocator.resolveCodexApp(
+            persistedURL: nil,
+            runningURLs: [root.appendingPathComponent("Invalid.app")],
+            registeredURL: registered,
+            candidates: [known],
+            validator: { validPaths.contains($0.path) }
+        )
+        XCTAssertEqual(registeredFallback?.path, registered.path)
+    }
+
+    func testCustomCodexAppRoundTripsOutsideApplicationsDirectory() throws {
+        let root = try makeTemporaryDirectory()
+        let userRoot = root.appendingPathComponent("Theme Switcher Data")
+        let app = try makeCodexApp(
+            at: root.appendingPathComponent(
+                "External Volume/Custom Codex Name.app"
+            )
+        )
+
+        XCTAssertTrue(RuntimeLocator.isCodexDesktopApp(app))
+        try RuntimeLocator.persistCodexApp(app, userRoot: userRoot)
+
+        XCTAssertEqual(
+            RuntimeLocator.persistedCodexApp(userRoot: userRoot)?
+                .standardizedFileURL,
+            app.standardizedFileURL
+        )
+        let preference = userRoot.appendingPathComponent(
+            "Runtime/codex-app-path"
+        )
+        let attributes = try FileManager.default.attributesOfItem(
+            atPath: preference.path
+        )
+        let permissions = try XCTUnwrap(
+            attributes[.posixPermissions] as? NSNumber
+        )
+        XCTAssertEqual(permissions.intValue & 0o777, 0o600)
+
+        try RuntimeLocator.clearPersistedCodexApp(userRoot: userRoot)
+        XCTAssertNil(RuntimeLocator.persistedCodexApp(userRoot: userRoot))
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: preference.path)
+        )
+    }
+
+    func testPersistRejectsAnUnrelatedApplicationBundle() throws {
+        let root = try makeTemporaryDirectory()
+        let unrelated = root.appendingPathComponent("Other.app")
+        _ = try makeExecutable(
+            at: unrelated.appendingPathComponent("Contents/MacOS/Other")
+        )
+        let info: [String: Any] = [
+            "CFBundleExecutable": "Other",
+            "CFBundleIdentifier": "com.example.other",
+            "CFBundlePackageType": "APPL"
+        ]
+        let data = try PropertyListSerialization.data(
+            fromPropertyList: info,
+            format: .xml,
+            options: 0
+        )
+        try data.write(
+            to: unrelated.appendingPathComponent("Contents/Info.plist")
+        )
+
+        XCTAssertThrowsError(
+            try RuntimeLocator.persistCodexApp(
+                unrelated,
+                userRoot: root.appendingPathComponent("User Data")
+            )
+        ) { error in
+            guard case RuntimeLocationError.invalidCodexApp = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
     }
 
     func testBundledNodeHasPriorityOverCuaAndPathFallbacks() throws {
@@ -163,6 +295,12 @@ final class RuntimeLocatorTests: XCTestCase {
         XCTAssertEqual(
             RuntimeLocationError.missingNode.errorDescription,
             "A compatible Node.js runtime was not found."
+        )
+        XCTAssertEqual(
+            RuntimeLocationError.invalidCodexApp(
+                "/tmp/Other.app"
+            ).errorDescription,
+            "The selected application is not Codex: /tmp/Other.app"
         )
     }
 }

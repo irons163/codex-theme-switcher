@@ -992,6 +992,63 @@ enum L10nCatalogCJK {
             "不支持的主题归档版本：{0}。",
             "対応していないテーマアーカイブのバージョンです：{0}。",
             "지원되지 않는 테마 아카이브 버전입니다: {0}."
+        ),
+        .init(
+            "Choose Codex application",
+            "选择 Codex App",
+            "Codex Appを選択",
+            "Codex 앱 선택"
+        ),
+        .init("Choose", "选择", "選択", "선택"),
+        .init("Codex application", "Codex App", "Codex App", "Codex 앱"),
+        .init(
+            "Automatically finds a running or installed Codex, or lets you choose another location.",
+            "自动查找正在运行或已安装的 Codex，也可指定其他位置。",
+            "実行中またはインストール済みのCodexを自動検出し、別の場所を指定することもできます。",
+            "실행 중이거나 설치된 Codex를 자동으로 찾고 다른 위치를 선택할 수도 있습니다."
+        ),
+        .init(
+            "Using a custom location",
+            "正在使用自定义位置",
+            "カスタム場所を使用中",
+            "사용자 지정 위치 사용 중"
+        ),
+        .init(
+            "Codex detected automatically",
+            "已自动找到 Codex",
+            "Codexを自動検出しました",
+            "Codex 자동 감지됨"
+        ),
+        .init(
+            "Codex application not found",
+            "找不到 Codex App",
+            "Codex Appが見つかりません",
+            "Codex 앱을 찾을 수 없음"
+        ),
+        .init("Choose…", "选择…", "選択…", "선택…"),
+        .init(
+            "Use Automatic",
+            "改用自动检测",
+            "自動検出を使用",
+            "자동 감지 사용"
+        ),
+        .init(
+            "Codex application location saved",
+            "已保存 Codex App 位置",
+            "Codex Appの場所を保存しました",
+            "Codex 앱 위치를 저장했습니다"
+        ),
+        .init(
+            "Automatic Codex discovery enabled",
+            "已启用 Codex 自动检测",
+            "Codexの自動検出を有効にしました",
+            "Codex 자동 감지를 사용합니다"
+        ),
+        .init(
+            "“{0}” is not a valid Codex application.",
+            "“{0}”不是有效的 Codex App。",
+            "「{0}」は有効なCodex Appではありません。",
+            "“{0}”은(는) 올바른 Codex 앱이 아닙니다."
         )
     ]
 }

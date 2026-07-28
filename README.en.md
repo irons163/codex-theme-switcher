@@ -34,6 +34,8 @@ final rendering in Codex should still be verified after applying the theme.
   menu bar panel.
 - Three built-in templates: Midnight, Paper, and High Contrast.
 - Apply a theme, restore Codex's original styles, or reconnect to the renderer with one click.
+- Finds Codex through a saved location, the running app, Launch Services, and common directories;
+  Settings can also select a Codex app on an external disk or in any other folder.
 - Visual color system:
   - Base semantic colors.
   - Codex `--color-token-*` interface, interaction, diff, and terminal tokens.

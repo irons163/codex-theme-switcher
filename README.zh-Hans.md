@@ -32,6 +32,8 @@ Agent CLI 可在无窗口环境中生成 Light／Dark × Home／Chat PNG，供 A
 - 纯菜单栏 app；所有主题库、编辑、预览与 runtime 状态都在菜单栏面板中。
 - 三个内置模板：Midnight、Paper、High Contrast。
 - 一键应用、恢复 Codex 原始样式、重新连接 renderer。
+- 自动从已保存位置、正在运行的 App、Launch Services 与常用目录查找 Codex；
+  也可在设置中指定外置磁盘或其他文件夹内的 Codex App。
 - 可视化色彩系统：
   - 基础 semantic colors。
   - Codex `--color-token-*` 界面、interaction、diff 与 terminal tokens。

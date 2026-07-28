@@ -32,6 +32,8 @@ Agent CLI 可在無視窗環境產生 Light／Dark × Home／Chat PNG，供 AI a
 - 純 menu bar app；所有主題庫、編輯、預覽與 runtime 狀態都在 menu bar panel。
 - 三個內建模板：Midnight、Paper、High Contrast。
 - 一鍵套用、恢復 Codex 原始樣式、重新連接 renderer。
+- 自動從已保存位置、執行中的 App、Launch Services 與常見目錄尋找 Codex；
+  也可在設定中指定外接磁碟或其他資料夾內的 Codex App。
 - 視覺化色彩系統：
   - 基礎 semantic colors。
   - Codex `--color-token-*` 介面、interaction、diff 與 terminal tokens。

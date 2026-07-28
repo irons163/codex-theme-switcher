@@ -26,7 +26,9 @@ async function main() {
     if (!command) {
       throw Object.assign(new Error("Missing command."), { code: "usage" });
     }
-    ensureCodexApp(resolved.codexApp);
+    if (commandRequiresCodexApp(command)) {
+      ensureCodexApp(resolved.codexApp);
+    }
 
     if (command === "serve") {
       await serveBridge(resolved);
@@ -174,6 +176,10 @@ function resolveOptions(options) {
   };
 }
 
+function commandRequiresCodexApp(command) {
+  return ["serve", "launch", "inject", "apply"].includes(command);
+}
+
 function parseArgs(args) {
   const result = { command: null, options: {} };
   for (let index = 0; index < args.length; index += 1) {
@@ -203,6 +209,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  commandRequiresCodexApp,
   parseArgs,
   readStandardInputJSON,
   resolveOptions,

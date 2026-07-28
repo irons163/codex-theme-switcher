@@ -126,6 +126,9 @@ selector、custom media 或只能近似呈現的 component declaration，回應�
 
 - `--input <path|->`：讀 ThemeDocument 或 `.codextheme`；`-` 表示 stdin。
 - `--id <uuid>`：直接使用 repository 內的主題。
+- `--codex-app <path>`：覆寫自動偵測到的 Codex App 位置。未指定時會依序使用
+  Theme Switcher 保存的位置、目前執行中的 `com.openai.codex` App、macOS Launch
+  Services 登記位置，以及 `/Applications`／`~/Applications` 的常見位置。
 - `--root <directory>`：改用另一個 Theme Switcher 資料目錄。它只隔離 theme、
   runtime snapshot／token 等檔案，**不會**隔離真實 Codex process 或 CDP port；
   請勿把它當成 `attach`／`apply`／`clear` 的 sandbox。Runtime bridge 會優先使用

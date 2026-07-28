@@ -23,6 +23,11 @@ final class CodexThemeAgentCLITests: XCTestCase {
             false
         )
         XCTAssertEqual(security["coreValidationRequired"] as? Bool, true)
+        let runtime = try XCTUnwrap(data["runtime"] as? [String: Any])
+        XCTAssertEqual(
+            runtime["codexAppOption"] as? String,
+            "--codex-app <path>"
+        )
     }
 
     func testValidateAcceptsDocumentFromStandardInput() async throws {

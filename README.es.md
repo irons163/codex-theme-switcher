@@ -37,6 +37,9 @@ después de aplicar el tema.
 - Tres plantillas integradas: Midnight, Paper y High Contrast.
 - Aplicación con un clic, restauración del estilo original de Codex y reconexión del proceso
   de renderizado.
+- Encuentra Codex mediante una ubicación guardada, la app en ejecución, Launch Services y los
+  directorios habituales; Ajustes también permite elegir Codex en un disco externo o cualquier
+  otra carpeta.
 - Sistema visual de colores:
   - Colores semánticos básicos.
   - Tokens de interfaz, interacción, diff y terminal de Codex `--color-token-*`.

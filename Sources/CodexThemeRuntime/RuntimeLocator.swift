@@ -1,15 +1,11 @@
+import AppKit
 import Foundation
 
 public enum RuntimeLocator {
+    public static let codexBundleIdentifier = "com.openai.codex"
+
     public static var defaultCodexApp: URL {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let candidates = [
-            URL(fileURLWithPath: "/Applications/Codex.app"),
-            URL(fileURLWithPath: "/Applications/ChatGPT.app"),
-            home.appendingPathComponent("Applications/Codex.app"),
-            home.appendingPathComponent("Applications/ChatGPT.app")
-        ]
-        return candidates.first(where: isCodexDesktopApp)
+        resolvedCodexApp()
             ?? URL(fileURLWithPath: "/Applications/Codex.app")
     }
 
@@ -19,6 +15,98 @@ public enum RuntimeLocator {
                 "Library/Application Support/CodexThemeSwitcher",
                 isDirectory: true
             )
+    }
+
+    public static func resolvedCodexApp(
+        userRoot: URL = defaultUserRoot
+    ) -> URL? {
+        resolveCodexApp(
+            persistedURL: persistedCodexApp(userRoot: userRoot),
+            runningURLs: NSRunningApplication.runningApplications(
+                withBundleIdentifier: codexBundleIdentifier
+            ).compactMap(\.bundleURL),
+            registeredURL: NSWorkspace.shared.urlForApplication(
+                withBundleIdentifier: codexBundleIdentifier
+            ),
+            candidates: commonCodexAppCandidates()
+        )
+    }
+
+    public static func automaticCodexApp() -> URL? {
+        resolveCodexApp(
+            persistedURL: nil,
+            runningURLs: NSRunningApplication.runningApplications(
+                withBundleIdentifier: codexBundleIdentifier
+            ).compactMap(\.bundleURL),
+            registeredURL: NSWorkspace.shared.urlForApplication(
+                withBundleIdentifier: codexBundleIdentifier
+            ),
+            candidates: commonCodexAppCandidates()
+        )
+    }
+
+    public static func persistedCodexApp(
+        userRoot: URL = defaultUserRoot
+    ) -> URL? {
+        guard let data = try? Data(
+            contentsOf: codexAppPathURL(userRoot: userRoot)
+        ),
+        let rawPath = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+        !rawPath.isEmpty
+        else {
+            return nil
+        }
+        let url = URL(fileURLWithPath: rawPath)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        return isCodexDesktopApp(url) ? url : nil
+    }
+
+    public static func persistCodexApp(
+        _ url: URL,
+        userRoot: URL = defaultUserRoot
+    ) throws {
+        let resolved = url.standardizedFileURL.resolvingSymlinksInPath()
+        guard isCodexDesktopApp(resolved) else {
+            throw RuntimeLocationError.invalidCodexApp(resolved.path)
+        }
+        let destination = codexAppPathURL(userRoot: userRoot)
+        let directory = destination.deletingLastPathComponent()
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
+        try Data("\(resolved.path)\n".utf8).write(
+            to: destination,
+            options: .atomic
+        )
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o600],
+            ofItemAtPath: destination.path
+        )
+    }
+
+    public static func clearPersistedCodexApp(
+        userRoot: URL = defaultUserRoot
+    ) throws {
+        let destination = codexAppPathURL(userRoot: userRoot)
+        guard FileManager.default.fileExists(atPath: destination.path) else {
+            return
+        }
+        try FileManager.default.removeItem(at: destination)
+    }
+
+    public static func isCodexDesktopApp(_ url: URL) -> Bool {
+        guard let bundle = Bundle(url: url),
+              bundle.bundleIdentifier == codexBundleIdentifier,
+              let executableURL = bundle.executableURL else {
+            return false
+        }
+        return FileManager.default.isExecutableFile(
+            atPath: executableURL.path
+        )
     }
 
     public static func helperScriptURL() throws -> URL {
@@ -78,20 +166,52 @@ public enum RuntimeLocator {
         }
     }
 
-    private static func isCodexDesktopApp(_ url: URL) -> Bool {
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            return false
+    static func resolveCodexApp(
+        persistedURL: URL?,
+        runningURLs: [URL],
+        registeredURL: URL?,
+        candidates: [URL],
+        validator: (URL) -> Bool = isCodexDesktopApp
+    ) -> URL? {
+        var seen: Set<String> = []
+        let ordered = [persistedURL].compactMap { $0 }
+            + runningURLs
+            + [registeredURL].compactMap { $0 }
+            + candidates
+        for candidate in ordered {
+            let resolved = candidate.standardizedFileURL
+                .resolvingSymlinksInPath()
+            guard seen.insert(resolved.path).inserted else {
+                continue
+            }
+            if validator(resolved) {
+                return resolved
+            }
         }
-        if url.lastPathComponent == "Codex.app" {
-            return true
-        }
-        return Bundle(url: url)?.bundleIdentifier == "com.openai.codex"
+        return nil
+    }
+
+    private static func commonCodexAppCandidates() -> [URL] {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        return [
+            URL(fileURLWithPath: "/Applications/Codex.app"),
+            URL(fileURLWithPath: "/Applications/ChatGPT.app"),
+            home.appendingPathComponent("Applications/Codex.app"),
+            home.appendingPathComponent("Applications/ChatGPT.app")
+        ]
+    }
+
+    private static func codexAppPathURL(userRoot: URL) -> URL {
+        userRoot
+            .appendingPathComponent("Runtime", isDirectory: true)
+            .appendingPathComponent("codex-app-path")
     }
 }
 
 public enum RuntimeLocationError: LocalizedError {
     case missingHelper
     case missingNode
+    case invalidCodexApp(String)
 
     public var errorDescription: String? {
         switch self {
@@ -99,6 +219,8 @@ public enum RuntimeLocationError: LocalizedError {
             "Bundled Codex Theme runtime helper was not found."
         case .missingNode:
             "A compatible Node.js runtime was not found."
+        case let .invalidCodexApp(path):
+            "The selected application is not Codex: \(path)"
         }
     }
 }

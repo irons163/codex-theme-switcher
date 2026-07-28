@@ -7,9 +7,19 @@ const path = require("node:path");
 const test = require("node:test");
 
 const {
+  commandRequiresCodexApp,
   parseArgs,
   resolveOptions,
 } = require("../Sources/CodexThemeRuntime/Resources/runtime/cli");
+
+test("only commands that launch or mutate Codex require an app path", () => {
+  for (const command of ["serve", "launch", "inject", "apply"]) {
+    assert.equal(commandRequiresCodexApp(command), true, command);
+  }
+  for (const command of ["status", "stop", "clear"]) {
+    assert.equal(commandRequiresCodexApp(command), false, command);
+  }
+});
 
 test("parseArgs handles command, value options, and boolean JSON flag", () => {
   assert.deepEqual(

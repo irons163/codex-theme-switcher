@@ -1077,6 +1077,66 @@ enum L10nCatalogWestern {
             french: "Les recherches automatiques sont désactivées.",
             spanish: "Las comprobaciones automáticas están desactivadas."
         ),
+        Entry(
+            key: "Choose Codex application",
+            french: "Choisir l’application Codex",
+            spanish: "Elegir la aplicación Codex"
+        ),
+        Entry(
+            key: "Choose",
+            french: "Choisir",
+            spanish: "Elegir"
+        ),
+        Entry(
+            key: "Codex application",
+            french: "Application Codex",
+            spanish: "Aplicación Codex"
+        ),
+        Entry(
+            key: "Automatically finds a running or installed Codex, or lets you choose another location.",
+            french: "Détecte automatiquement Codex en cours d’exécution ou installé, avec la possibilité de choisir un autre emplacement.",
+            spanish: "Encuentra automáticamente Codex en ejecución o instalado, o permite elegir otra ubicación."
+        ),
+        Entry(
+            key: "Using a custom location",
+            french: "Emplacement personnalisé utilisé",
+            spanish: "Usando una ubicación personalizada"
+        ),
+        Entry(
+            key: "Codex detected automatically",
+            french: "Codex détecté automatiquement",
+            spanish: "Codex detectado automáticamente"
+        ),
+        Entry(
+            key: "Codex application not found",
+            french: "Application Codex introuvable",
+            spanish: "No se encontró la aplicación Codex"
+        ),
+        Entry(
+            key: "Choose…",
+            french: "Choisir…",
+            spanish: "Elegir…"
+        ),
+        Entry(
+            key: "Use Automatic",
+            french: "Utiliser la détection automatique",
+            spanish: "Usar detección automática"
+        ),
+        Entry(
+            key: "Codex application location saved",
+            french: "Emplacement de l’application Codex enregistré",
+            spanish: "Ubicación de la aplicación Codex guardada"
+        ),
+        Entry(
+            key: "Automatic Codex discovery enabled",
+            french: "Détection automatique de Codex activée",
+            spanish: "Detección automática de Codex activada"
+        ),
+        Entry(
+            key: "“{0}” is not a valid Codex application.",
+            french: "« {0} » n’est pas une application Codex valide.",
+            spanish: "«{0}» no es una aplicación Codex válida."
+        ),
     ]
 
     static let french: [String: String] = Dictionary(

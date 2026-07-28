@@ -18,10 +18,12 @@ public struct RuntimeHelperRunner: Sendable {
         self.nodeExecutable = nodeExecutable
     }
 
-    public static func standard() throws -> RuntimeHelperRunner {
+    public static func standard(
+        codexApp: URL = RuntimeLocator.defaultCodexApp
+    ) throws -> RuntimeHelperRunner {
         RuntimeHelperRunner(
             helperScript: try RuntimeLocator.helperScriptURL(),
-            codexApp: RuntimeLocator.defaultCodexApp,
+            codexApp: codexApp,
             userRoot: RuntimeLocator.defaultUserRoot
         )
     }
@@ -157,8 +159,10 @@ public actor ThemeRuntimeController {
         self.runner = runner
     }
 
-    public static func standard() throws -> ThemeRuntimeController {
-        ThemeRuntimeController(runner: try .standard())
+    public static func standard(
+        codexApp: URL = RuntimeLocator.defaultCodexApp
+    ) throws -> ThemeRuntimeController {
+        ThemeRuntimeController(runner: try .standard(codexApp: codexApp))
     }
 
     public func status() async throws -> ThemeRuntimeResult {

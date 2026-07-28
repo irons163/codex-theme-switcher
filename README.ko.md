@@ -35,6 +35,8 @@ raw CSS, 실제 Codex renderer의 최종 결과는 적용 후에도 확인해야
   menu bar panel에서 제공합니다.
 - 세 가지 내장 템플릿: Midnight, Paper, High Contrast.
 - 원클릭 적용, Codex 원래 스타일 복원, renderer 다시 연결.
+- 저장된 위치, 실행 중인 앱, Launch Services 및 일반 디렉터리에서 Codex를 자동으로
+  찾습니다. 설정에서 외장 디스크나 다른 폴더의 Codex 앱을 직접 선택할 수도 있습니다.
 - 시각적 색상 시스템:
   - 기본 semantic colors.
   - Codex `--color-token-*` 인터페이스, interaction, diff, terminal tokens.
