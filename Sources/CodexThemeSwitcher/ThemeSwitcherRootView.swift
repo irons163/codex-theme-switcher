@@ -40,20 +40,76 @@ struct ThemeSwitcherRootView: View {
             updateModel.start()
             updateModel.presentLaunchAnnouncements()
         }
-        .sheet(item: $updateModel.sheet) { sheet in
-            switch sheet {
-            case .about:
-                AboutAppSheetView(updateModel: updateModel)
-            case let .update(release):
-                AppUpdateSheetView(
-                    release: release,
-                    updateModel: updateModel
-                )
-            case .whatsNew:
-                WhatsNewSheetView(updateModel: updateModel)
+        .overlay {
+            if let sheet = updateModel.sheet {
+                updateModal(sheet)
+                    .transition(
+                        .opacity.combined(
+                            with: .scale(scale: 0.97)
+                        )
+                    )
+                    .zIndex(100)
             }
         }
+        .animation(
+            .easeInOut(duration: 0.18),
+            value: updateModel.sheet
+        )
         .animation(.easeInOut(duration: 0.18), value: model.notice?.id)
+    }
+
+    private func updateModal(_ sheet: AppUpdateSheet) -> some View {
+        ZStack {
+            Color.black.opacity(0.52)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    // Keep the modal open and consume clicks inside the
+                    // transient MenuBarExtra window.
+                }
+
+            Group {
+                switch sheet {
+                case .about:
+                    AboutAppSheetView(updateModel: updateModel)
+                case let .update(release):
+                    AppUpdateSheetView(
+                        release: release,
+                        updateModel: updateModel
+                    )
+                case .whatsNew:
+                    WhatsNewSheetView(updateModel: updateModel)
+                }
+            }
+            .background(
+                .regularMaterial,
+                in: RoundedRectangle(
+                    cornerRadius: 18,
+                    style: .continuous
+                )
+            )
+            .overlay {
+                RoundedRectangle(
+                    cornerRadius: 18,
+                    style: .continuous
+                )
+                .stroke(.white.opacity(0.2), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.42), radius: 28, y: 12)
+            .padding(32)
+        }
+        .contentShape(Rectangle())
+        .onExitCommand {
+            dismissUpdateModal(sheet)
+        }
+    }
+
+    private func dismissUpdateModal(_ sheet: AppUpdateSheet) {
+        switch sheet {
+        case .whatsNew:
+            updateModel.dismissWhatsNew(markSeen: false)
+        case .about, .update:
+            updateModel.dismissSheet()
+        }
     }
 
     private var themeLibrary: some View {
