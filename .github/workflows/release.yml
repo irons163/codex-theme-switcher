@@ -1,6 +1,6 @@
 name: Release
 
-on:
+"on":
   release:
     types: [published]
   workflow_dispatch:
@@ -19,26 +19,39 @@ on:
           - beta
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: codex-theme-switcher-release
+  # GitHub Actions added multi-pending concurrency queues in May 2026.
+  queue: max
+  cancel-in-progress: false
 
 env:
   UPDATE_REPOSITORY: irons163/codex-theme-switcher
   SPARKLE_VERSION: "2.9.1"
+  SPARKLE_ARCHIVE_SHA256: c0dde519fd2a43ddfc6a1eb76aec284d7d888fe281414f9177de3164d98ba4c7
 
 jobs:
   prepare:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     outputs:
       release_tag: ${{ steps.release.outputs.release_tag }}
       release_version: ${{ steps.release.outputs.release_version }}
       build_version: ${{ steps.release.outputs.build_version }}
       minimum_system_version: ${{ steps.release.outputs.minimum_system_version }}
       channel: ${{ steps.release.outputs.channel }}
+      source_sha: ${{ steps.release.outputs.source_sha }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Resolve and validate release
         id: release
@@ -51,6 +64,7 @@ jobs:
           INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
           INPUT_CHANNEL: ${{ inputs.channel }}
           SPARKLE_PUBLIC_ED_KEY: ${{ secrets.SPARKLE_PUBLIC_ED_KEY }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
 
@@ -75,8 +89,26 @@ jobs:
             echo "A release tag is required." >&2
             exit 1
           fi
+          if [[ ! "$RELEASE_TAG" =~ ^[vV]?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+            echo "Release tag must be a version such as v0.3.0 or v0.3.0-beta.1: ${RELEASE_TAG}" >&2
+            exit 1
+          fi
           if [[ "$CHANNEL" != "stable" && "$CHANNEL" != "beta" ]]; then
             echo "Unsupported release channel: ${CHANNEL}" >&2
+            exit 1
+          fi
+
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          TAG_SHA="$(git rev-list -n 1 "$RELEASE_TAG")"
+          if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ || "$SOURCE_SHA" != "$TAG_SHA" ]]; then
+            echo "Checked out source does not match immutable tag ${RELEASE_TAG}." >&2
+            exit 1
+          fi
+          git fetch --no-tags origin \
+            "${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"
+          if ! git merge-base --is-ancestor \
+              "$SOURCE_SHA" "origin/${DEFAULT_BRANCH}"; then
+            echo "Release source ${SOURCE_SHA} is not on ${DEFAULT_BRANCH}." >&2
             exit 1
           fi
 
@@ -93,6 +125,19 @@ jobs:
           fi
           if [[ "$CHANNEL" == "stable" && "$IS_PRERELEASE" == "true" ]]; then
             echo "Stable channel cannot publish from a GitHub prerelease." >&2
+            exit 1
+          fi
+
+          LATEST_STABLE_TAG="$(
+            gh api "repos/${UPDATE_REPOSITORY}/releases/latest" \
+              --jq '.tag_name' 2>/dev/null || true
+          )"
+          if [[ "$CHANNEL" == "stable" && "$LATEST_STABLE_TAG" != "$RELEASE_TAG" ]]; then
+            echo "Stable release ${RELEASE_TAG} must be the repository's latest release." >&2
+            exit 1
+          fi
+          if [[ "$CHANNEL" == "beta" && -z "$LATEST_STABLE_TAG" ]]; then
+            echo "A Stable release is required before publishing the first Beta." >&2
             exit 1
           fi
 
@@ -164,6 +209,65 @@ jobs:
             exit 1
           fi
 
+          APPCAST_CACHE="$(mktemp -d)"
+          trap 'rm -rf "$APPCAST_CACHE"' EXIT
+          APPCAST_ASSETS="$(
+            gh api \
+              --paginate \
+              "repos/${UPDATE_REPOSITORY}/releases?per_page=100" \
+              --jq '
+                .[]
+                | select(.draft == false)
+                | .assets[]?
+                | select(
+                    .name
+                    | test("^appcast(-beta)?-(arm64|x86_64)\\.xml$")
+                  )
+                | [.id, .name]
+                | @tsv
+              '
+          )"
+          if [[ -n "$APPCAST_ASSETS" ]]; then
+            appcast_index=0
+            while IFS=$'\t' read -r asset_id asset_name; do
+              if [[ ! "$asset_id" =~ ^[0-9]+$ ]]; then
+                echo "Invalid GitHub Release asset ID: ${asset_id}" >&2
+                exit 1
+              fi
+              appcast_path="${APPCAST_CACHE}/${appcast_index}-${asset_name}"
+              gh api \
+                -H "Accept: application/octet-stream" \
+                "repos/${UPDATE_REPOSITORY}/releases/assets/${asset_id}" \
+                > "$appcast_path"
+              if [[ ! -s "$appcast_path" ]]; then
+                echo "Downloaded appcast is empty: ${asset_name}" >&2
+                exit 1
+              fi
+              appcast_index=$((appcast_index + 1))
+            done <<< "$APPCAST_ASSETS"
+          fi
+          python3 scripts/validate-release-build-order.py \
+            --appcast-directory "$APPCAST_CACHE" \
+            --current-build "$BUILD_VERSION" \
+            --current-version "$RELEASE_VERSION" \
+            --current-tag "$RELEASE_TAG"
+
+          RESOLVED_SPARKLE_VERSION="$(
+            jq -r '
+              .pins[]
+              | select(.identity == "sparkle")
+              | .state.version
+            ' Package.resolved
+          )"
+          if [[ "$RESOLVED_SPARKLE_VERSION" != "$SPARKLE_VERSION" ]]; then
+            echo "Package.resolved Sparkle version (${RESOLVED_SPARKLE_VERSION}) does not match workflow version (${SPARKLE_VERSION})." >&2
+            exit 1
+          fi
+          if ! grep -Fq "exact: \"${SPARKLE_VERSION}\"" Package.swift; then
+            echo "Package.swift must pin Sparkle exactly to ${SPARKLE_VERSION}." >&2
+            exit 1
+          fi
+
           NOTES_DIR="docs/release-notes/v${RELEASE_VERSION}"
           for language in en zh-Hant zh-Hans fr es ja ko; do
             notes_file="${NOTES_DIR}/release-notes.${language}.md"
@@ -172,6 +276,19 @@ jobs:
               exit 1
             fi
           done
+          mapfile -t NOTE_FILES < <(
+            find "$NOTES_DIR" \
+              -maxdepth 1 \
+              -type f \
+              -name 'release-notes.*' \
+              -print \
+              | sort
+          )
+          if [[ "${#NOTE_FILES[@]}" -ne 7 ]]; then
+            echo "${NOTES_DIR} must contain exactly seven release-note files." >&2
+            printf '%s\n' "${NOTE_FILES[@]:-none}" >&2
+            exit 1
+          fi
 
           {
             echo "release_tag=${RELEASE_TAG}"
@@ -179,24 +296,95 @@ jobs:
             echo "build_version=${BUILD_VERSION}"
             echo "minimum_system_version=${MINIMUM_SYSTEM_VERSION}"
             echo "channel=${CHANNEL}"
+            echo "source_sha=${SOURCE_SHA}"
           } >> "$GITHUB_OUTPUT"
 
-  build:
+  verify:
     needs: prepare
     runs-on: macos-15
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout immutable release source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.prepare.outputs.source_sha }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - name: Select latest Xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+          XCODE_APP="$(find /Applications -maxdepth 1 -type d -name 'Xcode*.app' | sort -V | tail -n 1)"
+          if [[ -z "${XCODE_APP:-}" ]]; then
+            echo "No Xcode installation found." >&2
+            exit 1
+          fi
+          echo "DEVELOPER_DIR=${XCODE_APP}/Contents/Developer" >> "$GITHUB_ENV"
+          export DEVELOPER_DIR="${XCODE_APP}/Contents/Developer"
+          xcodebuild -version
+          swift --version
+          node --version
+
+      - name: Validate scripts and appcast generator
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/*.sh
+          scripts/test-generate-sparkle-appcast.sh
+          scripts/test-validate-release-build-order.sh
+
+      - name: Run Swift tests
+        run: swift test
+
+      - name: Run Node tests and syntax checks
+        run: |
+          npm test
+          npm run check
+
+  build:
+    needs:
+      - prepare
+      - verify
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    environment: release-production
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: arm64
             label: apple-silicon
+            runner: macos-15
           - arch: x86_64
             label: intel
+            runner: macos-15-intel
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout immutable release source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ needs.prepare.outputs.release_tag }}
+          ref: ${{ needs.prepare.outputs.source_sha }}
+          persist-credentials: false
+
+      - name: Validate native runner architecture
+        shell: bash
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          RUNNER_ARCH="$(uname -m)"
+          if [[ "$RUNNER_ARCH" != "$TARGET_ARCH" ]]; then
+            echo "Runner architecture ${RUNNER_ARCH} does not match ${TARGET_ARCH}." >&2
+            exit 1
+          fi
 
       - name: Select latest Xcode
         shell: bash
@@ -254,6 +442,7 @@ jobs:
           APPLE_API_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_API_PRIVATE_KEY_BASE64 }}
         run: |
           set -euo pipefail
+          umask 077
 
           KEYCHAIN_PATH="$RUNNER_TEMP/release.keychain-db"
           CERTIFICATE_PATH="$RUNNER_TEMP/developer-id.p12"
@@ -261,13 +450,26 @@ jobs:
 
           python3 - "$CERTIFICATE_PATH" "$API_KEY_PATH" <<'PY'
           import base64
+          import binascii
           import os
           import sys
 
+          try:
+              certificate = base64.b64decode(
+                  os.environ["APPLE_CERTIFICATE_P12_BASE64"],
+                  validate=True,
+              )
+              api_key = base64.b64decode(
+                  os.environ["APPLE_API_PRIVATE_KEY_BASE64"],
+                  validate=True,
+              )
+          except (binascii.Error, ValueError) as error:
+              raise SystemExit(f"Invalid base64 release credential: {error}")
+
           with open(sys.argv[1], "wb") as handle:
-              handle.write(base64.b64decode(os.environ["APPLE_CERTIFICATE_P12_BASE64"]))
+              handle.write(certificate)
           with open(sys.argv[2], "wb") as handle:
-              handle.write(base64.b64decode(os.environ["APPLE_API_PRIVATE_KEY_BASE64"]))
+              handle.write(api_key)
           PY
 
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
@@ -320,8 +522,12 @@ jobs:
             --fail \
             --location \
             --retry 3 \
+            --proto '=https' \
+            --tlsv1.2 \
             "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz" \
             --output "$ARCHIVE_PATH"
+          printf '%s  %s\n' "$SPARKLE_ARCHIVE_SHA256" "$ARCHIVE_PATH" \
+            | shasum -a 256 --check
           mkdir -p "$TOOLS_DIR"
           tar -xJf "$ARCHIVE_PATH" -C "$TOOLS_DIR"
           SIGN_UPDATE="$(find "$TOOLS_DIR" -type f -path '*/bin/sign_update' | head -n 1)"
@@ -330,6 +536,7 @@ jobs:
             exit 1
           fi
           chmod +x "$SIGN_UPDATE"
+          codesign --verify --deep --strict --verbose=2 "$SIGN_UPDATE"
           echo "SPARKLE_SIGN_UPDATE=${SIGN_UPDATE}" >> "$GITHUB_ENV"
 
       - name: Build, sign, notarize, and sign update
@@ -348,36 +555,46 @@ jobs:
           scripts/build-release-dmg.sh
 
       - name: Upload architecture artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: release-${{ matrix.label }}
           path: dist/*
           if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
 
-      - name: Remove temporary keychain
+      - name: Remove temporary release credentials
         if: always()
         shell: bash
         env:
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
         run: |
           set +e
           if [[ -n "${RELEASE_KEYCHAIN_PATH:-}" && -f "$RELEASE_KEYCHAIN_PATH" ]]; then
             security delete-keychain "$RELEASE_KEYCHAIN_PATH"
           fi
+          rm -f \
+            "$RUNNER_TEMP/developer-id.p12" \
+            "$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
 
   publish:
     needs:
       - prepare
+      - verify
       - build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout immutable release source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ needs.prepare.outputs.release_tag }}
+          ref: ${{ needs.prepare.outputs.source_sha }}
+          persist-credentials: false
 
       - name: Download release artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: release-*
           path: collected-artifacts
@@ -392,16 +609,20 @@ jobs:
         run: |
           set -euo pipefail
 
-          ARM64_DMG="$(
-            find collected-artifacts -maxdepth 1 -type f -name '*-apple-silicon.dmg' | head -n 1
-          )"
-          X86_64_DMG="$(
-            find collected-artifacts -maxdepth 1 -type f -name '*-intel.dmg' | head -n 1
-          )"
-          if [[ -z "${ARM64_DMG:-}" || -z "${X86_64_DMG:-}" ]]; then
-            echo "Both Apple Silicon and Intel DMGs are required." >&2
-            exit 1
-          fi
+          ARM64_DMG="collected-artifacts/CodexThemeSwitcher-${RELEASE_VERSION}-apple-silicon.dmg"
+          X86_64_DMG="collected-artifacts/CodexThemeSwitcher-${RELEASE_VERSION}-intel.dmg"
+          ARM64_DSYM="collected-artifacts/CodexThemeSwitcher-${RELEASE_VERSION}-apple-silicon.dSYM.zip"
+          X86_64_DSYM="collected-artifacts/CodexThemeSwitcher-${RELEASE_VERSION}-intel.dSYM.zip"
+          for artifact in \
+            "$ARM64_DMG" \
+            "$X86_64_DMG" \
+            "$ARM64_DSYM" \
+            "$X86_64_DSYM"; do
+            if [[ ! -s "$artifact" ]]; then
+              echo "Missing expected release artifact: ${artifact}" >&2
+              exit 1
+            fi
+          done
           if [[ ! -s "${ARM64_DMG}.edSignature" || ! -s "${X86_64_DMG}.edSignature" ]]; then
             echo "Both DMGs must have Sparkle EdDSA signature sidecars." >&2
             exit 1
@@ -418,14 +639,15 @@ jobs:
             NOTE_ASSETS+=("$notes_file")
           done
 
-          SYMBOL_ASSETS=()
-          while IFS= read -r symbols_file; do
-            [[ -n "$symbols_file" ]] && SYMBOL_ASSETS+=("$symbols_file")
-          done < <(find collected-artifacts -maxdepth 1 -type f -name '*.dSYM.zip' | sort)
-          if [[ "${#SYMBOL_ASSETS[@]}" -ne 2 ]]; then
-            echo "Expected two dSYM archives, found ${#SYMBOL_ASSETS[@]}." >&2
-            exit 1
-          fi
+          SYMBOL_ASSETS=("$ARM64_DSYM" "$X86_64_DSYM")
+
+          CHECKSUMS_PATH="collected-artifacts/SHA256SUMS"
+          shasum -a 256 \
+            "$ARM64_DMG" \
+            "$X86_64_DMG" \
+            "${SYMBOL_ASSETS[@]}" \
+            | sed 's#  collected-artifacts/#  #' \
+            > "$CHECKSUMS_PATH"
 
           gh release upload \
             "$RELEASE_TAG" \
@@ -433,6 +655,7 @@ jobs:
             "$X86_64_DMG" \
             "${SYMBOL_ASSETS[@]}" \
             "${NOTE_ASSETS[@]}" \
+            "$CHECKSUMS_PATH" \
             --repo "$UPDATE_REPOSITORY" \
             --clobber
 
@@ -448,12 +671,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          ARM64_DMG="$(
-            find collected-artifacts -maxdepth 1 -type f -name '*-apple-silicon.dmg' | head -n 1
-          )"
-          X86_64_DMG="$(
-            find collected-artifacts -maxdepth 1 -type f -name '*-intel.dmg' | head -n 1
-          )"
+          ARM64_DMG="collected-artifacts/CodexThemeSwitcher-${RELEASE_VERSION}-apple-silicon.dmg"
+          X86_64_DMG="collected-artifacts/CodexThemeSwitcher-${RELEASE_VERSION}-intel.dmg"
+          if [[ ! -s "$ARM64_DMG" || ! -s "$X86_64_DMG" ]]; then
+            echo "Both exact architecture DMGs are required." >&2
+            exit 1
+          fi
           ARM64_NAME="$(basename "$ARM64_DMG")"
           X86_64_NAME="$(basename "$X86_64_DMG")"
           ARM64_SIGNATURE="$(tr -d '[:space:]' < "${ARM64_DMG}.edSignature")"
