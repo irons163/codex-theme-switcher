@@ -96,6 +96,7 @@ jobs:
             # SwiftUI ImageRenderer invocation aborts inside MTLLoader. The
             # arm64 lane retains full renderer coverage.
             swift test \
+              --skip 'CodexThemeSwitcherTests.ThemePreviewRenderTests' \
               --skip 'CodexThemeAgentCLITests.CodexThemeAgentCLITests/testChatPreviewRendersMessageContentRegion' \
               --skip 'CodexThemeAgentCLITests.CodexThemeAgentCLITests/testPreviewWarnsWhenAssetMIMEIsDisguisedPDF' \
               --skip 'CodexThemeAgentCLITests.CodexThemeAgentCLITests/testPreviewWritesPNGAndReportsApproximation'
