@@ -361,7 +361,16 @@ final class ThemeModelsTests: XCTestCase {
             from: Data(#"""
             {
               "isEnabled": true,
-              "light": { "orbScale": 1.25 },
+              "light": {
+                "backgroundAssetID": "72df1136-dbab-482a-8e52-f8bd743102c4",
+                "backgroundImageFit": "contain",
+                "backgroundPositionX": 0.2,
+                "backgroundPositionY": 0.8,
+                "backgroundZoom": 1.4,
+                "backgroundImageOpacity": 0.75,
+                "backgroundImageBlur": 3,
+                "orbScale": 1.25
+              },
               "dark": { "glowOpacity": 0.8 },
               "rawCSS": ".custom-voice { opacity: .9; }"
             }
@@ -369,6 +378,16 @@ final class ThemeModelsTests: XCTestCase {
         )
 
         XCTAssertTrue(decoded.isEnabled)
+        XCTAssertEqual(
+            decoded.light.backgroundAssetID?.uuidString.lowercased(),
+            "72df1136-dbab-482a-8e52-f8bd743102c4"
+        )
+        XCTAssertEqual(decoded.light.backgroundImageFit, .contain)
+        XCTAssertEqual(decoded.light.backgroundPositionX, 0.2)
+        XCTAssertEqual(decoded.light.backgroundPositionY, 0.8)
+        XCTAssertEqual(decoded.light.backgroundZoom, 1.4)
+        XCTAssertEqual(decoded.light.backgroundImageOpacity, 0.75)
+        XCTAssertEqual(decoded.light.backgroundImageBlur, 3)
         XCTAssertEqual(decoded.light.orbScale, 1.25)
         XCTAssertEqual(
             decoded.light.glowColor,
@@ -379,6 +398,8 @@ final class ThemeModelsTests: XCTestCase {
             decoded.dark.glowColor,
             ThemeVoiceVariant.darkDefault.glowColor
         )
+        XCTAssertNil(decoded.dark.backgroundAssetID)
+        XCTAssertEqual(decoded.dark.backgroundImageFit, .cover)
 
         var theme = TestFixtures.theme()
         theme.voiceStyle = decoded

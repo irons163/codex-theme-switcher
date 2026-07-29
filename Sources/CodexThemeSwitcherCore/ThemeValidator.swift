@@ -120,6 +120,13 @@ public struct ThemeValidator: Sendable {
     public func validate(_ document: ThemeDocument) -> ThemeValidationResult {
         var issues: [ThemeValidationIssue] = []
         var identifiers = Set<UUID>()
+        let allowedImageTypes: Set<String> = [
+            "image/png",
+            "image/jpeg",
+            "image/webp",
+            "image/gif",
+            "image/avif"
+        ]
 
         func add(
             _ code: ThemeValidationCode,
@@ -278,14 +285,6 @@ public struct ThemeValidator: Sendable {
                 ("light", skin.light),
                 ("dark", skin.dark)
             ]
-            let allowedImageTypes: Set<String> = [
-                "image/png",
-                "image/jpeg",
-                "image/webp",
-                "image/gif",
-                "image/avif"
-            ]
-
             for appearance in appearances {
                 let path = "imageSkin.\(appearance.name)"
                 let variant = appearance.value
@@ -473,6 +472,27 @@ public struct ThemeValidator: Sendable {
             for appearance in appearances {
                 let path = "voiceStyle.\(appearance.name)"
                 let variant = appearance.value
+                if let assetID = variant.backgroundAssetID {
+                    if let asset = document.assets.first(
+                        where: { $0.id == assetID }
+                    ) {
+                        if !allowedImageTypes.contains(
+                            asset.mediaType.lowercased()
+                        ) {
+                            add(
+                                .invalidSkinAssetType,
+                                path: "\(path).backgroundAssetID",
+                                message: "Voice backgrounds require a supported raster image asset."
+                            )
+                        }
+                    } else {
+                        add(
+                            .missingSkinAsset,
+                            path: "\(path).backgroundAssetID",
+                            message: "Voice background references missing asset \(assetID.uuidString)."
+                        )
+                    }
+                }
                 let colorValues = [
                     ("glowColor", variant.glowColor),
                     ("backdropColor", variant.backdropColor)
@@ -507,6 +527,18 @@ public struct ThemeValidator: Sendable {
                 }
 
                 let unitValues = [
+                    (
+                        "backgroundPositionX",
+                        variant.backgroundPositionX
+                    ),
+                    (
+                        "backgroundPositionY",
+                        variant.backgroundPositionY
+                    ),
+                    (
+                        "backgroundImageOpacity",
+                        variant.backgroundImageOpacity
+                    ),
                     ("orbOpacity", variant.orbOpacity),
                     ("glowOpacity", variant.glowOpacity),
                     ("backdropOpacity", variant.backdropOpacity)
@@ -523,6 +555,16 @@ public struct ThemeValidator: Sendable {
                 let ranges: [
                     (String, Double, ClosedRange<Double>)
                 ] = [
+                    (
+                        "backgroundZoom",
+                        variant.backgroundZoom,
+                        0.5...3
+                    ),
+                    (
+                        "backgroundImageBlur",
+                        variant.backgroundImageBlur,
+                        0...40
+                    ),
                     ("orbScale", variant.orbScale, 0.5...2),
                     ("brightness", variant.brightness, 0...3),
                     ("contrast", variant.contrast, 0...3),

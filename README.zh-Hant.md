@@ -40,8 +40,9 @@ Agent CLI 可在無視窗環境產生 Light／Dark × Home／Chat PNG，供 AI a
 - 字型、字級、行高、內容寬度、間距、圓角、陰影、模糊、縮放與動畫。
 - 背景與玻璃（Image Skin）：明暗雙背景、Fit / Fill 等七種尺寸模式、焦點裁切、
   可選全視窗或避開左側欄的壁紙畫布、濾鏡、overlay、分區 glass 與中央內容面板。
-- 實驗性 ChatGPT Voice 樣式：Light／Dark 可分別調整縮放、透明度、色彩濾鏡、光暈、
-  背景色及 Voice 專用進階 CSS；只會送進獨立的 `avatar-overlay` renderer。
+- 實驗性 ChatGPT Voice 樣式：Light／Dark 可分別設定背景圖片、Fit／Fill、焦點、縮放、
+  透明度與模糊，也可調整圓球、色彩濾鏡、光暈、背景色及 Voice 專用進階 CSS；
+  只會送進獨立的 `avatar-overlay` renderer。
 - 任意 component declarations。
 - 任意 CSS selector rules。
 - 完整 raw CSS escape hatch。
@@ -97,7 +98,8 @@ Voice 分頁使用獨立樣式表控制 ChatGPT Voice 中可由 CSS 定位的表
 元件規則不會送進 `avatar-overlay`；未啟用 Voice 樣式時也不會連接該 renderer。
 關閉已套用的 Voice 樣式會清除樣式並中斷該 session。
 
-內建控制包含縮放、透明度、亮度、對比、飽和度、色相旋轉、模糊、光暈與背景色。
+背景圖片會嵌入 `.codextheme`，並支援 Image Skin 相同的七種尺寸模式。內建控制也包含
+圓球縮放、透明度、亮度、對比、飽和度、色相旋轉、模糊、光暈與背景色。
 這項功能仍屬實驗性：DOM／Canvas 容器及其合成結果可被 CSS 調整，但若圓球內部由
 原生 AppKit／Core Animation 繪製，Theme Switcher 無法改寫其像素或內部動畫。
 

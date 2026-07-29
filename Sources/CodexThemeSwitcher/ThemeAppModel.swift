@@ -950,27 +950,7 @@ final class ThemeAppModel: ObservableObject {
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
         do {
-            let data = try Data(contentsOf: url)
-            guard data.count <= 16 * 1024 * 1024 else {
-                throw ThemeAppError.assetTooLarge(url.lastPathComponent)
-            }
-            guard let source = CGImageSourceCreateWithData(
-                data as CFData,
-                nil
-            ),
-            CGImageSourceGetCount(source) > 0,
-            let typeIdentifier = CGImageSourceGetType(source),
-            let type = UTType(typeIdentifier as String),
-            let mediaType = type.preferredMIMEType,
-            Self.supportedSkinImageTypes.contains(mediaType.lowercased())
-            else {
-                throw ThemeAppError.invalidSkinImage(url.lastPathComponent)
-            }
-            let asset = ThemeAsset(
-                name: url.lastPathComponent,
-                mediaType: mediaType,
-                data: data
-            )
+            let asset = try makeBackgroundAsset(from: url)
             guard var candidate = draft else { return }
             var skin = candidate.imageSkin ?? ThemeImageSkin()
             skin.isEnabled = true
@@ -1002,6 +982,77 @@ final class ThemeAppModel: ObservableObject {
                 L10n.format(
                     "已設定{0}背景",
                     "{0} background set",
+                    appearanceName
+                ),
+                style: .success
+            )
+        } catch {
+            show(
+                AppErrorLocalization.message(for: error),
+                style: .error
+            )
+        }
+    }
+
+    func chooseVoiceBackground(for appearance: ThemeSkinAppearance) {
+        let panel = NSOpenPanel()
+        panel.title = L10n.text(
+            appearance == .light
+                ? "選擇淺色 Voice 背景"
+                : "選擇深色 Voice 背景",
+            appearance == .light
+                ? "Choose light Voice background"
+                : "Choose dark Voice background"
+        )
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        var contentTypes: [UTType] = [
+            .png,
+            .jpeg,
+            .gif,
+            .webP
+        ]
+        if let avif = UTType(filenameExtension: "avif") {
+            contentTypes.append(avif)
+        }
+        panel.allowedContentTypes = contentTypes
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            let asset = try makeBackgroundAsset(from: url)
+            guard var candidate = draft else { return }
+            var voice = candidate.voiceStyle
+                ?? ThemeVoiceStyle(isEnabled: true)
+            voice.isEnabled = true
+            var variant = voice.variant(for: appearance)
+            let replacedAssetID = variant.backgroundAssetID
+            variant.backgroundAssetID = asset.id
+            voice.setVariant(variant, for: appearance)
+            candidate.voiceStyle = voice
+            candidate.assets.append(asset)
+            if let replacedAssetID {
+                pruneAssetIfUnreferenced(
+                    replacedAssetID,
+                    from: &candidate
+                )
+            }
+            let totalBytes = candidate.assets.reduce(0) {
+                $0 + ($1.decodedData?.count ?? 0)
+            }
+            guard totalBytes <= 32 * 1024 * 1024 else {
+                throw ThemeAppError.totalAssetsTooLarge(totalBytes)
+            }
+            mutateDraft { document in
+                document = candidate
+            }
+            let appearanceName = appearance == .light
+                ? L10n.text("淺色", "Light")
+                : L10n.text("深色", "Dark")
+            show(
+                L10n.format(
+                    "已設定{0} Voice 背景",
+                    "{0} Voice background set",
                     appearanceName
                 ),
                 style: .success
@@ -1050,6 +1101,88 @@ final class ThemeAppModel: ObservableObject {
                     replacedAssetID,
                     from: &document
                 )
+            }
+        }
+    }
+
+    func clearVoiceBackground(for appearance: ThemeSkinAppearance) {
+        mutateDraft { document in
+            guard var voice = document.voiceStyle else { return }
+            var variant = voice.variant(for: appearance)
+            let removedAssetID = variant.backgroundAssetID
+            variant.backgroundAssetID = nil
+            voice.setVariant(variant, for: appearance)
+            document.voiceStyle = voice
+            if let removedAssetID {
+                pruneAssetIfUnreferenced(removedAssetID, from: &document)
+            }
+        }
+    }
+
+    func setVoiceBackground(
+        _ assetID: UUID,
+        for appearance: ThemeSkinAppearance
+    ) {
+        guard availableSkinImageAssets.contains(where: {
+            $0.id == assetID
+        }) else {
+            return
+        }
+        mutateDraft { document in
+            var voice = document.voiceStyle
+                ?? ThemeVoiceStyle(isEnabled: true)
+            voice.isEnabled = true
+            var variant = voice.variant(for: appearance)
+            let replacedAssetID = variant.backgroundAssetID
+            variant.backgroundAssetID = assetID
+            voice.setVariant(variant, for: appearance)
+            document.voiceStyle = voice
+            if let replacedAssetID, replacedAssetID != assetID {
+                pruneAssetIfUnreferenced(
+                    replacedAssetID,
+                    from: &document
+                )
+            }
+        }
+    }
+
+    func removeVoiceStyle() {
+        mutateDraft(
+            actionName: L10n.text(
+                "移除 Voice 樣式",
+                "Remove Voice style"
+            )
+        ) { document in
+            let assetIDs = [
+                document.voiceStyle?.light.backgroundAssetID,
+                document.voiceStyle?.dark.backgroundAssetID
+            ].compactMap { $0 }
+            document.voiceStyle = nil
+            for id in Set(assetIDs) {
+                pruneAssetIfUnreferenced(id, from: &document)
+            }
+        }
+    }
+
+    func resetVoiceVariant(for appearance: ThemeSkinAppearance) {
+        mutateDraft(
+            actionName: L10n.text(
+                "重設 Voice 外觀",
+                "Reset Voice appearance"
+            )
+        ) { document in
+            var voice = document.voiceStyle
+                ?? ThemeVoiceStyle(isEnabled: true)
+            let removedAssetID = voice.variant(
+                for: appearance
+            ).backgroundAssetID
+            voice.setVariant(
+                appearance == .light ? .lightDefault : .darkDefault,
+                for: appearance
+            )
+            document.voiceStyle = voice
+            if let removedAssetID {
+                pruneAssetIfUnreferenced(removedAssetID, from: &document)
             }
         }
     }
@@ -1105,6 +1238,15 @@ final class ThemeAppModel: ObservableObject {
                     skin.dark.backgroundAssetID = nil
                 }
                 document.imageSkin = skin
+            }
+            if var voice = document.voiceStyle {
+                if voice.light.backgroundAssetID == id {
+                    voice.light.backgroundAssetID = nil
+                }
+                if voice.dark.backgroundAssetID == id {
+                    voice.dark.backgroundAssetID = nil
+                }
+                document.voiceStyle = voice
             }
             document.assets.removeAll { $0.id == id }
         }
@@ -1288,6 +1430,10 @@ final class ThemeAppModel: ObservableObject {
             || document.imageSkin?.dark.backgroundAssetID == id {
             return true
         }
+        if document.voiceStyle?.light.backgroundAssetID == id
+            || document.voiceStyle?.dark.backgroundAssetID == id {
+            return true
+        }
 
         let reference = id.uuidString
         func containsReference(_ text: String) -> Bool {
@@ -1295,6 +1441,9 @@ final class ThemeAppModel: ObservableObject {
                 of: reference,
                 options: .caseInsensitive
             ) != nil
+        }
+        if containsReference(document.voiceStyle?.rawCSS ?? "") {
+            return true
         }
 
         for layer in document.layers {
@@ -1325,6 +1474,30 @@ final class ThemeAppModel: ObservableObject {
             }
         }
         return false
+    }
+
+    private func makeBackgroundAsset(from url: URL) throws -> ThemeAsset {
+        let data = try Data(contentsOf: url)
+        guard data.count <= 16 * 1024 * 1024 else {
+            throw ThemeAppError.assetTooLarge(url.lastPathComponent)
+        }
+        guard let source = CGImageSourceCreateWithData(
+            data as CFData,
+            nil
+        ),
+        CGImageSourceGetCount(source) > 0,
+        let typeIdentifier = CGImageSourceGetType(source),
+        let type = UTType(typeIdentifier as String),
+        let mediaType = type.preferredMIMEType,
+        Self.supportedSkinImageTypes.contains(mediaType.lowercased())
+        else {
+            throw ThemeAppError.invalidSkinImage(url.lastPathComponent)
+        }
+        return ThemeAsset(
+            name: url.lastPathComponent,
+            mediaType: mediaType,
+            data: data
+        )
     }
 }
 

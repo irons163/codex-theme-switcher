@@ -1187,6 +1187,42 @@ enum L10nCatalogCJK {
             "等待开启 Voice 对话",
             "Voice会話の開始を待機中",
             "Voice 대화 시작 대기 중"
+        ),
+        .init(
+            "Voice background image",
+            "Voice 背景图像",
+            "Voice背景画像",
+            "Voice 배경 이미지"
+        ),
+        .init(
+            "Light and Dark can use different images. The image is embedded in the .codextheme and sent only to the Voice overlay.",
+            "浅色与深色可使用不同图像。图像会嵌入 .codextheme，并且只发送到 Voice overlay。",
+            "LightとDarkで別々の画像を使用できます。画像は.codexthemeに埋め込まれ、Voice overlayのみに送信されます。",
+            "Light와 Dark에 서로 다른 이미지를 사용할 수 있습니다. 이미지는 .codextheme에 포함되며 Voice overlay에만 전송됩니다."
+        ),
+        .init(
+            "Choose light Voice background",
+            "选择浅色 Voice 背景",
+            "LightのVoice背景を選択",
+            "Light Voice 배경 선택"
+        ),
+        .init(
+            "Choose dark Voice background",
+            "选择深色 Voice 背景",
+            "DarkのVoice背景を選択",
+            "Dark Voice 배경 선택"
+        ),
+        .init(
+            "{0} Voice background set",
+            "已设置{0} Voice 背景",
+            "{0}のVoice背景を設定しました",
+            "{0} Voice 배경 설정됨"
+        ),
+        .init(
+            "Adjust Voice background focal point",
+            "调整 Voice 背景焦点",
+            "Voice背景のフォーカルポイントを調整",
+            "Voice 배경 초점 조정"
         )
     ]
 }

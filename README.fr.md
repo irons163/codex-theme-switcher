@@ -48,9 +48,9 @@ Codex doit encore être vérifié après application du thème.
   dimensionnement dont Fit / Fill, recadrage par point focal, toile de fond d’écran couvrant toute
   la fenêtre ou évitant la barre latérale, filtres, overlay, glass par section et panneau de
   contenu central.
-- Style expérimental de ChatGPT Voice : réglages Light/Dark séparés pour l’échelle, l’opacité, les
-  filtres de couleur, la lueur, l’arrière-plan et un CSS avancé propre à Voice, envoyé uniquement
-  au renderer `avatar-overlay`.
+- Style expérimental de ChatGPT Voice : images Light/Dark distinctes avec Fit / Fill, point focal,
+  zoom, opacité et flou, ainsi que réglages de l’orbe, filtres, lueur, arrière-plan et CSS avancé
+  propre à Voice, envoyés uniquement au renderer `avatar-overlay`.
 - Déclarations de composants arbitraires.
 - CSS selector rules arbitraires.
 - Escape hatch complet pour le raw CSS.
@@ -121,8 +121,10 @@ accessibles en CSS. Le fond d’écran et les règles de composants de la fenêt
 jamais envoyés à `avatar-overlay`. Si Voice n’est pas activé, Theme Switcher ne s’y connecte pas ;
 le désactiver efface la feuille de style et ferme la session.
 
-Les contrôles couvrent l’échelle, l’opacité, la luminosité, le contraste, la saturation, la rotation
-de teinte, le flou, la lueur et la couleur d’arrière-plan. Cette fonction reste expérimentale :
+Les images sont intégrées au fichier `.codextheme` et prennent en charge les sept modes de taille
+d’Image Skin. Les contrôles couvrent aussi l’échelle de l’orbe, l’opacité, la luminosité, le
+contraste, la saturation, la rotation de teinte, le flou, la lueur et la couleur d’arrière-plan.
+Cette fonction reste expérimentale :
 CSS peut modifier les conteneurs DOM/Canvas et leur rendu composé, mais pas les pixels ni les
 animations internes d’une couche native AppKit/Core Animation.
 

@@ -17,6 +17,11 @@ struct ThemeVoiceEditorView: View {
         style.variant(for: appearance)
     }
 
+    private var backgroundAsset: ThemeAsset? {
+        guard let id = variant.backgroundAssetID else { return nil }
+        return model.draft?.assets.first { $0.id == id }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
@@ -24,6 +29,7 @@ struct ThemeVoiceEditorView: View {
 
                 if style.isEnabled {
                     previewSection
+                    backgroundSection
                     orbSection
                     glowSection
                     backdropSection
@@ -74,14 +80,7 @@ struct ThemeVoiceEditorView: View {
                         resetCurrentVariant()
                     }
                     Button(L10n.text("移除 Voice 樣式", "Remove Voice style"), role: .destructive) {
-                        model.mutateDraft(
-                            actionName: L10n.text(
-                                "移除 Voice 樣式",
-                                "Remove Voice style"
-                            )
-                        ) {
-                            $0.voiceStyle = nil
-                        }
+                        model.removeVoiceStyle()
                     }
                 }
             }
@@ -158,9 +157,222 @@ struct ThemeVoiceEditorView: View {
 
             VoiceOrbPreview(
                 variant: variant,
-                appearance: appearance
+                appearance: appearance,
+                backgroundAsset: backgroundAsset
             )
             .frame(height: 250)
+        }
+    }
+
+    private var backgroundSection: some View {
+        EditorSection(
+            title: L10n.text(
+                "Voice 背景圖片",
+                "Voice background image"
+            ),
+            subtitle: L10n.text(
+                "Light／Dark 可使用不同圖片；圖片會嵌入 .codextheme，且只送到 Voice overlay。",
+                "Light and Dark can use different images. The image is embedded in the .codextheme and sent only to the Voice overlay."
+            )
+        ) {
+            HStack(spacing: 14) {
+                backgroundAssetPreview
+                    .frame(width: 170, height: 108)
+                    .clipShape(
+                        RoundedRectangle(
+                            cornerRadius: 10,
+                            style: .continuous
+                        )
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(.quaternary)
+                    }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(
+                        backgroundAsset?.name
+                            ?? L10n.text(
+                                "尚未選擇圖片",
+                                "No image selected"
+                            )
+                    )
+                    .font(.caption.weight(.medium))
+                    .lineLimit(1)
+
+                    if let backgroundAsset {
+                        Text(
+                            "\(backgroundAsset.mediaType) · "
+                                + ByteCountFormatter.string(
+                                    fromByteCount: Int64(
+                                        backgroundAsset.decodedData?.count ?? 0
+                                    ),
+                                    countStyle: .file
+                                )
+                        )
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                    }
+
+                    HStack {
+                        Button {
+                            model.chooseVoiceBackground(for: appearance)
+                        } label: {
+                            Label(
+                                L10n.text("選擇圖片", "Choose image"),
+                                systemImage: "photo"
+                            )
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        if !model.availableSkinImageAssets.isEmpty {
+                            Menu {
+                                ForEach(
+                                    model.availableSkinImageAssets
+                                ) { asset in
+                                    Button {
+                                        model.setVoiceBackground(
+                                            asset.id,
+                                            for: appearance
+                                        )
+                                    } label: {
+                                        if asset.id == backgroundAsset?.id {
+                                            Label(
+                                                asset.name,
+                                                systemImage: "checkmark"
+                                            )
+                                        } else {
+                                            Text(asset.name)
+                                        }
+                                    }
+                                }
+                            } label: {
+                                Label(
+                                    L10n.text(
+                                        "現有素材",
+                                        "Existing assets"
+                                    ),
+                                    systemImage: "photo.stack"
+                                )
+                            }
+                            .menuStyle(.borderlessButton)
+                        }
+
+                        if backgroundAsset != nil {
+                            Button(
+                                L10n.text("清除", "Clear"),
+                                role: .destructive
+                            ) {
+                                model.clearVoiceBackground(
+                                    for: appearance
+                                )
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    .controlSize(.small)
+                }
+
+                Spacer()
+                voiceFocalGrid
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(L10n.text("圖片尺寸", "Image sizing"))
+                        .font(.caption.weight(.semibold))
+                    Spacer()
+                    Picker(
+                        L10n.text("圖片尺寸", "Image sizing"),
+                        selection: variantBinding(
+                            \.backgroundImageFit
+                        )
+                    ) {
+                        ForEach(
+                            ThemeSkinImageFit.allCases,
+                            id: \.self
+                        ) { fit in
+                            Text(imageFitTitle(fit)).tag(fit)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .frame(width: 230)
+                }
+
+                HStack(spacing: 8) {
+                    imageFitShortcut(
+                        .contain,
+                        title: L10n.text(
+                            "完整顯示 Fit",
+                            "Fit · Show Whole Image"
+                        )
+                    )
+                    imageFitShortcut(
+                        .cover,
+                        title: L10n.text(
+                            "填滿裁切 Fill",
+                            "Fill · Crop to Fill"
+                        )
+                    )
+                    Spacer()
+                }
+            }
+            .padding(10)
+            .background(.quaternary.opacity(0.28))
+            .clipShape(RoundedRectangle(cornerRadius: 9))
+            .disabled(backgroundAsset == nil)
+            .opacity(backgroundAsset == nil ? 0.55 : 1)
+
+            settingsGrid {
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "水平焦點",
+                        "Horizontal focal point"
+                    ),
+                    value: variantBinding(\.backgroundPositionX),
+                    range: 0...1,
+                    step: 0.01,
+                    format: Self.percent
+                )
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "垂直焦點",
+                        "Vertical focal point"
+                    ),
+                    value: variantBinding(\.backgroundPositionY),
+                    range: 0...1,
+                    step: 0.01,
+                    format: Self.percent
+                )
+                VoiceValueSlider(
+                    title: L10n.text("圖片縮放", "Image zoom"),
+                    value: variantBinding(\.backgroundZoom),
+                    range: 0.5...3,
+                    step: 0.01,
+                    format: { String(format: "%.2f×", $0) }
+                )
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "圖片不透明度",
+                        "Image opacity"
+                    ),
+                    value: variantBinding(\.backgroundImageOpacity),
+                    range: 0...1,
+                    step: 0.01,
+                    format: Self.percent
+                )
+                VoiceValueSlider(
+                    title: L10n.text("圖片模糊", "Image blur"),
+                    value: variantBinding(\.backgroundImageBlur),
+                    range: 0...40,
+                    step: 0.5,
+                    format: { String(format: "%.1f px", $0) }
+                )
+            }
+            .disabled(backgroundAsset == nil)
+            .opacity(backgroundAsset == nil ? 0.55 : 1)
         }
     }
 
@@ -384,19 +596,124 @@ struct ThemeVoiceEditorView: View {
     }
 
     private func resetCurrentVariant() {
+        model.resetVoiceVariant(for: appearance)
+    }
+
+    @ViewBuilder
+    private var backgroundAssetPreview: some View {
+        if let asset = backgroundAsset,
+           let data = asset.decodedData,
+           let image = NSImage(data: data) {
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFill()
+                .clipped()
+        } else {
+            ZStack {
+                LinearGradient(
+                    colors: [
+                        .secondary.opacity(0.12),
+                        .secondary.opacity(0.04)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                Image(systemName: "photo.badge.plus")
+                    .font(.system(size: 28))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var voiceFocalGrid: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(L10n.text("快速焦點", "Quick focal point"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Grid(horizontalSpacing: 5, verticalSpacing: 5) {
+                ForEach(0..<3, id: \.self) { row in
+                    GridRow {
+                        ForEach(0..<3, id: \.self) { column in
+                            let x = Double(column) / 2
+                            let y = Double(row) / 2
+                            Button {
+                                setVoiceFocalPoint(x: x, y: y)
+                            } label: {
+                                Circle()
+                                    .fill(
+                                        abs(variant.backgroundPositionX - x)
+                                            < 0.01
+                                            && abs(
+                                                variant.backgroundPositionY
+                                                    - y
+                                            ) < 0.01
+                                            ? Color.accentColor
+                                            : Color.secondary.opacity(0.24)
+                                    )
+                                    .frame(width: 8, height: 8)
+                                    .frame(width: 22, height: 22)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
+        .disabled(backgroundAsset == nil)
+        .opacity(backgroundAsset == nil ? 0.55 : 1)
+    }
+
+    private func setVoiceFocalPoint(x: Double, y: Double) {
         model.mutateDraft(
             actionName: L10n.text(
-                "重設 Voice 外觀",
-                "Reset Voice appearance"
+                "調整 Voice 背景焦點",
+                "Adjust Voice background focal point"
             )
         ) { document in
             var voice = document.voiceStyle
                 ?? ThemeVoiceStyle(isEnabled: true)
-            voice.setVariant(
-                appearance == .light ? .lightDefault : .darkDefault,
-                for: appearance
-            )
+            var value = voice.variant(for: appearance)
+            value.backgroundPositionX = x
+            value.backgroundPositionY = y
+            voice.setVariant(value, for: appearance)
             document.voiceStyle = voice
+        }
+    }
+
+    private func imageFitShortcut(
+        _ fit: ThemeSkinImageFit,
+        title: String
+    ) -> some View {
+        Button {
+            variantBinding(\.backgroundImageFit).wrappedValue = fit
+        } label: {
+            Label(
+                title,
+                systemImage: variant.backgroundImageFit == fit
+                    ? "checkmark.circle.fill"
+                    : "photo"
+            )
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+    }
+
+    private func imageFitTitle(_ fit: ThemeSkinImageFit) -> String {
+        switch fit {
+        case .cover:
+            L10n.text("填滿裁切（Fill）", "Fill · Crop to Fill")
+        case .contain:
+            L10n.text("完整顯示（Fit）", "Fit · Show Whole Image")
+        case .fill:
+            L10n.text("拉伸（Stretch）", "Stretch")
+        case .fitWidth:
+            L10n.text("符合寬度", "Fit Width")
+        case .fitHeight:
+            L10n.text("符合高度", "Fit Height")
+        case .original:
+            L10n.text("原始大小", "Original")
+        case .tile:
+            L10n.text("平鋪", "Tile")
         }
     }
 
@@ -408,6 +725,7 @@ struct ThemeVoiceEditorView: View {
 private struct VoiceOrbPreview: View {
     let variant: ThemeVoiceVariant
     let appearance: ThemeSkinAppearance
+    let backgroundAsset: ThemeAsset?
 
     var body: some View {
         ZStack {
@@ -416,6 +734,15 @@ private struct VoiceOrbPreview: View {
                 fallback: appearance == .dark ? .black : .white
             )
             .opacity(variant.backdropOpacity)
+
+            if let backgroundAsset,
+               let data = backgroundAsset.decodedData,
+               let image = NSImage(data: data) {
+                VoiceBackgroundImagePreview(
+                    image: image,
+                    variant: variant
+                )
+            }
 
             Circle()
                 .fill(
@@ -459,6 +786,80 @@ private struct VoiceOrbPreview: View {
         .overlay {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(.quaternary)
+        }
+    }
+}
+
+private struct VoiceBackgroundImagePreview: View {
+    let image: NSImage
+    let variant: ThemeVoiceVariant
+
+    var body: some View {
+        GeometryReader { proxy in
+            fittedImage(in: proxy.size)
+                .scaleEffect(
+                    variant.backgroundImageFit == .tile
+                        ? 1
+                        : variant.backgroundZoom,
+                    anchor: UnitPoint(
+                        x: variant.backgroundPositionX,
+                        y: variant.backgroundPositionY
+                    )
+                )
+                .offset(
+                    x: (0.5 - variant.backgroundPositionX)
+                        * proxy.size.width * 0.45,
+                    y: (0.5 - variant.backgroundPositionY)
+                        * proxy.size.height * 0.45
+                )
+                .blur(radius: variant.backgroundImageBlur)
+                .opacity(variant.backgroundImageOpacity)
+        }
+        .clipped()
+        .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private func fittedImage(in size: CGSize) -> some View {
+        switch variant.backgroundImageFit {
+        case .cover:
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: size.width, height: size.height)
+        case .contain:
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(width: size.width, height: size.height)
+        case .fill:
+            Image(nsImage: image)
+                .resizable()
+                .frame(width: size.width, height: size.height)
+        case .fitWidth:
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(width: size.width)
+                .frame(width: size.width, height: size.height)
+        case .fitHeight:
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(height: size.height)
+                .frame(width: size.width, height: size.height)
+        case .original:
+            Image(nsImage: image)
+                .frame(width: size.width, height: size.height)
+        case .tile:
+            Rectangle()
+                .fill(
+                    ImagePaint(
+                        image: Image(nsImage: image),
+                        scale: variant.backgroundZoom
+                    )
+                )
+                .frame(width: size.width, height: size.height)
         }
     }
 }

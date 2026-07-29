@@ -1303,6 +1303,36 @@ enum L10nCatalogWestern {
             french: "En attente d’une conversation Voice",
             spanish: "Esperando una conversación de Voice"
         ),
+        Entry(
+            key: "Voice background image",
+            french: "Image d’arrière-plan Voice",
+            spanish: "Imagen de fondo de Voice"
+        ),
+        Entry(
+            key: "Light and Dark can use different images. The image is embedded in the .codextheme and sent only to the Voice overlay.",
+            french: "Light et Dark peuvent utiliser des images différentes. L’image est intégrée au fichier .codextheme et envoyée uniquement à la superposition Voice.",
+            spanish: "Light y Dark pueden usar imágenes distintas. La imagen se integra en el archivo .codextheme y se envía únicamente a la superposición de Voice."
+        ),
+        Entry(
+            key: "Choose light Voice background",
+            french: "Choisir l’arrière-plan Voice clair",
+            spanish: "Elegir fondo claro de Voice"
+        ),
+        Entry(
+            key: "Choose dark Voice background",
+            french: "Choisir l’arrière-plan Voice sombre",
+            spanish: "Elegir fondo oscuro de Voice"
+        ),
+        Entry(
+            key: "{0} Voice background set",
+            french: "Arrière-plan Voice {0} défini",
+            spanish: "Fondo {0} de Voice configurado"
+        ),
+        Entry(
+            key: "Adjust Voice background focal point",
+            french: "Ajuster le point focal de l’arrière-plan Voice",
+            spanish: "Ajustar el punto focal del fondo de Voice"
+        ),
     ]
 
     static let french: [String: String] = Dictionary(

@@ -100,4 +100,55 @@ final class ThemeAppModelDraftTests: XCTestCase {
         XCTAssertNil(model.draft?.imageSkin?.dark.backgroundAssetID)
         XCTAssertTrue(model.draft?.assets.isEmpty == true)
     }
+
+    @MainActor
+    func testReplacingClearingAndRemovingVoiceBackgroundPrunesAssets() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "CodexThemeSwitcherVoiceTests-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let firstAsset = ThemeAsset(
+            name: "first.png",
+            mediaType: "image/png",
+            data: Data([1, 2, 3])
+        )
+        let secondAsset = ThemeAsset(
+            name: "second.png",
+            mediaType: "image/png",
+            data: Data([4, 5, 6])
+        )
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.dark.backgroundAssetID = firstAsset.id
+
+        var theme = BuiltInThemes.midnight
+        theme.id = UUID()
+        theme.metadata.name = "Voice"
+        theme.assets = [firstAsset, secondAsset]
+        theme.voiceStyle = voice
+
+        let repository = FileThemeRepository(rootDirectory: root)
+        _ = try await repository.save(theme, collisionPolicy: .fail)
+        let model = ThemeAppModel(repository: repository, runtime: nil)
+        await model.reloadThemes(selecting: theme.id)
+
+        model.setVoiceBackground(secondAsset.id, for: .dark)
+
+        XCTAssertEqual(
+            model.draft?.voiceStyle?.dark.backgroundAssetID,
+            secondAsset.id
+        )
+        XCTAssertEqual(model.draft?.assets.map(\.id), [secondAsset.id])
+
+        model.clearVoiceBackground(for: .dark)
+
+        XCTAssertNil(model.draft?.voiceStyle?.dark.backgroundAssetID)
+        XCTAssertTrue(model.draft?.assets.isEmpty == true)
+    }
 }

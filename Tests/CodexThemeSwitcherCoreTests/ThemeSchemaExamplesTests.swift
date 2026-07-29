@@ -139,6 +139,19 @@ final class ThemeSchemaExamplesTests: XCTestCase {
         XCTAssertNotNil(definitions["imageSkin"])
         XCTAssertNotNil(definitions["voiceStyle"])
         XCTAssertNotNil(definitions["voiceVariant"])
+        let voiceVariant = try XCTUnwrap(
+            definitions["voiceVariant"] as? [String: Any]
+        )
+        let voiceProperties = try XCTUnwrap(
+            voiceVariant["properties"] as? [String: Any]
+        )
+        XCTAssertNotNil(voiceProperties["backgroundAssetID"])
+        XCTAssertNotNil(voiceProperties["backgroundImageFit"])
+        XCTAssertNotNil(voiceProperties["backgroundPositionX"])
+        XCTAssertNotNil(voiceProperties["backgroundPositionY"])
+        XCTAssertNotNil(voiceProperties["backgroundZoom"])
+        XCTAssertNotNil(voiceProperties["backgroundImageOpacity"])
+        XCTAssertNotNil(voiceProperties["backgroundImageBlur"])
         XCTAssertNotNil(object["x-codex-limits"])
         XCTAssertNotNil(object["x-codex-security"])
     }

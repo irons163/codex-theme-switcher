@@ -78,6 +78,13 @@ public struct ThemeVoiceStyle: Codable, Equatable, Sendable {
 }
 
 public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
+    public var backgroundAssetID: UUID?
+    public var backgroundImageFit: ThemeSkinImageFit
+    public var backgroundPositionX: Double
+    public var backgroundPositionY: Double
+    public var backgroundZoom: Double
+    public var backgroundImageOpacity: Double
+    public var backgroundImageBlur: Double
     public var orbScale: Double
     public var orbOpacity: Double
     public var brightness: Double
@@ -92,6 +99,13 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
     public var backdropOpacity: Double
 
     public init(
+        backgroundAssetID: UUID? = nil,
+        backgroundImageFit: ThemeSkinImageFit = .cover,
+        backgroundPositionX: Double = 0.5,
+        backgroundPositionY: Double = 0.5,
+        backgroundZoom: Double = 1,
+        backgroundImageOpacity: Double = 1,
+        backgroundImageBlur: Double = 0,
         orbScale: Double = 1,
         orbOpacity: Double = 1,
         brightness: Double = 1,
@@ -105,6 +119,13 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         backdropColor: String = "#000000",
         backdropOpacity: Double = 0
     ) {
+        self.backgroundAssetID = backgroundAssetID
+        self.backgroundImageFit = backgroundImageFit
+        self.backgroundPositionX = backgroundPositionX
+        self.backgroundPositionY = backgroundPositionY
+        self.backgroundZoom = backgroundZoom
+        self.backgroundImageOpacity = backgroundImageOpacity
+        self.backgroundImageBlur = backgroundImageBlur
         self.orbScale = orbScale
         self.orbOpacity = orbOpacity
         self.brightness = brightness
@@ -128,6 +149,13 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
     public static let darkDefault = ThemeVoiceVariant()
 
     private enum CodingKeys: String, CodingKey {
+        case backgroundAssetID
+        case backgroundImageFit
+        case backgroundPositionX
+        case backgroundPositionY
+        case backgroundZoom
+        case backgroundImageOpacity
+        case backgroundImageBlur
         case orbScale
         case orbOpacity
         case brightness
@@ -151,6 +179,39 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         defaults: ThemeVoiceVariant
     ) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
+        backgroundAssetID = try values.decodeIfPresent(
+            UUID.self,
+            forKey: .backgroundAssetID
+        )
+        if let rawImageFit = try values.decodeIfPresent(
+            String.self,
+            forKey: .backgroundImageFit
+        ) {
+            backgroundImageFit = ThemeSkinImageFit(rawValue: rawImageFit)
+                ?? defaults.backgroundImageFit
+        } else {
+            backgroundImageFit = defaults.backgroundImageFit
+        }
+        backgroundPositionX = try values.decodeIfPresent(
+            Double.self,
+            forKey: .backgroundPositionX
+        ) ?? defaults.backgroundPositionX
+        backgroundPositionY = try values.decodeIfPresent(
+            Double.self,
+            forKey: .backgroundPositionY
+        ) ?? defaults.backgroundPositionY
+        backgroundZoom = try values.decodeIfPresent(
+            Double.self,
+            forKey: .backgroundZoom
+        ) ?? defaults.backgroundZoom
+        backgroundImageOpacity = try values.decodeIfPresent(
+            Double.self,
+            forKey: .backgroundImageOpacity
+        ) ?? defaults.backgroundImageOpacity
+        backgroundImageBlur = try values.decodeIfPresent(
+            Double.self,
+            forKey: .backgroundImageBlur
+        ) ?? defaults.backgroundImageBlur
         orbScale = try values.decodeIfPresent(
             Double.self,
             forKey: .orbScale

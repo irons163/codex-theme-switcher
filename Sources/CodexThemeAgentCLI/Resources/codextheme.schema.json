@@ -451,6 +451,39 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "backgroundAssetID": {
+          "$ref": "#/$defs/uuid"
+        },
+        "backgroundImageFit": {
+          "enum": [
+            "cover",
+            "contain",
+            "fill",
+            "fitWidth",
+            "fitHeight",
+            "original",
+            "tile"
+          ]
+        },
+        "backgroundPositionX": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "backgroundPositionY": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "backgroundZoom": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 3
+        },
+        "backgroundImageOpacity": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "backgroundImageBlur": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 40
+        },
         "orbScale": {
           "type": "number",
           "minimum": 0.5,

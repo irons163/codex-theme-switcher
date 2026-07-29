@@ -823,6 +823,56 @@ final class ThemeCompilerTests: XCTestCase {
         XCTAssertEqual(compiled.runtimeAssets, [asset])
     }
 
+    func testVoiceBackgroundCompilesAsPortableOverlayOnlyAsset() throws {
+        let asset = TestFixtures.imageAsset(
+            name: "voice-background.png",
+            bytes: [4, 5, 6]
+        )
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.backgroundAssetID = asset.id
+        voice.light.backgroundImageFit = .contain
+        voice.light.backgroundPositionX = 0.2
+        voice.light.backgroundPositionY = 0.8
+        voice.light.backgroundZoom = 1.25
+        voice.light.backgroundImageOpacity = 0.7
+        voice.light.backgroundImageBlur = 4
+        var theme = TestFixtures.theme(assets: [asset])
+        theme.voiceStyle = voice
+
+        let compiled = try ThemeCompiler().compile(theme)
+        let assetURL =
+            "codex-theme-asset://\(asset.id.uuidString.lowercased())"
+
+        XCTAssertFalse(compiled.css.contains(assetURL))
+        XCTAssertTrue(compiled.avatarOverlayCSS.contains(assetURL))
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-background-size: contain;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-background-position: 20% 80%;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-background-scale: 1.25;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-background-opacity: 0.7;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-background-blur: 4px;"
+            )
+        )
+        XCTAssertEqual(compiled.runtimeAssets, [asset])
+    }
+
     func testEscaperHandlesIdentifiersStringsAndComments() {
         XCTAssertEqual(CSSEscaper.escapeIdentifier("9 lives"), "\\39 \\20 lives")
         XCTAssertEqual(CSSEscaper.escapeString("a\"b\\c\n"), "a\\\"b\\\\c\\a ")

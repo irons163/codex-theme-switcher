@@ -45,9 +45,9 @@ raw CSS, 실제 Codex renderer의 최종 결과는 적용 후에도 확인해야
 - 배경과 유리(Image Skin): Light／Dark 개별 배경, Fit / Fill 등 일곱 가지 크기 모드,
   초점 크롭, 전체 창을 대상으로 하거나 왼쪽 사이드바를 제외할 수 있는 wallpaper canvas,
   필터, overlay, 영역별 glass, 중앙 콘텐츠 패널.
-- 실험적 ChatGPT Voice 스타일: Light／Dark별 크기, 불투명도, 색상 필터, 글로우,
-  배경 및 Voice 전용 고급 CSS를 조절하며, 독립된 `avatar-overlay` renderer에만
-  전송합니다.
+- 실험적 ChatGPT Voice 스타일: Light／Dark별 배경 이미지, Fit／Fill, 초점, 확대／축소,
+  불투명도, 흐림과 함께 오브, 색상 필터, 글로우, 배경색 및 Voice 전용 고급 CSS를
+  조절하며, 독립된 `avatar-overlay` renderer에만 전송합니다.
 - 임의의 component declarations.
 - 임의의 CSS selector rules.
 - 완전한 raw CSS escape hatch.
@@ -113,7 +113,9 @@ Voice 탭은 ChatGPT Voice에서 CSS로 찾을 수 있는 표면에 독립된 �
 스타일이 꺼져 있으면 해당 renderer에 연결하지 않으며, 적용 후 끄면 스타일을 지우고
 session을 닫습니다.
 
-크기, 불투명도, 밝기, 대비, 채도, 색조 회전, 흐림, 글로우, 배경색을 조절할 수 있습니다.
+배경 이미지는 `.codextheme`에 포함되며 Image Skin과 같은 일곱 가지 크기 모드를
+지원합니다. 오브 크기, 불투명도, 밝기, 대비, 채도, 색조 회전, 흐림, 글로우,
+배경색도 조절할 수 있습니다.
 이 기능은 실험적입니다. CSS는 DOM／Canvas 컨테이너와 합성 결과를 바꿀 수 있지만,
 네이티브 AppKit／Core Animation 레이어 내부의 픽셀이나 애니메이션은 바꿀 수 없습니다.
 

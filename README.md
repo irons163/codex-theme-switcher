@@ -44,8 +44,9 @@ final rendering in Codex should still be verified after applying the theme.
 - Background and glass (Image Skin): separate light/dark backgrounds, seven sizing modes including
   Fit / Fill, focal-point cropping, an optional wallpaper canvas that spans the entire window or
   avoids the sidebar, filters, overlays, per-section glass, and a central content panel.
-- Experimental ChatGPT Voice styling: independent Light/Dark scale, opacity, color filters, glow,
-  and backdrop controls plus Voice-only Advanced CSS. Voice CSS is sent only to the dedicated
+- Experimental ChatGPT Voice styling: independent Light/Dark background images with Fit / Fill,
+  focal point, zoom, opacity and blur, plus orb scale, color filters, glow, backdrop controls, and
+  Voice-only Advanced CSS. Voice CSS is sent only to the dedicated
   `avatar-overlay` renderer; main-window wallpaper and component rules never enter that renderer.
 - Arbitrary component declarations.
 - Arbitrary CSS selector rules.
@@ -112,8 +113,10 @@ scope. Theme Switcher recognizes the dedicated `avatar-overlay` renderer and sen
 stylesheet. If no Voice style is enabled, Theme Switcher does not attach to that overlay. Disabling
 an applied Voice style clears the overlay stylesheet and detaches its session.
 
-The built-in controls cover scale, opacity, brightness, contrast, saturation, hue rotation, blur,
-glow, and an optional backdrop tint. Voice Advanced CSS is isolated to `avatar-overlay` and can use
+Background images are embedded in `.codextheme` files and support the same seven sizing modes as
+Image Skin, including Fit, Fill, Stretch, Fit Width, Fit Height, Original, and Tile. The built-in
+controls also cover orb scale, opacity, brightness, contrast, saturation, hue rotation, blur, glow,
+and an optional backdrop tint. Voice Advanced CSS is isolated to `avatar-overlay` and can use
 portable `theme-asset("ASSET-UUID")` references under the same import and URL security rules as the
 main theme.
 

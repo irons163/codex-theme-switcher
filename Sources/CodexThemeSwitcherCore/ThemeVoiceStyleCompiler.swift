@@ -7,8 +7,24 @@ enum ThemeVoiceStyleCompiler {
     static func compile(_ style: ThemeVoiceStyle) -> String {
         guard style.isEnabled else { return "" }
 
-        var output = [
-            "/* Codex Theme Voice Overlay */",
+        let assetIDs = Set(
+            [
+                style.light.backgroundAssetID,
+                style.dark.backgroundAssetID
+            ].compactMap { $0 }
+        ).sorted { $0.uuidString < $1.uuidString }
+
+        var output = ["/* Codex Theme Voice Overlay */"]
+        if !assetIDs.isEmpty {
+            output.append(":root {")
+            for id in assetIDs {
+                output.append(
+                    "  \(assetVariable(id)): theme-asset(\"\(id.uuidString)\");"
+                )
+            }
+            output.append("}")
+        }
+        output.append(contentsOf: [
             appearanceRule(selector: ":root", variant: style.light),
             """
             @media (prefers-color-scheme: dark) {
@@ -27,7 +43,7 @@ enum ThemeVoiceStyleCompiler {
                 variant: style.light
             ),
             foundationRules
-        ]
+        ])
         let advanced = style.rawCSS.trimmingCharacters(
             in: .whitespacesAndNewlines
         )
@@ -41,8 +57,50 @@ enum ThemeVoiceStyleCompiler {
         selector: String,
         variant: ThemeVoiceVariant
     ) -> String {
-        """
+        let sizing: (size: String, repeatMode: String)
+        switch variant.backgroundImageFit {
+        case .cover:
+            sizing = ("cover", "no-repeat")
+        case .contain:
+            sizing = ("contain", "no-repeat")
+        case .fill:
+            sizing = ("100% 100%", "no-repeat")
+        case .fitWidth:
+            sizing = ("100% auto", "no-repeat")
+        case .fitHeight:
+            sizing = ("auto 100%", "no-repeat")
+        case .original:
+            sizing = ("auto", "no-repeat")
+        case .tile:
+            sizing = ("auto", "repeat")
+        }
+        let image = variant.backgroundAssetID
+            .map { "var(\(assetVariable($0)))" }
+            ?? "none"
+        let usesBlurOverscan =
+            variant.backgroundImageBlur > 0
+            && (
+                variant.backgroundImageFit == .cover
+                    || variant.backgroundImageFit == .fill
+            )
+        let inset = usesBlurOverscan
+            ? variant.backgroundImageBlur * 2 + 4
+            : 0
+        let insetValue = inset == 0
+            ? "0px"
+            : "-\(number(inset))px"
+
+        return """
         \(selector) {
+          --cts-voice-background-image: \(image);
+          --cts-voice-background-size: \(sizing.size);
+          --cts-voice-background-repeat: \(sizing.repeatMode);
+          --cts-voice-background-position: \(percent(variant.backgroundPositionX)) \(percent(variant.backgroundPositionY));
+          --cts-voice-background-origin: \(percent(variant.backgroundPositionX)) \(percent(variant.backgroundPositionY));
+          --cts-voice-background-scale: \(number(variant.backgroundZoom));
+          --cts-voice-background-opacity: \(number(variant.backgroundImageOpacity));
+          --cts-voice-background-blur: \(number(variant.backgroundImageBlur))px;
+          --cts-voice-background-inset: \(insetValue);
           --cts-voice-scale: \(number(variant.orbScale));
           --cts-voice-opacity: \(number(variant.orbOpacity));
           --cts-voice-brightness: \(number(variant.brightness));
@@ -66,9 +124,37 @@ enum ThemeVoiceStyleCompiler {
     private static var foundationRules: String {
         """
         \(root),
-        \(root) body,
-        \(root) #root {
+        \(root) body {
           background-color: var(--cts-voice-backdrop) !important;
+        }
+
+        \(root) body {
+          isolation: isolate;
+          overflow: hidden;
+          position: relative;
+        }
+
+        \(root) body::before {
+          background-image: var(--cts-voice-background-image);
+          background-position: var(--cts-voice-background-position);
+          background-repeat: var(--cts-voice-background-repeat);
+          background-size: var(--cts-voice-background-size);
+          content: "";
+          filter: blur(var(--cts-voice-background-blur));
+          inset: var(--cts-voice-background-inset);
+          opacity: var(--cts-voice-background-opacity);
+          pointer-events: none;
+          position: fixed;
+          scale: var(--cts-voice-background-scale);
+          transform-origin: var(--cts-voice-background-origin);
+          z-index: 0;
+        }
+
+        \(root) #root {
+          background-color: transparent !important;
+          min-height: 100%;
+          position: relative;
+          z-index: 1;
         }
 
         \(root) :is(
@@ -115,6 +201,14 @@ enum ThemeVoiceStyleCompiler {
             formatted.removeLast()
         }
         return formatted == "-0" ? "0" : formatted
+    }
+
+    private static func percent(_ value: Double) -> String {
+        "\(number(value * 100))%"
+    }
+
+    private static func assetVariable(_ id: UUID) -> String {
+        "--cts-voice-asset-\(id.uuidString.lowercased())"
     }
 
     private static func indent(_ value: String) -> String {

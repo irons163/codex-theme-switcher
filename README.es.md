@@ -48,9 +48,9 @@ después de aplicar el tema.
 - Fondo y cristal (Image Skin): fondos claro/oscuro separados, siete modos de tamaño, incluidos
   Fit / Fill, recorte por punto focal, lienzo de fondo opcional que ocupa toda la ventana o evita
   la barra lateral, filtros, overlay, glass por sección y panel de contenido central.
-- Estilo experimental de ChatGPT Voice: controles Light/Dark independientes de escala, opacidad,
-  filtros de color, resplandor, fondo y CSS avanzado exclusivo de Voice, enviado únicamente al
-  renderer `avatar-overlay`.
+- Estilo experimental de ChatGPT Voice: imágenes Light/Dark independientes con Fit / Fill, punto
+  focal, zoom, opacidad y desenfoque, además de controles de esfera, filtros, resplandor, fondo y
+  CSS avanzado exclusivo de Voice, enviados únicamente al renderer `avatar-overlay`.
 - Declaraciones de componentes arbitrarias.
 - CSS selector rules arbitrarias.
 - Escape hatch de raw CSS completo.
@@ -120,8 +120,10 @@ CSS puede localizar. El fondo y las reglas de componentes de la ventana principa
 a `avatar-overlay`. Si Voice no está activado, Theme Switcher no se conecta a ese renderer;
 desactivarlo borra el estilo y cierra la sesión.
 
-Los controles incluyen escala, opacidad, brillo, contraste, saturación, rotación de tono,
-desenfoque, resplandor y color de fondo. La función sigue siendo experimental: CSS puede modificar
+Las imágenes se integran en `.codextheme` y admiten los siete modos de tamaño de Image Skin.
+Los controles también incluyen escala de la esfera, opacidad, brillo, contraste, saturación,
+rotación de tono, desenfoque, resplandor y color de fondo. La función sigue siendo experimental:
+CSS puede modificar
 contenedores DOM/Canvas y su resultado compuesto, pero no los píxeles ni las animaciones internas
 de una capa nativa AppKit/Core Animation.
 

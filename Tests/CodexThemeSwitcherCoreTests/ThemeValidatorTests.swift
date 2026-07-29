@@ -365,6 +365,10 @@ final class ThemeValidatorTests: XCTestCase {
 
     func testVoiceStyleRejectsUnsafeCSSColorsAndOutOfRangeValues() {
         var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.backgroundPositionX = -0.01
+        voice.light.backgroundImageOpacity = 1.01
+        voice.dark.backgroundZoom = 3.01
+        voice.dark.backgroundImageBlur = 40.01
         voice.light.orbScale = 2.01
         voice.light.glowOpacity = -0.01
         voice.dark.hueRotation = 181
@@ -376,6 +380,16 @@ final class ThemeValidatorTests: XCTestCase {
         let result = validator.validate(theme)
         let paths = Set(result.issues.map(\.path))
 
+        XCTAssertTrue(
+            paths.contains("voiceStyle.light.backgroundPositionX")
+        )
+        XCTAssertTrue(
+            paths.contains("voiceStyle.light.backgroundImageOpacity")
+        )
+        XCTAssertTrue(paths.contains("voiceStyle.dark.backgroundZoom"))
+        XCTAssertTrue(
+            paths.contains("voiceStyle.dark.backgroundImageBlur")
+        )
         XCTAssertTrue(paths.contains("voiceStyle.light.orbScale"))
         XCTAssertTrue(paths.contains("voiceStyle.light.glowOpacity"))
         XCTAssertTrue(paths.contains("voiceStyle.dark.hueRotation"))
@@ -384,6 +398,36 @@ final class ThemeValidatorTests: XCTestCase {
             result.issues.contains {
                 $0.code == .unsafeURL
                     && $0.path == "voiceStyle.rawCSS"
+            }
+        )
+    }
+
+    func testVoiceBackgroundRejectsMissingAndNonImageAssets() {
+        let font = ThemeAsset(
+            name: "voice.ttf",
+            mediaType: "font/ttf",
+            data: Data([1, 2, 3])
+        )
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.backgroundAssetID = font.id
+        voice.dark.backgroundAssetID = UUID()
+        var theme = TestFixtures.theme(assets: [font])
+        theme.voiceStyle = voice
+
+        let result = validator.validate(theme)
+
+        XCTAssertTrue(
+            result.issues.contains {
+                $0.code == .invalidSkinAssetType
+                    && $0.path
+                        == "voiceStyle.light.backgroundAssetID"
+            }
+        )
+        XCTAssertTrue(
+            result.issues.contains {
+                $0.code == .missingSkinAsset
+                    && $0.path
+                        == "voiceStyle.dark.backgroundAssetID"
             }
         )
     }

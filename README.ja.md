@@ -46,8 +46,9 @@ selector rules、raw CSS、および実際の Codex renderer における最終�
 - 背景とガラス（Image Skin）：Light／Dark 個別の背景、Fit / Fill など 7 種類の
   サイズモード、焦点クロップ、ウィンドウ全体を対象にするか左サイドバーを除外できる
   wallpaper canvas、フィルター、overlay、領域別 glass、中央コンテンツパネル。
-- 実験的な ChatGPT Voice スタイル：Light／Dark ごとのスケール、不透明度、
-  カラーフィルター、グロー、背景、および Voice 専用の高度な CSS。
+- 実験的な ChatGPT Voice スタイル：Light／Dark ごとの背景画像、Fit／Fill、焦点、
+  ズーム、不透明度、ぼかしに加え、オーブ、カラーフィルター、グロー、背景色、
+  および Voice 専用の高度な CSS。
   スタイルは独立した `avatar-overlay` renderer にのみ送信されます。
 - 任意の component declarations。
 - 任意の CSS selector rules。
@@ -116,8 +117,9 @@ Voice タブは、ChatGPT Voice 内で CSS から参照できる表面に独立�
 送信されません。Voice スタイルが無効な場合は接続せず、無効化するとスタイルを
 消去して session を切断します。
 
-スケール、不透明度、明るさ、コントラスト、彩度、色相回転、ぼかし、グロー、背景色を
-調整できます。この機能は実験的です。CSS は DOM／Canvas コンテナと合成結果を変更
+背景画像は `.codextheme` に埋め込まれ、Image Skin と同じ 7 種類のサイズモードに
+対応します。オーブのスケール、不透明度、明るさ、コントラスト、彩度、色相回転、
+ぼかし、グロー、背景色も調整できます。この機能は実験的です。CSS は DOM／Canvas コンテナと合成結果を変更
 できますが、ネイティブ AppKit／Core Animation レイヤー内部のピクセルやアニメーション
 までは変更できません。
 
