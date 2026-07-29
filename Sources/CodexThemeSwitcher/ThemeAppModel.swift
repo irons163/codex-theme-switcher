@@ -1065,6 +1065,77 @@ final class ThemeAppModel: ObservableObject {
         }
     }
 
+    func chooseVoiceOrbBackground(for appearance: ThemeSkinAppearance) {
+        let panel = NSOpenPanel()
+        panel.title = L10n.text(
+            appearance == .light
+                ? "選擇淺色圓球圖片"
+                : "選擇深色圓球圖片",
+            appearance == .light
+                ? "Choose light orb image"
+                : "Choose dark orb image"
+        )
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        var contentTypes: [UTType] = [
+            .png,
+            .jpeg,
+            .gif,
+            .webP
+        ]
+        if let avif = UTType(filenameExtension: "avif") {
+            contentTypes.append(avif)
+        }
+        panel.allowedContentTypes = contentTypes
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            let asset = try makeBackgroundAsset(from: url)
+            guard var candidate = draft else { return }
+            var voice = candidate.voiceStyle
+                ?? ThemeVoiceStyle(isEnabled: true)
+            voice.isEnabled = true
+            var variant = voice.variant(for: appearance)
+            let replacedAssetID = variant.orbBackgroundAssetID
+            variant.orbBackgroundAssetID = asset.id
+            voice.setVariant(variant, for: appearance)
+            candidate.voiceStyle = voice
+            candidate.assets.append(asset)
+            if let replacedAssetID {
+                pruneAssetIfUnreferenced(
+                    replacedAssetID,
+                    from: &candidate
+                )
+            }
+            let totalBytes = candidate.assets.reduce(0) {
+                $0 + ($1.decodedData?.count ?? 0)
+            }
+            guard totalBytes <= 32 * 1024 * 1024 else {
+                throw ThemeAppError.totalAssetsTooLarge(totalBytes)
+            }
+            mutateDraft { document in
+                document = candidate
+            }
+            let appearanceName = appearance == .light
+                ? L10n.text("淺色", "Light")
+                : L10n.text("深色", "Dark")
+            show(
+                L10n.format(
+                    "已設定{0}圓球圖片",
+                    "{0} orb image set",
+                    appearanceName
+                ),
+                style: .success
+            )
+        } catch {
+            show(
+                AppErrorLocalization.message(for: error),
+                style: .error
+            )
+        }
+    }
+
     func clearSkinBackground(for appearance: ThemeSkinAppearance) {
         mutateDraft { document in
             guard var skin = document.imageSkin else { return }
@@ -1146,6 +1217,47 @@ final class ThemeAppModel: ObservableObject {
         }
     }
 
+    func clearVoiceOrbBackground(for appearance: ThemeSkinAppearance) {
+        mutateDraft { document in
+            guard var voice = document.voiceStyle else { return }
+            var variant = voice.variant(for: appearance)
+            let removedAssetID = variant.orbBackgroundAssetID
+            variant.orbBackgroundAssetID = nil
+            voice.setVariant(variant, for: appearance)
+            document.voiceStyle = voice
+            if let removedAssetID {
+                pruneAssetIfUnreferenced(removedAssetID, from: &document)
+            }
+        }
+    }
+
+    func setVoiceOrbBackground(
+        _ assetID: UUID,
+        for appearance: ThemeSkinAppearance
+    ) {
+        guard availableSkinImageAssets.contains(where: {
+            $0.id == assetID
+        }) else {
+            return
+        }
+        mutateDraft { document in
+            var voice = document.voiceStyle
+                ?? ThemeVoiceStyle(isEnabled: true)
+            voice.isEnabled = true
+            var variant = voice.variant(for: appearance)
+            let replacedAssetID = variant.orbBackgroundAssetID
+            variant.orbBackgroundAssetID = assetID
+            voice.setVariant(variant, for: appearance)
+            document.voiceStyle = voice
+            if let replacedAssetID, replacedAssetID != assetID {
+                pruneAssetIfUnreferenced(
+                    replacedAssetID,
+                    from: &document
+                )
+            }
+        }
+    }
+
     func removeVoiceStyle() {
         mutateDraft(
             actionName: L10n.text(
@@ -1155,7 +1267,9 @@ final class ThemeAppModel: ObservableObject {
         ) { document in
             let assetIDs = [
                 document.voiceStyle?.light.backgroundAssetID,
-                document.voiceStyle?.dark.backgroundAssetID
+                document.voiceStyle?.dark.backgroundAssetID,
+                document.voiceStyle?.light.orbBackgroundAssetID,
+                document.voiceStyle?.dark.orbBackgroundAssetID
             ].compactMap { $0 }
             document.voiceStyle = nil
             for id in Set(assetIDs) {
@@ -1173,16 +1287,18 @@ final class ThemeAppModel: ObservableObject {
         ) { document in
             var voice = document.voiceStyle
                 ?? ThemeVoiceStyle(isEnabled: true)
-            let removedAssetID = voice.variant(
-                for: appearance
-            ).backgroundAssetID
+            let removedVariant = voice.variant(for: appearance)
+            let removedAssetIDs = [
+                removedVariant.backgroundAssetID,
+                removedVariant.orbBackgroundAssetID
+            ].compactMap { $0 }
             voice.setVariant(
                 appearance == .light ? .lightDefault : .darkDefault,
                 for: appearance
             )
             document.voiceStyle = voice
-            if let removedAssetID {
-                pruneAssetIfUnreferenced(removedAssetID, from: &document)
+            for id in Set(removedAssetIDs) {
+                pruneAssetIfUnreferenced(id, from: &document)
             }
         }
     }
@@ -1245,6 +1361,12 @@ final class ThemeAppModel: ObservableObject {
                 }
                 if voice.dark.backgroundAssetID == id {
                     voice.dark.backgroundAssetID = nil
+                }
+                if voice.light.orbBackgroundAssetID == id {
+                    voice.light.orbBackgroundAssetID = nil
+                }
+                if voice.dark.orbBackgroundAssetID == id {
+                    voice.dark.orbBackgroundAssetID = nil
                 }
                 document.voiceStyle = voice
             }
@@ -1431,7 +1553,9 @@ final class ThemeAppModel: ObservableObject {
             return true
         }
         if document.voiceStyle?.light.backgroundAssetID == id
-            || document.voiceStyle?.dark.backgroundAssetID == id {
+            || document.voiceStyle?.dark.backgroundAssetID == id
+            || document.voiceStyle?.light.orbBackgroundAssetID == id
+            || document.voiceStyle?.dark.orbBackgroundAssetID == id {
             return true
         }
 

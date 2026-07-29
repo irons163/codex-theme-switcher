@@ -115,16 +115,17 @@ an applied Voice style clears the overlay stylesheet and detaches its session.
 
 Background images are embedded in `.codextheme` files and support the same seven sizing modes as
 Image Skin, including Fit, Fill, Stretch, Fit Width, Fit Height, Original, and Tile. The built-in
-controls also cover orb scale, opacity, brightness, contrast, saturation, hue rotation, blur, glow,
-and an optional backdrop tint. Voice Advanced CSS is isolated to `avatar-overlay` and can use
-portable `theme-asset("ASSET-UUID")` references under the same import and URL security rules as the
-main theme.
+controls also provide a separate image clipped inside the DOM orb, with its own sizing, focal point,
+opacity, blur, and inset. Orb scale, opacity, brightness, contrast, saturation, hue rotation, blur,
+glow, and an optional backdrop tint remain independently adjustable. Voice Advanced CSS is isolated
+to `avatar-overlay` and can use portable `theme-asset("ASSET-UUID")` references under the same import
+and URL security rules as the main theme.
 
 This is intentionally marked experimental. Depending on the installed Codex version, the Voice orb
-may combine DOM, Canvas, WebGL, and native AppKit/Core Animation layers. CSS can style recognizable
-DOM/Canvas containers and their composited output, but it cannot rewrite pixels or animation inside
-a native layer. The editor preview demonstrates the requested CSS effects rather than promising a
-pixel-identical rendering of every Codex release.
+may combine DOM, Canvas, WebGL, and native AppKit/Core Animation layers. The embedded orb image works
+with the current `.codex-avatar-root` DOM implementation; a future native or Canvas-only orb may not
+expose its inside to CSS. The editor preview uses the observed `408:400` overlay geometry, while a
+dragged orb can still occupy a different runtime position.
 
 ## Workflow
 

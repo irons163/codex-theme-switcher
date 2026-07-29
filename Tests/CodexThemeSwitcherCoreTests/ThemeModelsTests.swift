@@ -369,6 +369,13 @@ final class ThemeModelsTests: XCTestCase {
                 "backgroundZoom": 1.4,
                 "backgroundImageOpacity": 0.75,
                 "backgroundImageBlur": 3,
+                "orbBackgroundAssetID": "48f4ae9a-d231-4c56-9a76-e43d61ec7929",
+                "orbBackgroundImageFit": "fitWidth",
+                "orbBackgroundPositionX": 0.3,
+                "orbBackgroundPositionY": 0.7,
+                "orbBackgroundImageOpacity": 0.65,
+                "orbBackgroundImageBlur": 2,
+                "orbBackgroundInset": 6,
                 "orbScale": 1.25
               },
               "dark": { "glowOpacity": 0.8 },
@@ -388,6 +395,16 @@ final class ThemeModelsTests: XCTestCase {
         XCTAssertEqual(decoded.light.backgroundZoom, 1.4)
         XCTAssertEqual(decoded.light.backgroundImageOpacity, 0.75)
         XCTAssertEqual(decoded.light.backgroundImageBlur, 3)
+        XCTAssertEqual(
+            decoded.light.orbBackgroundAssetID?.uuidString.lowercased(),
+            "48f4ae9a-d231-4c56-9a76-e43d61ec7929"
+        )
+        XCTAssertEqual(decoded.light.orbBackgroundImageFit, .fitWidth)
+        XCTAssertEqual(decoded.light.orbBackgroundPositionX, 0.3)
+        XCTAssertEqual(decoded.light.orbBackgroundPositionY, 0.7)
+        XCTAssertEqual(decoded.light.orbBackgroundImageOpacity, 0.65)
+        XCTAssertEqual(decoded.light.orbBackgroundImageBlur, 2)
+        XCTAssertEqual(decoded.light.orbBackgroundInset, 6)
         XCTAssertEqual(decoded.light.orbScale, 1.25)
         XCTAssertEqual(
             decoded.light.glowColor,
@@ -399,7 +416,10 @@ final class ThemeModelsTests: XCTestCase {
             ThemeVoiceVariant.darkDefault.glowColor
         )
         XCTAssertNil(decoded.dark.backgroundAssetID)
+        XCTAssertNil(decoded.dark.orbBackgroundAssetID)
         XCTAssertEqual(decoded.dark.backgroundImageFit, .cover)
+        XCTAssertEqual(decoded.dark.orbBackgroundImageFit, .cover)
+        XCTAssertEqual(decoded.dark.orbBackgroundInset, 4)
 
         var theme = TestFixtures.theme()
         theme.voiceStyle = decoded

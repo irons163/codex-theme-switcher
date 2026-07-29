@@ -22,6 +22,11 @@ struct ThemeVoiceEditorView: View {
         return model.draft?.assets.first { $0.id == id }
     }
 
+    private var orbBackgroundAsset: ThemeAsset? {
+        guard let id = variant.orbBackgroundAssetID else { return nil }
+        return model.draft?.assets.first { $0.id == id }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
@@ -30,6 +35,7 @@ struct ThemeVoiceEditorView: View {
                 if style.isEnabled {
                     previewSection
                     backgroundSection
+                    orbBackgroundSection
                     orbSection
                     glowSection
                     backdropSection
@@ -69,7 +75,7 @@ struct ThemeVoiceEditorView: View {
                 Text(
                     L10n.text(
                         "不同 Codex 版本可能使用 DOM、Canvas、WebGL 或原生圖層；原生圓球內部不受 CSS 控制。",
-                        "Codex versions may use DOM, Canvas, WebGL, or native layers. CSS cannot alter the inside of a native orb."
+                        "Codex versions may use DOM, Canvas, WebGL, or native layers. The embedded image works on the current DOM orb, while native or Canvas orbs may not expose their inside to CSS."
                     )
                 )
                 .font(.caption)
@@ -93,8 +99,8 @@ struct ThemeVoiceEditorView: View {
         EditorSection(
             title: L10n.text("效果預覽", "Effect preview"),
             subtitle: L10n.text(
-                "預覽呈現 CSS 濾鏡；實際圓球是否能完整套用，取決於目前 Codex Voice renderer。",
-                "This previews the CSS filters. How much reaches the real orb depends on the current Codex Voice renderer."
+                "預覽使用目前 Voice overlay 的實測比例與圓球起始位置；拖動圓球後，實際位置可能不同。",
+                "The preview uses the measured Voice overlay ratio and initial orb position. Its runtime position can differ after you drag the orb."
             )
         ) {
             HStack {
@@ -158,9 +164,11 @@ struct ThemeVoiceEditorView: View {
             VoiceOrbPreview(
                 variant: variant,
                 appearance: appearance,
-                backgroundAsset: backgroundAsset
+                backgroundAsset: backgroundAsset,
+                orbBackgroundAsset: orbBackgroundAsset
             )
-            .frame(height: 250)
+            .frame(width: 408, height: 400)
+            .frame(maxWidth: .infinity)
         }
     }
 
@@ -373,6 +381,220 @@ struct ThemeVoiceEditorView: View {
             }
             .disabled(backgroundAsset == nil)
             .opacity(backgroundAsset == nil ? 0.55 : 1)
+        }
+    }
+
+    private var orbBackgroundSection: some View {
+        EditorSection(
+            title: L10n.text(
+                "圓球內部圖片",
+                "Image inside orb"
+            ),
+            subtitle: L10n.text(
+                "使用獨立圖片覆蓋在目前的 DOM 圓球內；降低圖片不透明度可讓原本的動畫圓球透出。",
+                "Places a separate image inside the current DOM orb. Lower the image opacity to let the original animated orb show through."
+            )
+        ) {
+            HStack(spacing: 14) {
+                assetPreview(orbBackgroundAsset)
+                    .frame(width: 108, height: 108)
+                    .clipShape(Circle())
+                    .overlay {
+                        Circle().stroke(.quaternary)
+                    }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(
+                        orbBackgroundAsset?.name
+                            ?? L10n.text(
+                                "尚未選擇圖片",
+                                "No image selected"
+                            )
+                    )
+                    .font(.caption.weight(.medium))
+                    .lineLimit(1)
+
+                    if let orbBackgroundAsset {
+                        Text(
+                            "\(orbBackgroundAsset.mediaType) · "
+                                + ByteCountFormatter.string(
+                                    fromByteCount: Int64(
+                                        orbBackgroundAsset.decodedData?.count
+                                            ?? 0
+                                    ),
+                                    countStyle: .file
+                                )
+                        )
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                    }
+
+                    HStack {
+                        Button {
+                            model.chooseVoiceOrbBackground(for: appearance)
+                        } label: {
+                            Label(
+                                L10n.text("選擇圖片", "Choose image"),
+                                systemImage: "circle.inset.filled"
+                            )
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        if !model.availableSkinImageAssets.isEmpty {
+                            Menu {
+                                ForEach(
+                                    model.availableSkinImageAssets
+                                ) { asset in
+                                    Button {
+                                        model.setVoiceOrbBackground(
+                                            asset.id,
+                                            for: appearance
+                                        )
+                                    } label: {
+                                        if asset.id
+                                            == orbBackgroundAsset?.id {
+                                            Label(
+                                                asset.name,
+                                                systemImage: "checkmark"
+                                            )
+                                        } else {
+                                            Text(asset.name)
+                                        }
+                                    }
+                                }
+                            } label: {
+                                Label(
+                                    L10n.text(
+                                        "現有素材",
+                                        "Existing assets"
+                                    ),
+                                    systemImage: "photo.stack"
+                                )
+                            }
+                            .menuStyle(.borderlessButton)
+                        }
+
+                        if orbBackgroundAsset != nil {
+                            Button(
+                                L10n.text("清除", "Clear"),
+                                role: .destructive
+                            ) {
+                                model.clearVoiceOrbBackground(
+                                    for: appearance
+                                )
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    .controlSize(.small)
+                }
+
+                Spacer()
+                orbFocalGrid
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(L10n.text("圖片尺寸", "Image sizing"))
+                        .font(.caption.weight(.semibold))
+                    Spacer()
+                    Picker(
+                        L10n.text("圖片尺寸", "Image sizing"),
+                        selection: variantBinding(
+                            \.orbBackgroundImageFit
+                        )
+                    ) {
+                        ForEach(
+                            ThemeSkinImageFit.allCases,
+                            id: \.self
+                        ) { fit in
+                            Text(imageFitTitle(fit)).tag(fit)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .frame(width: 230)
+                }
+
+                HStack(spacing: 8) {
+                    orbImageFitShortcut(
+                        .contain,
+                        title: L10n.text(
+                            "完整顯示 Fit",
+                            "Fit · Show Whole Image"
+                        )
+                    )
+                    orbImageFitShortcut(
+                        .cover,
+                        title: L10n.text(
+                            "填滿裁切 Fill",
+                            "Fill · Crop to Fill"
+                        )
+                    )
+                    Spacer()
+                }
+            }
+            .padding(10)
+            .background(.quaternary.opacity(0.28))
+            .clipShape(RoundedRectangle(cornerRadius: 9))
+            .disabled(orbBackgroundAsset == nil)
+            .opacity(orbBackgroundAsset == nil ? 0.55 : 1)
+
+            settingsGrid {
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "水平焦點",
+                        "Horizontal focal point"
+                    ),
+                    value: variantBinding(\.orbBackgroundPositionX),
+                    range: 0...1,
+                    step: 0.01,
+                    format: Self.percent
+                )
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "垂直焦點",
+                        "Vertical focal point"
+                    ),
+                    value: variantBinding(\.orbBackgroundPositionY),
+                    range: 0...1,
+                    step: 0.01,
+                    format: Self.percent
+                )
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "圓球圖片不透明度",
+                        "Orb image opacity"
+                    ),
+                    value: variantBinding(\.orbBackgroundImageOpacity),
+                    range: 0...1,
+                    step: 0.01,
+                    format: Self.percent
+                )
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "圓球圖片模糊",
+                        "Orb image blur"
+                    ),
+                    value: variantBinding(\.orbBackgroundImageBlur),
+                    range: 0...40,
+                    step: 0.5,
+                    format: { String(format: "%.1f px", $0) }
+                )
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "圓球圖片內縮",
+                        "Orb image inset"
+                    ),
+                    value: variantBinding(\.orbBackgroundInset),
+                    range: 0...24,
+                    step: 0.5,
+                    format: { String(format: "%.1f px", $0) }
+                )
+            }
+            .disabled(orbBackgroundAsset == nil)
+            .opacity(orbBackgroundAsset == nil ? 0.55 : 1)
         }
     }
 
@@ -601,7 +823,12 @@ struct ThemeVoiceEditorView: View {
 
     @ViewBuilder
     private var backgroundAssetPreview: some View {
-        if let asset = backgroundAsset,
+        assetPreview(backgroundAsset)
+    }
+
+    @ViewBuilder
+    private func assetPreview(_ asset: ThemeAsset?) -> some View {
+        if let asset,
            let data = asset.decodedData,
            let image = NSImage(data: data) {
             Image(nsImage: image)
@@ -622,6 +849,62 @@ struct ThemeVoiceEditorView: View {
                     .font(.system(size: 28))
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    private var orbFocalGrid: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(L10n.text("快速焦點", "Quick focal point"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Grid(horizontalSpacing: 5, verticalSpacing: 5) {
+                ForEach(0..<3, id: \.self) { row in
+                    GridRow {
+                        ForEach(0..<3, id: \.self) { column in
+                            let x = Double(column) / 2
+                            let y = Double(row) / 2
+                            Button {
+                                setOrbFocalPoint(x: x, y: y)
+                            } label: {
+                                Circle()
+                                    .fill(
+                                        abs(
+                                            variant.orbBackgroundPositionX - x
+                                        ) < 0.01
+                                            && abs(
+                                                variant
+                                                    .orbBackgroundPositionY - y
+                                            ) < 0.01
+                                            ? Color.accentColor
+                                            : Color.secondary.opacity(0.24)
+                                    )
+                                    .frame(width: 8, height: 8)
+                                    .frame(width: 22, height: 22)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
+        .disabled(orbBackgroundAsset == nil)
+        .opacity(orbBackgroundAsset == nil ? 0.55 : 1)
+    }
+
+    private func setOrbFocalPoint(x: Double, y: Double) {
+        model.mutateDraft(
+            actionName: L10n.text(
+                "調整圓球圖片焦點",
+                "Adjust orb image focal point"
+            )
+        ) { document in
+            var voice = document.voiceStyle
+                ?? ThemeVoiceStyle(isEnabled: true)
+            var value = voice.variant(for: appearance)
+            value.orbBackgroundPositionX = x
+            value.orbBackgroundPositionY = y
+            voice.setVariant(value, for: appearance)
+            document.voiceStyle = voice
         }
     }
 
@@ -698,6 +981,24 @@ struct ThemeVoiceEditorView: View {
         .controlSize(.small)
     }
 
+    private func orbImageFitShortcut(
+        _ fit: ThemeSkinImageFit,
+        title: String
+    ) -> some View {
+        Button {
+            variantBinding(\.orbBackgroundImageFit).wrappedValue = fit
+        } label: {
+            Label(
+                title,
+                systemImage: variant.orbBackgroundImageFit == fit
+                    ? "checkmark.circle.fill"
+                    : "photo"
+            )
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+    }
+
     private func imageFitTitle(_ fit: ThemeSkinImageFit) -> String {
         switch fit {
         case .cover:
@@ -726,42 +1027,80 @@ private struct VoiceOrbPreview: View {
     let variant: ThemeVoiceVariant
     let appearance: ThemeSkinAppearance
     let backgroundAsset: ThemeAsset?
+    let orbBackgroundAsset: ThemeAsset?
 
     var body: some View {
-        ZStack {
-            Color(
-                css: variant.backdropColor,
-                fallback: appearance == .dark ? .black : .white
-            )
-            .opacity(variant.backdropOpacity)
-
-            if let backgroundAsset,
-               let data = backgroundAsset.decodedData,
-               let image = NSImage(data: data) {
-                VoiceBackgroundImagePreview(
-                    image: image,
-                    variant: variant
+        GeometryReader { proxy in
+            ZStack(alignment: .top) {
+                Color(
+                    css: variant.backdropColor,
+                    fallback: appearance == .dark ? .black : .white
                 )
-            }
+                .opacity(variant.backdropOpacity)
 
-            Circle()
-                .fill(
-                    AngularGradient(
-                        colors: [
-                            Color(red: 0.12, green: 0.78, blue: 1),
-                            Color(red: 0.58, green: 0.25, blue: 1),
-                            Color(red: 1, green: 0.25, blue: 0.65),
-                            Color(red: 0.12, green: 0.78, blue: 1)
-                        ],
-                        center: .center
+                if let backgroundAsset,
+                   let data = backgroundAsset.decodedData,
+                   let image = NSImage(data: data) {
+                    VoiceBackgroundImagePreview(
+                        image: image,
+                        variant: variant
                     )
-                )
-                .overlay {
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                        .padding(18)
                 }
-                .frame(width: 132, height: 132)
+
+                let orbDiameter = min(
+                    proxy.size.width * (112 / 408),
+                    proxy.size.height * 0.32
+                )
+                ZStack {
+                    Circle()
+                        .fill(
+                            AngularGradient(
+                                colors: [
+                                    Color(
+                                        red: 0.12,
+                                        green: 0.78,
+                                        blue: 1
+                                    ),
+                                    Color(
+                                        red: 0.58,
+                                        green: 0.25,
+                                        blue: 1
+                                    ),
+                                    Color(
+                                        red: 1,
+                                        green: 0.25,
+                                        blue: 0.65
+                                    ),
+                                    Color(
+                                        red: 0.12,
+                                        green: 0.78,
+                                        blue: 1
+                                    )
+                                ],
+                                center: .center
+                            )
+                        )
+                        .overlay {
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .padding(orbDiameter * 0.14)
+                        }
+
+                    if let orbBackgroundAsset,
+                       let data = orbBackgroundAsset.decodedData,
+                       let image = NSImage(data: data) {
+                        VoiceOrbImagePreview(
+                            image: image,
+                            variant: variant
+                        )
+                        .padding(
+                            variant.orbBackgroundInset
+                                * orbDiameter / 112
+                        )
+                        .clipShape(Circle())
+                    }
+                }
+                .frame(width: orbDiameter, height: orbDiameter)
                 .hueRotation(.degrees(variant.hueRotation))
                 .saturation(variant.saturation)
                 .contrast(variant.contrast)
@@ -776,6 +1115,12 @@ private struct VoiceOrbPreview: View {
                 )
                 .scaleEffect(variant.orbScale)
                 .opacity(variant.orbOpacity)
+                .position(
+                    x: proxy.size.width / 2,
+                    y: proxy.size.height * (8 / 400)
+                        + orbDiameter / 2
+                )
+            }
         }
         .background(
             appearance == .dark
@@ -786,6 +1131,71 @@ private struct VoiceOrbPreview: View {
         .overlay {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(.quaternary)
+        }
+    }
+}
+
+private struct VoiceOrbImagePreview: View {
+    let image: NSImage
+    let variant: ThemeVoiceVariant
+
+    var body: some View {
+        GeometryReader { proxy in
+            fittedImage(in: proxy.size)
+                .offset(
+                    x: (0.5 - variant.orbBackgroundPositionX)
+                        * proxy.size.width * 0.45,
+                    y: (0.5 - variant.orbBackgroundPositionY)
+                        * proxy.size.height * 0.45
+                )
+                .blur(radius: variant.orbBackgroundImageBlur)
+                .opacity(variant.orbBackgroundImageOpacity)
+        }
+        .clipped()
+        .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private func fittedImage(in size: CGSize) -> some View {
+        switch variant.orbBackgroundImageFit {
+        case .cover:
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: size.width, height: size.height)
+        case .contain:
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(width: size.width, height: size.height)
+        case .fill:
+            Image(nsImage: image)
+                .resizable()
+                .frame(width: size.width, height: size.height)
+        case .fitWidth:
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(width: size.width)
+                .frame(width: size.width, height: size.height)
+        case .fitHeight:
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(height: size.height)
+                .frame(width: size.width, height: size.height)
+        case .original:
+            Image(nsImage: image)
+                .frame(width: size.width, height: size.height)
+        case .tile:
+            Rectangle()
+                .fill(
+                    ImagePaint(
+                        image: Image(nsImage: image),
+                        scale: 1
+                    )
+                )
+                .frame(width: size.width, height: size.height)
         }
     }
 }

@@ -1192,9 +1192,9 @@ enum L10nCatalogWestern {
             spanish: "Experimental"
         ),
         Entry(
-            key: "Codex versions may use DOM, Canvas, WebGL, or native layers. CSS cannot alter the inside of a native orb.",
-            french: "Selon la version de Codex, l’orbe peut utiliser le DOM, Canvas, WebGL ou des calques natifs. CSS ne peut pas modifier l’intérieur d’un orbe natif.",
-            spanish: "Según la versión de Codex, la esfera puede usar DOM, Canvas, WebGL o capas nativas. CSS no puede modificar el interior de una esfera nativa."
+            key: "Codex versions may use DOM, Canvas, WebGL, or native layers. The embedded image works on the current DOM orb, while native or Canvas orbs may not expose their inside to CSS.",
+            french: "Selon la version de Codex, l’orbe peut utiliser le DOM, Canvas, WebGL ou des calques natifs. L’image intégrée fonctionne avec l’orbe DOM actuel, mais l’intérieur des orbes natifs ou Canvas peut ne pas être accessible en CSS.",
+            spanish: "Según la versión de Codex, la esfera puede usar DOM, Canvas, WebGL o capas nativas. La imagen integrada funciona con la esfera DOM actual, pero el interior de las esferas nativas o Canvas puede no estar disponible para CSS."
         ),
         Entry(
             key: "Reset current appearance",
@@ -1212,9 +1212,9 @@ enum L10nCatalogWestern {
             spanish: "Vista previa de efectos"
         ),
         Entry(
-            key: "This previews the CSS filters. How much reaches the real orb depends on the current Codex Voice renderer.",
-            french: "Cet aperçu montre les filtres CSS. Leur effet sur l’orbe réel dépend du renderer Voice de la version actuelle de Codex.",
-            spanish: "Esta vista previa muestra los filtros CSS. Su efecto en la esfera real depende del renderer de Voice de la versión actual de Codex."
+            key: "The preview uses the measured Voice overlay ratio and initial orb position. Its runtime position can differ after you drag the orb.",
+            french: "L’aperçu utilise le rapport mesuré de la superposition Voice et la position initiale de l’orbe. Sa position réelle peut différer après un déplacement.",
+            spanish: "La vista previa usa la proporción medida de la superposición Voice y la posición inicial de la esfera. Su posición real puede variar después de arrastrarla."
         ),
         Entry(
             key: "Orb surface",
@@ -1332,6 +1332,51 @@ enum L10nCatalogWestern {
             key: "Adjust Voice background focal point",
             french: "Ajuster le point focal de l’arrière-plan Voice",
             spanish: "Ajustar el punto focal del fondo de Voice"
+        ),
+        Entry(
+            key: "Image inside orb",
+            french: "Image dans l’orbe",
+            spanish: "Imagen dentro de la esfera"
+        ),
+        Entry(
+            key: "Places a separate image inside the current DOM orb. Lower the image opacity to let the original animated orb show through.",
+            french: "Place une image distincte dans l’orbe DOM actuel. Réduisez l’opacité de l’image pour laisser transparaître l’orbe animé d’origine.",
+            spanish: "Coloca una imagen independiente dentro de la esfera DOM actual. Reduce la opacidad de la imagen para que se vea la esfera animada original."
+        ),
+        Entry(
+            key: "Choose light orb image",
+            french: "Choisir l’image de l’orbe clair",
+            spanish: "Elegir imagen de la esfera clara"
+        ),
+        Entry(
+            key: "Choose dark orb image",
+            french: "Choisir l’image de l’orbe sombre",
+            spanish: "Elegir imagen de la esfera oscura"
+        ),
+        Entry(
+            key: "{0} orb image set",
+            french: "Image de l’orbe {0} définie",
+            spanish: "Imagen {0} de la esfera configurada"
+        ),
+        Entry(
+            key: "Adjust orb image focal point",
+            french: "Ajuster le point focal de l’image de l’orbe",
+            spanish: "Ajustar el punto focal de la imagen de la esfera"
+        ),
+        Entry(
+            key: "Orb image opacity",
+            french: "Opacité de l’image de l’orbe",
+            spanish: "Opacidad de la imagen de la esfera"
+        ),
+        Entry(
+            key: "Orb image blur",
+            french: "Flou de l’image de l’orbe",
+            spanish: "Desenfoque de la imagen de la esfera"
+        ),
+        Entry(
+            key: "Orb image inset",
+            french: "Marge intérieure de l’image de l’orbe",
+            spanish: "Margen interior de la imagen de la esfera"
         ),
     ]
 

@@ -484,6 +484,39 @@
           "minimum": 0,
           "maximum": 40
         },
+        "orbBackgroundAssetID": {
+          "$ref": "#/$defs/uuid"
+        },
+        "orbBackgroundImageFit": {
+          "enum": [
+            "cover",
+            "contain",
+            "fill",
+            "fitWidth",
+            "fitHeight",
+            "original",
+            "tile"
+          ]
+        },
+        "orbBackgroundPositionX": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "orbBackgroundPositionY": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "orbBackgroundImageOpacity": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "orbBackgroundImageBlur": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 40
+        },
+        "orbBackgroundInset": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 24
+        },
         "orbScale": {
           "type": "number",
           "minimum": 0.5,

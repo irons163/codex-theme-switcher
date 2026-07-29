@@ -10,7 +10,9 @@ enum ThemeVoiceStyleCompiler {
         let assetIDs = Set(
             [
                 style.light.backgroundAssetID,
-                style.dark.backgroundAssetID
+                style.dark.backgroundAssetID,
+                style.light.orbBackgroundAssetID,
+                style.dark.orbBackgroundAssetID
             ].compactMap { $0 }
         ).sorted { $0.uuidString < $1.uuidString }
 
@@ -57,24 +59,12 @@ enum ThemeVoiceStyleCompiler {
         selector: String,
         variant: ThemeVoiceVariant
     ) -> String {
-        let sizing: (size: String, repeatMode: String)
-        switch variant.backgroundImageFit {
-        case .cover:
-            sizing = ("cover", "no-repeat")
-        case .contain:
-            sizing = ("contain", "no-repeat")
-        case .fill:
-            sizing = ("100% 100%", "no-repeat")
-        case .fitWidth:
-            sizing = ("100% auto", "no-repeat")
-        case .fitHeight:
-            sizing = ("auto 100%", "no-repeat")
-        case .original:
-            sizing = ("auto", "no-repeat")
-        case .tile:
-            sizing = ("auto", "repeat")
-        }
+        let sizing = imageSizing(for: variant.backgroundImageFit)
+        let orbSizing = imageSizing(for: variant.orbBackgroundImageFit)
         let image = variant.backgroundAssetID
+            .map { "var(\(assetVariable($0)))" }
+            ?? "none"
+        let orbImage = variant.orbBackgroundAssetID
             .map { "var(\(assetVariable($0)))" }
             ?? "none"
         let usesBlurOverscan =
@@ -101,6 +91,13 @@ enum ThemeVoiceStyleCompiler {
           --cts-voice-background-opacity: \(number(variant.backgroundImageOpacity));
           --cts-voice-background-blur: \(number(variant.backgroundImageBlur))px;
           --cts-voice-background-inset: \(insetValue);
+          --cts-voice-orb-background-image: \(orbImage);
+          --cts-voice-orb-background-size: \(orbSizing.size);
+          --cts-voice-orb-background-repeat: \(orbSizing.repeatMode);
+          --cts-voice-orb-background-position: \(percent(variant.orbBackgroundPositionX)) \(percent(variant.orbBackgroundPositionY));
+          --cts-voice-orb-background-opacity: \(number(variant.orbBackgroundImageOpacity));
+          --cts-voice-orb-background-blur: \(number(variant.orbBackgroundImageBlur))px;
+          --cts-voice-orb-background-inset: \(number(variant.orbBackgroundInset))px;
           --cts-voice-scale: \(number(variant.orbScale));
           --cts-voice-opacity: \(number(variant.orbOpacity));
           --cts-voice-brightness: \(number(variant.brightness));
@@ -159,7 +156,7 @@ enum ThemeVoiceStyleCompiler {
 
         \(root) :is(
           canvas,
-          svg,
+          .codex-avatar-root,
           [data-voice-orb],
           [data-codex-voice-orb],
           [class*="voice-orb" i],
@@ -180,7 +177,65 @@ enum ThemeVoiceStyleCompiler {
             ) !important;
           will-change: filter, opacity, scale;
         }
+
+        \(root) :is(
+          .codex-avatar-root,
+          [data-voice-orb],
+          [data-codex-voice-orb],
+          [class*="voice-orb" i],
+          [class*="voiceorb" i]
+        ) {
+          position: relative !important;
+        }
+
+        \(root) :is(
+          .codex-avatar-root,
+          [data-voice-orb],
+          [data-codex-voice-orb],
+          [class*="voice-orb" i],
+          [class*="voiceorb" i]
+        )::after {
+          aspect-ratio: 1;
+          background-image: var(--cts-voice-orb-background-image);
+          background-position: var(--cts-voice-orb-background-position);
+          background-repeat: var(--cts-voice-orb-background-repeat);
+          background-size: var(--cts-voice-orb-background-size);
+          border-radius: 50%;
+          clip-path: circle(50%);
+          content: "";
+          filter: blur(var(--cts-voice-orb-background-blur));
+          inset:
+            var(--cts-voice-orb-background-inset)
+            var(--cts-voice-orb-background-inset)
+            auto;
+          opacity: var(--cts-voice-orb-background-opacity);
+          overflow: hidden;
+          pointer-events: none;
+          position: absolute;
+          z-index: 2;
+        }
         """
+    }
+
+    private static func imageSizing(
+        for fit: ThemeSkinImageFit
+    ) -> (size: String, repeatMode: String) {
+        switch fit {
+        case .cover:
+            ("cover", "no-repeat")
+        case .contain:
+            ("contain", "no-repeat")
+        case .fill:
+            ("100% 100%", "no-repeat")
+        case .fitWidth:
+            ("100% auto", "no-repeat")
+        case .fitHeight:
+            ("auto 100%", "no-repeat")
+        case .original:
+            ("auto", "no-repeat")
+        case .tile:
+            ("auto", "repeat")
+        }
     }
 
     private static func alphaColor(_ color: String, _ opacity: Double) -> String {

@@ -121,11 +121,11 @@ a `avatar-overlay`. Si Voice no está activado, Theme Switcher no se conecta a e
 desactivarlo borra el estilo y cierra la sesión.
 
 Las imágenes se integran en `.codextheme` y admiten los siete modos de tamaño de Image Skin.
-Los controles también incluyen escala de la esfera, opacidad, brillo, contraste, saturación,
-rotación de tono, desenfoque, resplandor y color de fondo. La función sigue siendo experimental:
-CSS puede modificar
-contenedores DOM/Canvas y su resultado compuesto, pero no los píxeles ni las animaciones internas
-de una capa nativa AppKit/Core Animation.
+También se puede recortar una imagen independiente dentro de la esfera DOM, con tamaño, punto
+focal, opacidad, desenfoque y margen interior propios. Los demás controles de la esfera siguen
+siendo independientes. Esta imagen funciona con la implementación DOM `.codex-avatar-root` actual;
+una futura esfera nativa o solo Canvas podría no exponer su interior a CSS. La vista previa sigue
+la geometría observada `408:400`, aunque una esfera arrastrada puede ocupar otra posición en runtime.
 
 ## Flujo de trabajo
 

@@ -122,11 +122,11 @@ jamais envoyés à `avatar-overlay`. Si Voice n’est pas activé, Theme Switche
 le désactiver efface la feuille de style et ferme la session.
 
 Les images sont intégrées au fichier `.codextheme` et prennent en charge les sept modes de taille
-d’Image Skin. Les contrôles couvrent aussi l’échelle de l’orbe, l’opacité, la luminosité, le
-contraste, la saturation, la rotation de teinte, le flou, la lueur et la couleur d’arrière-plan.
-Cette fonction reste expérimentale :
-CSS peut modifier les conteneurs DOM/Canvas et leur rendu composé, mais pas les pixels ni les
-animations internes d’une couche native AppKit/Core Animation.
+d’Image Skin. Une image distincte peut aussi être découpée dans l’orbe DOM, avec ses propres mode de
+taille, point focal, opacité, flou et marge intérieure. Les autres contrôles de l’orbe restent
+indépendants. Cette image fonctionne avec l’implémentation DOM `.codex-avatar-root` actuelle ;
+un futur orbe natif ou uniquement Canvas pourrait ne pas exposer son intérieur à CSS. L’aperçu suit
+la géométrie observée `408:400`, mais un orbe déplacé peut occuper une autre position à l’exécution.
 
 ## Flux de travail
 

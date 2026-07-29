@@ -1585,6 +1585,18 @@ public struct CodexThemeAgentCLI {
             if copy.imageSkin?.dark.backgroundAssetID == oldID {
                 copy.imageSkin?.dark.backgroundAssetID = newID
             }
+            if copy.voiceStyle?.light.backgroundAssetID == oldID {
+                copy.voiceStyle?.light.backgroundAssetID = newID
+            }
+            if copy.voiceStyle?.dark.backgroundAssetID == oldID {
+                copy.voiceStyle?.dark.backgroundAssetID = newID
+            }
+            if copy.voiceStyle?.light.orbBackgroundAssetID == oldID {
+                copy.voiceStyle?.light.orbBackgroundAssetID = newID
+            }
+            if copy.voiceStyle?.dark.orbBackgroundAssetID == oldID {
+                copy.voiceStyle?.dark.orbBackgroundAssetID = newID
+            }
         }
         return copy
     }

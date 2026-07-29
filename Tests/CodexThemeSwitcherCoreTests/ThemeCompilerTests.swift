@@ -873,6 +873,77 @@ final class ThemeCompilerTests: XCTestCase {
         XCTAssertEqual(compiled.runtimeAssets, [asset])
     }
 
+    func testVoiceOrbImageTargetsRealAvatarRootWithoutGenericSVG() throws {
+        let outer = TestFixtures.imageAsset(
+            name: "voice-background.png",
+            bytes: [4, 5, 6]
+        )
+        let orb = TestFixtures.imageAsset(
+            name: "voice-orb.png",
+            bytes: [7, 8, 9]
+        )
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.backgroundAssetID = outer.id
+        voice.light.orbBackgroundAssetID = orb.id
+        voice.light.orbBackgroundImageFit = .contain
+        voice.light.orbBackgroundPositionX = 0.25
+        voice.light.orbBackgroundPositionY = 0.75
+        voice.light.orbBackgroundImageOpacity = 0.6
+        voice.light.orbBackgroundImageBlur = 3
+        voice.light.orbBackgroundInset = 8
+        var theme = TestFixtures.theme(assets: [outer, orb])
+        theme.voiceStyle = voice
+
+        let compiled = try ThemeCompiler().compile(theme)
+
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(".codex-avatar-root")
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                ".codex-avatar-root,"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-background-size: contain;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-background-position: 25% 75%;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-background-opacity: 0.6;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-background-blur: 3px;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-background-inset: 8px;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(")::after {")
+        )
+        XCTAssertFalse(
+            compiled.avatarOverlayCSS.contains(
+                """
+                  canvas,
+                  svg,
+                """
+            )
+        )
+        XCTAssertFalse(compiled.css.contains("voice-orb.png"))
+        XCTAssertEqual(Set(compiled.runtimeAssets.map(\.id)), [outer.id, orb.id])
+    }
+
     func testEscaperHandlesIdentifiersStringsAndComments() {
         XCTAssertEqual(CSSEscaper.escapeIdentifier("9 lives"), "\\39 \\20 lives")
         XCTAssertEqual(CSSEscaper.escapeString("a\"b\\c\n"), "a\\\"b\\\\c\\a ")

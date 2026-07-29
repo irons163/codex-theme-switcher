@@ -85,6 +85,13 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
     public var backgroundZoom: Double
     public var backgroundImageOpacity: Double
     public var backgroundImageBlur: Double
+    public var orbBackgroundAssetID: UUID?
+    public var orbBackgroundImageFit: ThemeSkinImageFit
+    public var orbBackgroundPositionX: Double
+    public var orbBackgroundPositionY: Double
+    public var orbBackgroundImageOpacity: Double
+    public var orbBackgroundImageBlur: Double
+    public var orbBackgroundInset: Double
     public var orbScale: Double
     public var orbOpacity: Double
     public var brightness: Double
@@ -106,6 +113,13 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         backgroundZoom: Double = 1,
         backgroundImageOpacity: Double = 1,
         backgroundImageBlur: Double = 0,
+        orbBackgroundAssetID: UUID? = nil,
+        orbBackgroundImageFit: ThemeSkinImageFit = .cover,
+        orbBackgroundPositionX: Double = 0.5,
+        orbBackgroundPositionY: Double = 0.5,
+        orbBackgroundImageOpacity: Double = 1,
+        orbBackgroundImageBlur: Double = 0,
+        orbBackgroundInset: Double = 4,
         orbScale: Double = 1,
         orbOpacity: Double = 1,
         brightness: Double = 1,
@@ -126,6 +140,13 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         self.backgroundZoom = backgroundZoom
         self.backgroundImageOpacity = backgroundImageOpacity
         self.backgroundImageBlur = backgroundImageBlur
+        self.orbBackgroundAssetID = orbBackgroundAssetID
+        self.orbBackgroundImageFit = orbBackgroundImageFit
+        self.orbBackgroundPositionX = orbBackgroundPositionX
+        self.orbBackgroundPositionY = orbBackgroundPositionY
+        self.orbBackgroundImageOpacity = orbBackgroundImageOpacity
+        self.orbBackgroundImageBlur = orbBackgroundImageBlur
+        self.orbBackgroundInset = orbBackgroundInset
         self.orbScale = orbScale
         self.orbOpacity = orbOpacity
         self.brightness = brightness
@@ -156,6 +177,13 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         case backgroundZoom
         case backgroundImageOpacity
         case backgroundImageBlur
+        case orbBackgroundAssetID
+        case orbBackgroundImageFit
+        case orbBackgroundPositionX
+        case orbBackgroundPositionY
+        case orbBackgroundImageOpacity
+        case orbBackgroundImageBlur
+        case orbBackgroundInset
         case orbScale
         case orbOpacity
         case brightness
@@ -212,6 +240,39 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
             Double.self,
             forKey: .backgroundImageBlur
         ) ?? defaults.backgroundImageBlur
+        orbBackgroundAssetID = try values.decodeIfPresent(
+            UUID.self,
+            forKey: .orbBackgroundAssetID
+        )
+        if let rawImageFit = try values.decodeIfPresent(
+            String.self,
+            forKey: .orbBackgroundImageFit
+        ) {
+            orbBackgroundImageFit = ThemeSkinImageFit(rawValue: rawImageFit)
+                ?? defaults.orbBackgroundImageFit
+        } else {
+            orbBackgroundImageFit = defaults.orbBackgroundImageFit
+        }
+        orbBackgroundPositionX = try values.decodeIfPresent(
+            Double.self,
+            forKey: .orbBackgroundPositionX
+        ) ?? defaults.orbBackgroundPositionX
+        orbBackgroundPositionY = try values.decodeIfPresent(
+            Double.self,
+            forKey: .orbBackgroundPositionY
+        ) ?? defaults.orbBackgroundPositionY
+        orbBackgroundImageOpacity = try values.decodeIfPresent(
+            Double.self,
+            forKey: .orbBackgroundImageOpacity
+        ) ?? defaults.orbBackgroundImageOpacity
+        orbBackgroundImageBlur = try values.decodeIfPresent(
+            Double.self,
+            forKey: .orbBackgroundImageBlur
+        ) ?? defaults.orbBackgroundImageBlur
+        orbBackgroundInset = try values.decodeIfPresent(
+            Double.self,
+            forKey: .orbBackgroundInset
+        ) ?? defaults.orbBackgroundInset
         orbScale = try values.decodeIfPresent(
             Double.self,
             forKey: .orbScale

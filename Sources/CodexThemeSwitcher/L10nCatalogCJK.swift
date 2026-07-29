@@ -1105,10 +1105,10 @@ enum L10nCatalogCJK {
         ),
         .init("Experimental", "实验功能", "実験的機能", "실험 기능"),
         .init(
-            "Codex versions may use DOM, Canvas, WebGL, or native layers. CSS cannot alter the inside of a native orb.",
-            "不同 Codex 版本可能使用 DOM、Canvas、WebGL 或原生图层；CSS 无法改变原生圆球内部。",
-            "CodexのバージョンによってDOM、Canvas、WebGL、またはネイティブレイヤーが使われます。CSSではネイティブオーブの内部を変更できません。",
-            "Codex 버전에 따라 DOM, Canvas, WebGL 또는 네이티브 레이어를 사용할 수 있습니다. CSS로 네이티브 오브 내부를 변경할 수 없습니다."
+            "Codex versions may use DOM, Canvas, WebGL, or native layers. The embedded image works on the current DOM orb, while native or Canvas orbs may not expose their inside to CSS.",
+            "不同 Codex 版本可能使用 DOM、Canvas、WebGL 或原生图层。内嵌图像适用于当前 DOM 圆球，但原生或 Canvas 圆球可能不会向 CSS 开放内部。",
+            "CodexのバージョンによってDOM、Canvas、WebGL、またはネイティブレイヤーが使われます。埋め込み画像は現在のDOMオーブで動作しますが、ネイティブまたはCanvasのオーブ内部はCSSから操作できない場合があります。",
+            "Codex 버전에 따라 DOM, Canvas, WebGL 또는 네이티브 레이어를 사용할 수 있습니다. 삽입 이미지는 현재 DOM 오브에서 작동하지만 네이티브 또는 Canvas 오브 내부는 CSS에 노출되지 않을 수 있습니다."
         ),
         .init(
             "Reset current appearance",
@@ -1124,10 +1124,10 @@ enum L10nCatalogCJK {
         ),
         .init("Effect preview", "效果预览", "効果プレビュー", "효과 미리보기"),
         .init(
-            "This previews the CSS filters. How much reaches the real orb depends on the current Codex Voice renderer.",
-            "这里预览 CSS 滤镜；实际圆球能应用多少效果，取决于当前 Codex Voice renderer。",
-            "CSSフィルターのプレビューです。実際のオーブにどこまで反映されるかは、現在のCodex Voice rendererによって異なります。",
-            "CSS 필터 미리보기입니다. 실제 오브에 적용되는 범위는 현재 Codex Voice renderer에 따라 달라집니다."
+            "The preview uses the measured Voice overlay ratio and initial orb position. Its runtime position can differ after you drag the orb.",
+            "预览使用实测的 Voice overlay 比例与圆球初始位置；拖动圆球后，实际位置可能不同。",
+            "プレビューは実測したVoice overlayの比率とオーブの初期位置を使用します。オーブをドラッグした後は実際の位置が異なる場合があります。",
+            "미리보기는 측정된 Voice overlay 비율과 오브의 초기 위치를 사용합니다. 오브를 드래그한 뒤 실제 위치는 달라질 수 있습니다."
         ),
         .init("Orb surface", "圆球表面", "オーブ表面", "오브 표면"),
         .init(
@@ -1223,6 +1223,60 @@ enum L10nCatalogCJK {
             "调整 Voice 背景焦点",
             "Voice背景のフォーカルポイントを調整",
             "Voice 배경 초점 조정"
+        ),
+        .init(
+            "Image inside orb",
+            "圆球内部图像",
+            "オーブ内の画像",
+            "오브 내부 이미지"
+        ),
+        .init(
+            "Places a separate image inside the current DOM orb. Lower the image opacity to let the original animated orb show through.",
+            "在当前 DOM 圆球内放置独立图像。降低图像不透明度可让原本的动画圆球透出。",
+            "現在のDOMオーブ内に別の画像を配置します。画像の不透明度を下げると、元のアニメーションオーブが透けて見えます。",
+            "현재 DOM 오브 안에 별도 이미지를 배치합니다. 이미지 불투명도를 낮추면 원래의 애니메이션 오브가 비쳐 보입니다."
+        ),
+        .init(
+            "Choose light orb image",
+            "选择浅色圆球图像",
+            "Lightのオーブ画像を選択",
+            "Light 오브 이미지 선택"
+        ),
+        .init(
+            "Choose dark orb image",
+            "选择深色圆球图像",
+            "Darkのオーブ画像を選択",
+            "Dark 오브 이미지 선택"
+        ),
+        .init(
+            "{0} orb image set",
+            "已设置{0}圆球图像",
+            "{0}のオーブ画像を設定しました",
+            "{0} 오브 이미지 설정됨"
+        ),
+        .init(
+            "Adjust orb image focal point",
+            "调整圆球图像焦点",
+            "オーブ画像のフォーカルポイントを調整",
+            "오브 이미지 초점 조정"
+        ),
+        .init(
+            "Orb image opacity",
+            "圆球图像不透明度",
+            "オーブ画像の不透明度",
+            "오브 이미지 불투명도"
+        ),
+        .init(
+            "Orb image blur",
+            "圆球图像模糊",
+            "オーブ画像のぼかし",
+            "오브 이미지 흐림"
+        ),
+        .init(
+            "Orb image inset",
+            "圆球图像内缩",
+            "オーブ画像の内側余白",
+            "오브 이미지 안쪽 여백"
         )
     ]
 }

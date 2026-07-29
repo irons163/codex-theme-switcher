@@ -146,6 +146,9 @@ final class ThemeSchemaExamplesTests: XCTestCase {
             voiceVariant["properties"] as? [String: Any]
         )
         XCTAssertNotNil(voiceProperties["backgroundAssetID"])
+        XCTAssertNotNil(voiceProperties["orbBackgroundAssetID"])
+        XCTAssertNotNil(voiceProperties["orbBackgroundImageFit"])
+        XCTAssertNotNil(voiceProperties["orbBackgroundInset"])
         XCTAssertNotNil(voiceProperties["backgroundImageFit"])
         XCTAssertNotNil(voiceProperties["backgroundPositionX"])
         XCTAssertNotNil(voiceProperties["backgroundPositionY"])

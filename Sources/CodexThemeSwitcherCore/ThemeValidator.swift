@@ -472,7 +472,20 @@ public struct ThemeValidator: Sendable {
             for appearance in appearances {
                 let path = "voiceStyle.\(appearance.name)"
                 let variant = appearance.value
-                if let assetID = variant.backgroundAssetID {
+                let imageAssets = [
+                    (
+                        name: "backgroundAssetID",
+                        id: variant.backgroundAssetID,
+                        label: "Voice background"
+                    ),
+                    (
+                        name: "orbBackgroundAssetID",
+                        id: variant.orbBackgroundAssetID,
+                        label: "Voice orb image"
+                    )
+                ]
+                for imageAsset in imageAssets {
+                    guard let assetID = imageAsset.id else { continue }
                     if let asset = document.assets.first(
                         where: { $0.id == assetID }
                     ) {
@@ -481,15 +494,15 @@ public struct ThemeValidator: Sendable {
                         ) {
                             add(
                                 .invalidSkinAssetType,
-                                path: "\(path).backgroundAssetID",
-                                message: "Voice backgrounds require a supported raster image asset."
+                                path: "\(path).\(imageAsset.name)",
+                                message: "\(imageAsset.label) requires a supported raster image asset."
                             )
                         }
                     } else {
                         add(
                             .missingSkinAsset,
-                            path: "\(path).backgroundAssetID",
-                            message: "Voice background references missing asset \(assetID.uuidString)."
+                            path: "\(path).\(imageAsset.name)",
+                            message: "\(imageAsset.label) references missing asset \(assetID.uuidString)."
                         )
                     }
                 }
@@ -539,6 +552,18 @@ public struct ThemeValidator: Sendable {
                         "backgroundImageOpacity",
                         variant.backgroundImageOpacity
                     ),
+                    (
+                        "orbBackgroundPositionX",
+                        variant.orbBackgroundPositionX
+                    ),
+                    (
+                        "orbBackgroundPositionY",
+                        variant.orbBackgroundPositionY
+                    ),
+                    (
+                        "orbBackgroundImageOpacity",
+                        variant.orbBackgroundImageOpacity
+                    ),
                     ("orbOpacity", variant.orbOpacity),
                     ("glowOpacity", variant.glowOpacity),
                     ("backdropOpacity", variant.backdropOpacity)
@@ -564,6 +589,16 @@ public struct ThemeValidator: Sendable {
                         "backgroundImageBlur",
                         variant.backgroundImageBlur,
                         0...40
+                    ),
+                    (
+                        "orbBackgroundImageBlur",
+                        variant.orbBackgroundImageBlur,
+                        0...40
+                    ),
+                    (
+                        "orbBackgroundInset",
+                        variant.orbBackgroundInset,
+                        0...24
                     ),
                     ("orbScale", variant.orbScale, 0.5...2),
                     ("brightness", variant.brightness, 0...3),

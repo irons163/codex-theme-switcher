@@ -126,6 +126,7 @@ final class ThemeAppModelDraftTests: XCTestCase {
         )
         var voice = ThemeVoiceStyle(isEnabled: true)
         voice.dark.backgroundAssetID = firstAsset.id
+        voice.dark.orbBackgroundAssetID = firstAsset.id
 
         var theme = BuiltInThemes.midnight
         theme.id = UUID()
@@ -144,11 +145,31 @@ final class ThemeAppModelDraftTests: XCTestCase {
             model.draft?.voiceStyle?.dark.backgroundAssetID,
             secondAsset.id
         )
+        XCTAssertEqual(
+            Set(model.draft?.assets.map(\.id) ?? []),
+            [firstAsset.id, secondAsset.id]
+        )
+
+        model.setVoiceOrbBackground(secondAsset.id, for: .dark)
+
+        XCTAssertEqual(
+            model.draft?.voiceStyle?.dark.orbBackgroundAssetID,
+            secondAsset.id
+        )
         XCTAssertEqual(model.draft?.assets.map(\.id), [secondAsset.id])
 
         model.clearVoiceBackground(for: .dark)
 
         XCTAssertNil(model.draft?.voiceStyle?.dark.backgroundAssetID)
+        XCTAssertEqual(
+            model.draft?.voiceStyle?.dark.orbBackgroundAssetID,
+            secondAsset.id
+        )
+        XCTAssertEqual(model.draft?.assets.map(\.id), [secondAsset.id])
+
+        model.clearVoiceOrbBackground(for: .dark)
+
+        XCTAssertNil(model.draft?.voiceStyle?.dark.orbBackgroundAssetID)
         XCTAssertTrue(model.draft?.assets.isEmpty == true)
     }
 }
