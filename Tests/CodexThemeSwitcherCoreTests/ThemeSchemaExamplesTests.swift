@@ -149,6 +149,8 @@ final class ThemeSchemaExamplesTests: XCTestCase {
         XCTAssertNotNil(voiceProperties["orbBackgroundAssetID"])
         XCTAssertNotNil(voiceProperties["orbBackgroundImageFit"])
         XCTAssertNotNil(voiceProperties["orbBackgroundInset"])
+        XCTAssertNotNil(voiceProperties["orbBackgroundFollowsVoicePulse"])
+        XCTAssertNotNil(voiceProperties["orbBackgroundPulseStrength"])
         XCTAssertNotNil(voiceProperties["backgroundImageFit"])
         XCTAssertNotNil(voiceProperties["backgroundPositionX"])
         XCTAssertNotNil(voiceProperties["backgroundPositionY"])

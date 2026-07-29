@@ -541,6 +541,43 @@ struct ThemeVoiceEditorView: View {
             .disabled(orbBackgroundAsset == nil)
             .opacity(orbBackgroundAsset == nil ? 0.55 : 1)
 
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(
+                        L10n.text(
+                            "跟隨語音脈動",
+                            "Follow Voice pulse"
+                        )
+                    )
+                    .font(.caption.weight(.semibold))
+                    Text(
+                        L10n.text(
+                            "讓圓球圖片跟著原生 Voice 動畫同步縮放。",
+                            "Synchronizes the orb image scale with the native Voice animation."
+                        )
+                    )
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Toggle(
+                    L10n.text(
+                        "跟隨語音脈動",
+                        "Follow Voice pulse"
+                    ),
+                    isOn: variantBinding(
+                        \.orbBackgroundFollowsVoicePulse
+                    )
+                )
+                .labelsHidden()
+                .toggleStyle(.switch)
+            }
+            .padding(10)
+            .background(.quaternary.opacity(0.28))
+            .clipShape(RoundedRectangle(cornerRadius: 9))
+            .disabled(orbBackgroundAsset == nil)
+            .opacity(orbBackgroundAsset == nil ? 0.55 : 1)
+
             settingsGrid {
                 VoiceValueSlider(
                     title: L10n.text(
@@ -592,6 +629,19 @@ struct ThemeVoiceEditorView: View {
                     step: 0.5,
                     format: { String(format: "%.1f px", $0) }
                 )
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "脈動強度",
+                        "Pulse strength"
+                    ),
+                    value: variantBinding(
+                        \.orbBackgroundPulseStrength
+                    ),
+                    range: 0...2,
+                    step: 0.05,
+                    format: { String(format: "%.2f×", $0) }
+                )
+                .disabled(!variant.orbBackgroundFollowsVoicePulse)
             }
             .disabled(orbBackgroundAsset == nil)
             .opacity(orbBackgroundAsset == nil ? 0.55 : 1)

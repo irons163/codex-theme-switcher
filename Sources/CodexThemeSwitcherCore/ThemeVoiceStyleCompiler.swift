@@ -98,6 +98,8 @@ enum ThemeVoiceStyleCompiler {
           --cts-voice-orb-background-opacity: \(number(variant.orbBackgroundImageOpacity));
           --cts-voice-orb-background-blur: \(number(variant.orbBackgroundImageBlur))px;
           --cts-voice-orb-background-inset: \(number(variant.orbBackgroundInset))px;
+          --cts-voice-orb-pulse-enabled: \(variant.orbBackgroundAssetID != nil && variant.orbBackgroundFollowsVoicePulse ? "1" : "0");
+          --cts-voice-orb-pulse-strength: \(number(variant.orbBackgroundPulseStrength));
           --cts-voice-scale: \(number(variant.orbScale));
           --cts-voice-opacity: \(number(variant.orbOpacity));
           --cts-voice-brightness: \(number(variant.brightness));
@@ -212,6 +214,9 @@ enum ThemeVoiceStyleCompiler {
           overflow: hidden;
           pointer-events: none;
           position: absolute;
+          scale: var(--cts-voice-orb-live-pulse, 1);
+          transform-origin: center;
+          will-change: scale;
           z-index: 2;
         }
         """

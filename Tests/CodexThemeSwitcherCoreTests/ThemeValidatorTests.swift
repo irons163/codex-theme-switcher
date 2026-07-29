@@ -373,6 +373,7 @@ final class ThemeValidatorTests: XCTestCase {
         voice.dark.backgroundImageBlur = 40.01
         voice.dark.orbBackgroundImageBlur = 40.01
         voice.dark.orbBackgroundInset = 24.01
+        voice.dark.orbBackgroundPulseStrength = 2.01
         voice.light.orbScale = 2.01
         voice.light.glowOpacity = -0.01
         voice.dark.hueRotation = 181
@@ -405,6 +406,9 @@ final class ThemeValidatorTests: XCTestCase {
         )
         XCTAssertTrue(
             paths.contains("voiceStyle.dark.orbBackgroundInset")
+        )
+        XCTAssertTrue(
+            paths.contains("voiceStyle.dark.orbBackgroundPulseStrength")
         )
         XCTAssertTrue(paths.contains("voiceStyle.light.orbScale"))
         XCTAssertTrue(paths.contains("voiceStyle.light.glowOpacity"))

@@ -92,6 +92,8 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
     public var orbBackgroundImageOpacity: Double
     public var orbBackgroundImageBlur: Double
     public var orbBackgroundInset: Double
+    public var orbBackgroundFollowsVoicePulse: Bool
+    public var orbBackgroundPulseStrength: Double
     public var orbScale: Double
     public var orbOpacity: Double
     public var brightness: Double
@@ -120,6 +122,8 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         orbBackgroundImageOpacity: Double = 1,
         orbBackgroundImageBlur: Double = 0,
         orbBackgroundInset: Double = 4,
+        orbBackgroundFollowsVoicePulse: Bool = true,
+        orbBackgroundPulseStrength: Double = 1,
         orbScale: Double = 1,
         orbOpacity: Double = 1,
         brightness: Double = 1,
@@ -147,6 +151,8 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         self.orbBackgroundImageOpacity = orbBackgroundImageOpacity
         self.orbBackgroundImageBlur = orbBackgroundImageBlur
         self.orbBackgroundInset = orbBackgroundInset
+        self.orbBackgroundFollowsVoicePulse = orbBackgroundFollowsVoicePulse
+        self.orbBackgroundPulseStrength = orbBackgroundPulseStrength
         self.orbScale = orbScale
         self.orbOpacity = orbOpacity
         self.brightness = brightness
@@ -184,6 +190,8 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         case orbBackgroundImageOpacity
         case orbBackgroundImageBlur
         case orbBackgroundInset
+        case orbBackgroundFollowsVoicePulse
+        case orbBackgroundPulseStrength
         case orbScale
         case orbOpacity
         case brightness
@@ -273,6 +281,14 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
             Double.self,
             forKey: .orbBackgroundInset
         ) ?? defaults.orbBackgroundInset
+        orbBackgroundFollowsVoicePulse = try values.decodeIfPresent(
+            Bool.self,
+            forKey: .orbBackgroundFollowsVoicePulse
+        ) ?? defaults.orbBackgroundFollowsVoicePulse
+        orbBackgroundPulseStrength = try values.decodeIfPresent(
+            Double.self,
+            forKey: .orbBackgroundPulseStrength
+        ) ?? defaults.orbBackgroundPulseStrength
         orbScale = try values.decodeIfPresent(
             Double.self,
             forKey: .orbScale

@@ -600,6 +600,11 @@ public struct ThemeValidator: Sendable {
                         variant.orbBackgroundInset,
                         0...24
                     ),
+                    (
+                        "orbBackgroundPulseStrength",
+                        variant.orbBackgroundPulseStrength,
+                        0...2
+                    ),
                     ("orbScale", variant.orbScale, 0.5...2),
                     ("brightness", variant.brightness, 0...3),
                     ("contrast", variant.contrast, 0...3),

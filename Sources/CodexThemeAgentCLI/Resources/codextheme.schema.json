@@ -517,6 +517,16 @@
           "minimum": 0,
           "maximum": 24
         },
+        "orbBackgroundFollowsVoicePulse": {
+          "type": "boolean",
+          "description": "Synchronize the custom orb image scale with the native Voice sprite animation."
+        },
+        "orbBackgroundPulseStrength": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "description": "Native Voice pulse multiplier. 0 disables movement, 1 follows the measured sprite size, and 2 exaggerates it."
+        },
         "orbScale": {
           "type": "number",
           "minimum": 0.5,

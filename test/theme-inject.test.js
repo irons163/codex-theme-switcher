@@ -163,7 +163,7 @@ function install(dom = fakeDOM()) {
   return dom;
 }
 
-test("VERSION=2 exposes transaction APIs and source evaluation is idempotent", () => {
+test("VERSION=3 exposes transaction APIs and source evaluation is idempotent", () => {
   const dom = install();
   const runtime = dom.window.__codexThemeSwitcherRuntime;
   const functions = [
@@ -175,7 +175,7 @@ test("VERSION=2 exposes transaction APIs and source evaluation is idempotent", (
     "__codexThemeSwitcherClear",
   ];
 
-  assert.equal(runtime.version, 2);
+  assert.equal(runtime.version, 3);
   for (const name of functions) {
     assert.equal(typeof dom.window[name], "function", name);
   }
@@ -557,4 +557,165 @@ test("runtime uses documentElement as style host and never schedules revival", (
   dom.window.__codexThemeSwitcherCommit({ transactionID: "transaction-1" });
   assert.equal(dom.children.length, 1);
   assert.equal(timeoutCalls, 0);
+});
+
+test("custom Voice orb image follows native sprite frame size", async () => {
+  const dom = fakeDOM();
+  const liveProperties = new Map();
+  const observers = [];
+  let pulseEnabled = "1";
+  const orb = {
+    style: {
+      backgroundImage: 'url("sprite:test")',
+      backgroundPosition: "0% 0%",
+      getPropertyValue(name) {
+        return liveProperties.get(name) || "";
+      },
+      setProperty(name, value) {
+        liveProperties.set(name, value);
+      },
+      removeProperty(name) {
+        liveProperties.delete(name);
+      },
+    },
+  };
+  dom.document.querySelector = (selector) => (
+    selector === ".codex-avatar-root" ? orb : null
+  );
+  dom.sandbox.getComputedStyle = (element) => {
+    if (element === dom.document.documentElement) {
+      return {
+        getPropertyValue(name) {
+          if (name === "--cts-voice-orb-pulse-enabled") {
+            return pulseEnabled;
+          }
+          if (name === "--cts-voice-orb-pulse-strength") return "1";
+          return "";
+        },
+      };
+    }
+    return {
+      backgroundImage: orb.style.backgroundImage,
+      backgroundPosition: orb.style.backgroundPosition,
+      backgroundSize: "200% 100%",
+      getPropertyValue() {
+        return "";
+      },
+    };
+  };
+  dom.sandbox.MutationObserver = class FakeMutationObserver {
+    constructor(callback) {
+      this.callback = callback;
+      this.disconnected = false;
+      observers.push(this);
+    }
+
+    observe(target, options) {
+      this.target = target;
+      this.options = options;
+    }
+
+    disconnect() {
+      this.disconnected = true;
+    }
+  };
+  dom.sandbox.Image = class FakeImage {
+    constructor() {
+      this.naturalWidth = 6;
+      this.naturalHeight = 3;
+    }
+
+    set src(value) {
+      this.source = value;
+      this.onload();
+    }
+  };
+  const createElement = dom.document.createElement;
+  dom.document.createElement = (tagName) => {
+    if (tagName !== "canvas") return createElement(tagName);
+    return {
+      getContext() {
+        return {
+          drawImage() {},
+          getImageData(x, _y, width, height) {
+            const pixels = new Uint8ClampedArray(width * height * 4);
+            if (x === 0) {
+              pixels[3] = 255;
+            } else {
+              for (let index = 3; index < pixels.length; index += 4) {
+                pixels[index] = 255;
+              }
+            }
+            return { data: pixels };
+          },
+        };
+      },
+    };
+  };
+
+  install(dom);
+  dom.window.__codexThemeSwitcherBegin(beginPayload({
+    css: ":root { --cts-voice-orb-pulse-enabled: 1; }",
+  }));
+  dom.window.__codexThemeSwitcherCommit({ transactionID: "transaction-1" });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(
+    liveProperties.get("--cts-voice-orb-live-pulse"),
+    "0.5000",
+  );
+  assert.equal(
+    dom.window.__codexThemeSwitcherStatus().voicePulseActive,
+    true,
+  );
+  const rootObserver = observers.find((observer) => observer.target === orb);
+  assert.ok(rootObserver);
+  assert.equal(rootObserver.options.attributes, true);
+  assert.deepEqual(
+    [...rootObserver.options.attributeFilter],
+    ["style"],
+  );
+
+  orb.style.backgroundPosition = "100% 0%";
+  rootObserver.callback();
+  assert.equal(
+    liveProperties.get("--cts-voice-orb-live-pulse"),
+    "1.0000",
+  );
+
+  pulseEnabled = "0";
+  observers.find((observer) => (
+    observer.target === dom.document.documentElement
+    && !observer.disconnected
+  )).callback();
+  assert.equal(
+    dom.window.__codexThemeSwitcherStatus().voicePulseActive,
+    false,
+  );
+  assert.equal(
+    liveProperties.has("--cts-voice-orb-live-pulse"),
+    false,
+  );
+
+  pulseEnabled = "1";
+  observers.find((observer) => (
+    observer.target === dom.document.documentElement
+    && !observer.disconnected
+  )).callback();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(
+    dom.window.__codexThemeSwitcherStatus().voicePulseActive,
+    true,
+  );
+
+  dom.window.__codexThemeSwitcherClear();
+  assert.equal(
+    liveProperties.has("--cts-voice-orb-live-pulse"),
+    false,
+  );
+  assert.equal(observers.every((observer) => observer.disconnected), true);
+  assert.equal(
+    dom.window.__codexThemeSwitcherStatus().voicePulseActive,
+    false,
+  );
 });

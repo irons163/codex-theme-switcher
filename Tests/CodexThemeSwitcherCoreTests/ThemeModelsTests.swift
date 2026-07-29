@@ -376,6 +376,8 @@ final class ThemeModelsTests: XCTestCase {
                 "orbBackgroundImageOpacity": 0.65,
                 "orbBackgroundImageBlur": 2,
                 "orbBackgroundInset": 6,
+                "orbBackgroundFollowsVoicePulse": false,
+                "orbBackgroundPulseStrength": 1.35,
                 "orbScale": 1.25
               },
               "dark": { "glowOpacity": 0.8 },
@@ -405,6 +407,8 @@ final class ThemeModelsTests: XCTestCase {
         XCTAssertEqual(decoded.light.orbBackgroundImageOpacity, 0.65)
         XCTAssertEqual(decoded.light.orbBackgroundImageBlur, 2)
         XCTAssertEqual(decoded.light.orbBackgroundInset, 6)
+        XCTAssertFalse(decoded.light.orbBackgroundFollowsVoicePulse)
+        XCTAssertEqual(decoded.light.orbBackgroundPulseStrength, 1.35)
         XCTAssertEqual(decoded.light.orbScale, 1.25)
         XCTAssertEqual(
             decoded.light.glowColor,
@@ -420,6 +424,8 @@ final class ThemeModelsTests: XCTestCase {
         XCTAssertEqual(decoded.dark.backgroundImageFit, .cover)
         XCTAssertEqual(decoded.dark.orbBackgroundImageFit, .cover)
         XCTAssertEqual(decoded.dark.orbBackgroundInset, 4)
+        XCTAssertTrue(decoded.dark.orbBackgroundFollowsVoicePulse)
+        XCTAssertEqual(decoded.dark.orbBackgroundPulseStrength, 1)
 
         var theme = TestFixtures.theme()
         theme.voiceStyle = decoded

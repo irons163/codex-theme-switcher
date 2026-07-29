@@ -1344,6 +1344,21 @@ enum L10nCatalogWestern {
             spanish: "Coloca una imagen independiente dentro de la esfera DOM actual. Reduce la opacidad de la imagen para que se vea la esfera animada original."
         ),
         Entry(
+            key: "Follow Voice pulse",
+            french: "Suivre la pulsation de Voice",
+            spanish: "Seguir el pulso de Voice"
+        ),
+        Entry(
+            key: "Synchronizes the orb image scale with the native Voice animation.",
+            french: "Synchronise l’échelle de l’image de l’orbe avec l’animation Voice native.",
+            spanish: "Sincroniza la escala de la imagen de la esfera con la animación nativa de Voice."
+        ),
+        Entry(
+            key: "Pulse strength",
+            french: "Intensité de la pulsation",
+            spanish: "Intensidad del pulso"
+        ),
+        Entry(
             key: "Choose light orb image",
             french: "Choisir l’image de l’orbe clair",
             spanish: "Elegir imagen de la esfera clara"

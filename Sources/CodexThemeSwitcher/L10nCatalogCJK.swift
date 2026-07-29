@@ -1237,6 +1237,24 @@ enum L10nCatalogCJK {
             "현재 DOM 오브 안에 별도 이미지를 배치합니다. 이미지 불투명도를 낮추면 원래의 애니메이션 오브가 비쳐 보입니다."
         ),
         .init(
+            "Follow Voice pulse",
+            "跟随 Voice 脉动",
+            "Voiceの脈動に追従",
+            "Voice 맥동 따라가기"
+        ),
+        .init(
+            "Synchronizes the orb image scale with the native Voice animation.",
+            "让圆球图像跟随原生 Voice 动画同步缩放。",
+            "オーブ画像の拡大縮小をネイティブVoiceアニメーションと同期します。",
+            "오브 이미지 크기를 기본 Voice 애니메이션과 동기화합니다."
+        ),
+        .init(
+            "Pulse strength",
+            "脉动强度",
+            "脈動の強さ",
+            "맥동 강도"
+        ),
+        .init(
             "Choose light orb image",
             "选择浅色圆球图像",
             "Lightのオーブ画像を選択",

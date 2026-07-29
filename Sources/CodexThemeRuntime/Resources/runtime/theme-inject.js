@@ -4,7 +4,11 @@
   const GLOBAL_KEY = "__codexThemeSwitcherRuntime";
   const STYLE_ID = "codex-theme-switcher-style";
   const STAGING_STYLE_ID = `${STYLE_ID}-staging`;
-  const VERSION = 2;
+  const VERSION = 3;
+  const VOICE_ORB_SELECTOR = ".codex-avatar-root";
+  const VOICE_PULSE_ENABLED = "--cts-voice-orb-pulse-enabled";
+  const VOICE_PULSE_STRENGTH = "--cts-voice-orb-pulse-strength";
+  const VOICE_PULSE_LIVE_SCALE = "--cts-voice-orb-live-pulse";
   const API_KEYS = {
     begin: "__codexThemeSwitcherBegin",
     appendAsset: "__codexThemeSwitcherAppendAsset",
@@ -69,6 +73,359 @@
   function stylePresent() {
     const style = activeStyle();
     return Boolean(style && style.parentNode && !style.disabled);
+  }
+
+  function computedStyle(element) {
+    if (!element || typeof getComputedStyle !== "function") return null;
+    try {
+      return getComputedStyle(element);
+    } catch {
+      return null;
+    }
+  }
+
+  function customProperty(element, name) {
+    return computedStyle(element)?.getPropertyValue?.(name)?.trim() || "";
+  }
+
+  function voicePulseIsEnabled() {
+    const value = customProperty(
+      document.documentElement,
+      VOICE_PULSE_ENABLED,
+    ).toLowerCase();
+    return value === "1" || value === "true";
+  }
+
+  function voicePulseIsConfigured() {
+    return customProperty(
+      document.documentElement,
+      VOICE_PULSE_ENABLED,
+    ) !== "";
+  }
+
+  function voicePulseStrength() {
+    const value = Number.parseFloat(
+      customProperty(document.documentElement, VOICE_PULSE_STRENGTH),
+    );
+    return Number.isFinite(value) ? Math.max(0, Math.min(2, value)) : 1;
+  }
+
+  function extractCSSURL(value) {
+    const source = typeof value === "string" ? value.trim() : "";
+    if (!source.startsWith("url(") || !source.endsWith(")")) return null;
+    let url = source.slice(4, -1).trim();
+    if (
+      url.length >= 2
+      && (
+        (url.startsWith("\"") && url.endsWith("\""))
+        || (url.startsWith("'") && url.endsWith("'"))
+      )
+    ) {
+      url = url.slice(1, -1);
+    }
+    return url || null;
+  }
+
+  function spriteGrid(root) {
+    const value = computedStyle(root)?.backgroundSize || "";
+    const matches = [...value.matchAll(/([0-9]+(?:\.[0-9]+)?)%/g)];
+    if (matches.length < 2) return null;
+    const columns = Math.round(Number(matches[0][1]) / 100);
+    const rows = Math.round(Number(matches[1][1]) / 100);
+    if (
+      columns < 1
+      || rows < 1
+      || columns > 32
+      || rows > 32
+      || columns * rows > 256
+    ) {
+      return null;
+    }
+    return { columns, rows };
+  }
+
+  function analyzeSprite(source, grid) {
+    if (
+      typeof Image !== "function"
+      || typeof document.createElement !== "function"
+    ) {
+      return Promise.resolve(null);
+    }
+
+    return new Promise((resolve) => {
+      const image = new Image();
+      image.onload = () => {
+        try {
+          const width = Number(image.naturalWidth || image.width);
+          const height = Number(image.naturalHeight || image.height);
+          const frameWidth = Math.floor(width / grid.columns);
+          const frameHeight = Math.floor(height / grid.rows);
+          if (
+            frameWidth < 1
+            || frameHeight < 1
+            || width * height > 32_000_000
+          ) {
+            resolve(null);
+            return;
+          }
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext?.("2d", {
+            willReadFrequently: true,
+          });
+          if (!context) {
+            resolve(null);
+            return;
+          }
+          context.drawImage(image, 0, 0);
+
+          const areas = [];
+          let largestArea = 0;
+          for (let row = 0; row < grid.rows; row += 1) {
+            for (let column = 0; column < grid.columns; column += 1) {
+              const pixels = context.getImageData(
+                column * frameWidth,
+                row * frameHeight,
+                frameWidth,
+                frameHeight,
+              ).data;
+              let minimumX = frameWidth;
+              let minimumY = frameHeight;
+              let maximumX = -1;
+              let maximumY = -1;
+              for (let y = 0; y < frameHeight; y += 1) {
+                for (let x = 0; x < frameWidth; x += 1) {
+                  const alpha = pixels[(y * frameWidth + x) * 4 + 3];
+                  if (alpha < 48) continue;
+                  minimumX = Math.min(minimumX, x);
+                  minimumY = Math.min(minimumY, y);
+                  maximumX = Math.max(maximumX, x);
+                  maximumY = Math.max(maximumY, y);
+                }
+              }
+              const area = maximumX < minimumX || maximumY < minimumY
+                ? 0
+                : (maximumX - minimumX + 1) * (maximumY - minimumY + 1);
+              areas.push(area);
+              largestArea = Math.max(largestArea, area);
+            }
+          }
+
+          if (largestArea <= 0) {
+            resolve(null);
+            return;
+          }
+          resolve({
+            ...grid,
+            scales: areas.map((area) => (
+              area > 0 ? Math.sqrt(area / largestArea) : 1
+            )),
+          });
+        } catch {
+          resolve(null);
+        }
+      };
+      image.onerror = () => resolve(null);
+      image.src = source;
+    });
+  }
+
+  function spriteAnalysis(root) {
+    const style = computedStyle(root);
+    const source = extractCSSURL(
+      root.style?.backgroundImage || style?.backgroundImage || "",
+    );
+    const grid = spriteGrid(root);
+    if (!source || !grid) return Promise.resolve(null);
+
+    const key = `${source}\n${grid.columns}x${grid.rows}`;
+    if (!runtime.voicePulseCache.has(key)) {
+      runtime.voicePulseCache.set(key, analyzeSprite(source, grid));
+    }
+    return runtime.voicePulseCache.get(key);
+  }
+
+  function percentPosition(value, frameCount) {
+    const match = String(value).match(/(-?[0-9]+(?:\.[0-9]+)?)%/);
+    if (!match || frameCount <= 1) return 0;
+    return Math.max(
+      0,
+      Math.min(
+        frameCount - 1,
+        Math.round((Number(match[1]) / 100) * (frameCount - 1)),
+      ),
+    );
+  }
+
+  function synchronizeVoicePulse() {
+    const pulse = runtime.voicePulse;
+    const root = pulse.root;
+    const analysis = pulse.analysis;
+    if (!root || !analysis) return;
+
+    const position = root.style?.backgroundPosition
+      || computedStyle(root)?.backgroundPosition
+      || "";
+    if (
+      position === pulse.lastPosition
+      && root.style?.getPropertyValue?.(VOICE_PULSE_LIVE_SCALE)
+        === pulse.lastScale
+    ) {
+      return;
+    }
+    pulse.lastPosition = position;
+    const values = String(position).trim().split(/\s+/);
+    const column = percentPosition(values[0], analysis.columns);
+    const row = percentPosition(values[1], analysis.rows);
+    const measured = analysis.scales[
+      row * analysis.columns + column
+    ] ?? 1;
+    const scale = Math.max(
+      0.5,
+      Math.min(1.25, 1 + (measured - 1) * voicePulseStrength()),
+    );
+    const formatted = scale.toFixed(4);
+    pulse.lastScale = formatted;
+    if (
+      root.style?.getPropertyValue?.(VOICE_PULSE_LIVE_SCALE) !== formatted
+    ) {
+      root.style?.setProperty?.(VOICE_PULSE_LIVE_SCALE, formatted);
+    }
+  }
+
+  function loadVoicePulseAnalysis(root, generation) {
+    const pulse = runtime.voicePulse;
+    if (
+      pulse.analysis
+      || pulse.analysisLoading
+      || root !== pulse.root
+      || generation !== pulse.generation
+    ) {
+      return;
+    }
+    pulse.analysisLoading = true;
+    spriteAnalysis(root).then((analysis) => {
+      if (
+        generation !== runtime.voicePulse.generation
+        || root !== runtime.voicePulse.root
+      ) {
+        return;
+      }
+      runtime.voicePulse.analysisLoading = false;
+      runtime.voicePulse.analysis = analysis;
+      runtime.voicePulse.lastPosition = null;
+      synchronizeVoicePulse();
+    });
+  }
+
+  function detachVoicePulseRoot() {
+    const pulse = runtime.voicePulse;
+    pulse.rootObserver?.disconnect?.();
+    pulse.root?.style?.removeProperty?.(VOICE_PULSE_LIVE_SCALE);
+    pulse.root = null;
+    pulse.rootObserver = null;
+    pulse.analysis = null;
+    pulse.analysisLoading = false;
+    pulse.lastPosition = null;
+    pulse.lastScale = null;
+    pulse.active = false;
+  }
+
+  function attachVoicePulseRoot(root, generation) {
+    const pulse = runtime.voicePulse;
+    if (!root || generation !== pulse.generation) return;
+    pulse.root = root;
+    pulse.active = true;
+
+    if (typeof MutationObserver === "function") {
+      pulse.rootObserver = new MutationObserver(() => {
+        if (runtime.voicePulse.analysis) {
+          synchronizeVoicePulse();
+        } else {
+          loadVoicePulseAnalysis(root, generation);
+        }
+      });
+      pulse.rootObserver.observe(root, {
+        attributes: true,
+        attributeFilter: ["style"],
+      });
+    }
+
+    loadVoicePulseAnalysis(root, generation);
+  }
+
+  function stopVoicePulseSync() {
+    const pulse = runtime.voicePulse;
+    if (!pulse) return;
+    pulse.generation += 1;
+    pulse.rootObserver?.disconnect?.();
+    pulse.domObserver?.disconnect?.();
+    pulse.appearanceObserver?.disconnect?.();
+    pulse.colorSchemeQuery?.removeEventListener?.(
+      "change",
+      pulse.colorSchemeListener,
+    );
+    detachVoicePulseRoot();
+    pulse.domObserver = null;
+    pulse.appearanceObserver = null;
+    pulse.colorSchemeQuery = null;
+    pulse.colorSchemeListener = null;
+  }
+
+  function refreshVoicePulseSync() {
+    stopVoicePulseSync();
+    if (!voicePulseIsConfigured()) return;
+
+    const generation = runtime.voicePulse.generation;
+    if (
+      typeof MutationObserver === "function"
+      && document.documentElement
+    ) {
+      runtime.voicePulse.appearanceObserver = new MutationObserver(() => {
+        refreshVoicePulseSync();
+      });
+      runtime.voicePulse.appearanceObserver.observe(
+        document.documentElement,
+        {
+          attributes: true,
+          attributeFilter: ["class"],
+        },
+      );
+    }
+    if (typeof matchMedia === "function") {
+      const query = matchMedia("(prefers-color-scheme: dark)");
+      const listener = () => refreshVoicePulseSync();
+      query.addEventListener?.("change", listener);
+      runtime.voicePulse.colorSchemeQuery = query;
+      runtime.voicePulse.colorSchemeListener = listener;
+    }
+    if (!voicePulseIsEnabled()) return;
+
+    const findRoot = () => (
+      typeof document.querySelector === "function"
+        ? document.querySelector(VOICE_ORB_SELECTOR)
+        : null
+    );
+    if (
+      typeof MutationObserver === "function"
+      && document.documentElement
+    ) {
+      runtime.voicePulse.domObserver = new MutationObserver(() => {
+        if (generation !== runtime.voicePulse.generation) return;
+        const nextRoot = findRoot();
+        if (nextRoot === runtime.voicePulse.root) return;
+        detachVoicePulseRoot();
+        if (nextRoot) attachVoicePulseRoot(nextRoot, generation);
+      });
+      runtime.voicePulse.domObserver.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+      });
+    }
+    const root = findRoot();
+    if (root) attachVoicePulseRoot(root, generation);
   }
 
   function descriptorFrom(value, index) {
@@ -412,6 +769,7 @@
       runtime.assets = nextAssets;
       runtime.transaction = null;
       revokeURLs(orphanedURLs);
+      refreshVoicePulseSync();
       return {
         ok: true,
         digest: runtime.current.digest,
@@ -440,6 +798,7 @@
       version: VERSION,
       digest: runtime.current?.digest || null,
       stylePresent: stylePresent(),
+      voicePulseActive: runtime.voicePulse.active,
       current: runtime.current
         ? {
           themeID: runtime.current.themeID,
@@ -451,6 +810,7 @@
   }
 
   function clear() {
+    stopVoicePulseSync();
     activeStyle()?.remove();
     removeStagingStyle();
     document.documentElement?.removeAttribute(
@@ -459,6 +819,7 @@
     revokeURLs([...runtime.assets.values()].map((asset) => asset.url));
     runtime.current = null;
     runtime.assets = new Map();
+    runtime.voicePulseCache.clear();
     runtime.transaction = null;
     return { ok: true };
   }
@@ -468,6 +829,21 @@
     current: null,
     assets: new Map(),
     transaction: null,
+    voicePulse: {
+      generation: 0,
+      root: null,
+      rootObserver: null,
+      domObserver: null,
+      appearanceObserver: null,
+      colorSchemeQuery: null,
+      colorSchemeListener: null,
+      analysis: null,
+      analysisLoading: false,
+      lastPosition: null,
+      lastScale: null,
+      active: false,
+    },
+    voicePulseCache: new Map(),
     begin,
     appendAsset,
     commit,

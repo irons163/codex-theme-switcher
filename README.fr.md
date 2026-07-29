@@ -123,7 +123,8 @@ le désactiver efface la feuille de style et ferme la session.
 
 Les images sont intégrées au fichier `.codextheme` et prennent en charge les sept modes de taille
 d’Image Skin. Une image distincte peut aussi être découpée dans l’orbe DOM, avec ses propres mode de
-taille, point focal, opacité, flou et marge intérieure. Les autres contrôles de l’orbe restent
+taille, point focal, opacité, flou et marge intérieure. Cette image peut suivre la pulsation du
+sprite Voice natif, avec une intensité réglable de 0 à 2×. Les autres contrôles de l’orbe restent
 indépendants. Cette image fonctionne avec l’implémentation DOM `.codex-avatar-root` actuelle ;
 un futur orbe natif ou uniquement Canvas pourrait ne pas exposer son intérieur à CSS. L’aperçu suit
 la géométrie observée `408:400`, mais un orbe déplacé peut occuper une autre position à l’exécution.

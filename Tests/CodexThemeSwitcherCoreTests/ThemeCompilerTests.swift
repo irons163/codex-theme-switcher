@@ -891,6 +891,8 @@ final class ThemeCompilerTests: XCTestCase {
         voice.light.orbBackgroundImageOpacity = 0.6
         voice.light.orbBackgroundImageBlur = 3
         voice.light.orbBackgroundInset = 8
+        voice.light.orbBackgroundFollowsVoicePulse = true
+        voice.light.orbBackgroundPulseStrength = 1.25
         var theme = TestFixtures.theme(assets: [outer, orb])
         theme.voiceStyle = voice
 
@@ -927,6 +929,21 @@ final class ThemeCompilerTests: XCTestCase {
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
                 "--cts-voice-orb-background-inset: 8px;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-pulse-enabled: 1;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-pulse-strength: 1.25;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "scale: var(--cts-voice-orb-live-pulse, 1);"
             )
         )
         XCTAssertTrue(

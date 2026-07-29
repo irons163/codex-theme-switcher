@@ -122,7 +122,8 @@ desactivarlo borra el estilo y cierra la sesión.
 
 Las imágenes se integran en `.codextheme` y admiten los siete modos de tamaño de Image Skin.
 También se puede recortar una imagen independiente dentro de la esfera DOM, con tamaño, punto
-focal, opacidad, desenfoque y margen interior propios. Los demás controles de la esfera siguen
+focal, opacidad, desenfoque y margen interior propios. Esta imagen puede seguir el pulso del sprite
+nativo de Voice, con una intensidad ajustable de 0 a 2×. Los demás controles de la esfera siguen
 siendo independientes. Esta imagen funciona con la implementación DOM `.codex-avatar-root` actual;
 una futura esfera nativa o solo Canvas podría no exponer su interior a CSS. La vista previa sigue
 la geometría observada `408:400`, aunque una esfera arrastrada puede ocupar otra posición en runtime.

@@ -116,7 +116,8 @@ an applied Voice style clears the overlay stylesheet and detaches its session.
 Background images are embedded in `.codextheme` files and support the same seven sizing modes as
 Image Skin, including Fit, Fill, Stretch, Fit Width, Fit Height, Original, and Tile. The built-in
 controls also provide a separate image clipped inside the DOM orb, with its own sizing, focal point,
-opacity, blur, and inset. Orb scale, opacity, brightness, contrast, saturation, hue rotation, blur,
+opacity, blur, and inset. That custom image can follow the native Voice sprite pulse, with an
+adjustable 0–2× pulse strength. Orb scale, opacity, brightness, contrast, saturation, hue rotation, blur,
 glow, and an optional backdrop tint remain independently adjustable. Voice Advanced CSS is isolated
 to `avatar-overlay` and can use portable `theme-asset("ASSET-UUID")` references under the same import
 and URL security rules as the main theme.
