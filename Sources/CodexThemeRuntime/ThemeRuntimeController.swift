@@ -44,6 +44,7 @@ public struct RuntimeHelperRunner: Sendable {
         css: String,
         themeID: String,
         themeName: String,
+        avatarOverlayCSS: String = "",
         assets: [ThemeRuntimeAsset] = []
     ) async throws -> ThemeRuntimeResult {
         let input = try JSONEncoder().encode(
@@ -51,6 +52,7 @@ public struct RuntimeHelperRunner: Sendable {
                 themeID: themeID,
                 themeName: themeName,
                 css: css,
+                avatarOverlayCSS: avatarOverlayCSS,
                 assets: assets
             )
         )
@@ -181,12 +183,14 @@ public actor ThemeRuntimeController {
         css: String,
         themeID: String,
         themeName: String,
+        avatarOverlayCSS: String = "",
         assets: [ThemeRuntimeAsset] = []
     ) async throws -> ThemeRuntimeResult {
         try await runner.apply(
             css: css,
             themeID: themeID,
             themeName: themeName,
+            avatarOverlayCSS: avatarOverlayCSS,
             assets: assets
         )
     }

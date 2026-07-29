@@ -14,6 +14,8 @@ public struct ThemeRuntimeStatus: Codable, Equatable, Sendable {
     public let activeThemeID: String?
     public let activeThemeName: String?
     public let injectedRendererCount: Int?
+    public let avatarOverlayRendererCount: Int?
+    public let voiceStyleEnabled: Bool?
     public let lastError: String?
 
     public init(
@@ -30,6 +32,8 @@ public struct ThemeRuntimeStatus: Codable, Equatable, Sendable {
         activeThemeID: String? = nil,
         activeThemeName: String? = nil,
         injectedRendererCount: Int? = nil,
+        avatarOverlayRendererCount: Int? = nil,
+        voiceStyleEnabled: Bool? = nil,
         lastError: String? = nil
     ) {
         self.codexPath = codexPath
@@ -45,6 +49,8 @@ public struct ThemeRuntimeStatus: Codable, Equatable, Sendable {
         self.activeThemeID = activeThemeID
         self.activeThemeName = activeThemeName
         self.injectedRendererCount = injectedRendererCount
+        self.avatarOverlayRendererCount = avatarOverlayRendererCount
+        self.voiceStyleEnabled = voiceStyleEnabled
         self.lastError = lastError
     }
 }
@@ -122,17 +128,20 @@ struct RuntimeThemePayload: Encodable, Sendable {
     let themeID: String
     let themeName: String
     let css: String
+    let avatarOverlayCSS: String
     let assets: [ThemeRuntimeAsset]
 
     init(
         themeID: String,
         themeName: String,
         css: String,
+        avatarOverlayCSS: String = "",
         assets: [ThemeRuntimeAsset] = []
     ) {
         self.themeID = themeID
         self.themeName = themeName
         self.css = css
+        self.avatarOverlayCSS = avatarOverlayCSS
         self.assets = assets
     }
 
@@ -140,6 +149,7 @@ struct RuntimeThemePayload: Encodable, Sendable {
         case themeID
         case themeName
         case css
+        case avatarOverlayCSS
         case assets
     }
 
@@ -148,6 +158,12 @@ struct RuntimeThemePayload: Encodable, Sendable {
         try container.encode(themeID, forKey: .themeID)
         try container.encode(themeName, forKey: .themeName)
         try container.encode(css, forKey: .css)
+        if !avatarOverlayCSS.isEmpty {
+            try container.encode(
+                avatarOverlayCSS,
+                forKey: .avatarOverlayCSS
+            )
+        }
         if !assets.isEmpty {
             try container.encode(assets, forKey: .assets)
         }

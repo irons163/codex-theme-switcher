@@ -33,6 +33,7 @@ final class ThemeAppModel: ObservableObject {
     enum EditorPage: String, CaseIterable, Identifiable {
         case preview
         case skin
+        case voice
         case colors
         case typography
         case components
@@ -48,6 +49,7 @@ final class ThemeAppModel: ObservableObject {
             switch self {
             case .preview: L10n.preview
             case .skin: L10n.skin
+            case .voice: L10n.voice
             case .colors: L10n.colors
             case .typography: L10n.typography
             case .components: L10n.components
@@ -63,6 +65,7 @@ final class ThemeAppModel: ObservableObject {
             switch self {
             case .preview: "rectangle.on.rectangle"
             case .skin: "photo.artframe"
+            case .voice: "waveform.circle"
             case .colors: "paintpalette"
             case .typography: "textformat"
             case .components: "square.grid.2x2"
@@ -501,6 +504,7 @@ final class ThemeAppModel: ObservableObject {
                     css: compiled.css,
                     themeID: document.id.uuidString,
                     themeName: document.metadata.name,
+                    avatarOverlayCSS: compiled.avatarOverlayCSS,
                     assets: compiled.runtimeAssets.map {
                         ThemeRuntimeAsset(
                             id: $0.id.uuidString.lowercased(),

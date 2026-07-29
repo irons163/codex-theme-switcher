@@ -40,6 +40,8 @@ Agent CLI 可在无窗口环境中生成 Light／Dark × Home／Chat PNG，供 A
 - 字体、字号、行高、内容宽度、间距、圆角、阴影、模糊、缩放与动画。
 - 背景与玻璃（Image Skin）：明暗双背景、Fit / Fill 等七种尺寸模式、焦点裁切、
   可选全窗口或避开左侧栏的壁纸画布、滤镜、overlay、分区 glass 与中央内容面板。
+- 实验性 ChatGPT Voice 样式：Light／Dark 可分别调整缩放、透明度、色彩滤镜、光晕、
+  背景色及 Voice 专用高级 CSS；只会发送到独立的 `avatar-overlay` renderer。
 - 任意 component declarations。
 - 任意 CSS selector rules。
 - 完整 raw CSS escape hatch。
@@ -89,6 +91,16 @@ Image Skin 图片字段只接受 raster asset（PNG、JPEG、WebP、GIF、AVIF�
 16 MB。所有素材合计上限 32 MB，单个 `.codextheme` 上限 48 MB。字体仍可从高级
 素材功能中嵌入，但不能指定为 Image Skin 背景。
 
+## ChatGPT Voice 样式
+
+Voice 标签页使用独立样式表控制 ChatGPT Voice 中可由 CSS 定位的表面。主窗口的壁纸与
+组件规则不会发送到 `avatar-overlay`；未启用 Voice 样式时也不会连接该 renderer。
+关闭已应用的 Voice 样式会清除样式并断开对应 session。
+
+内置控制包括缩放、透明度、亮度、对比度、饱和度、色相旋转、模糊、光晕与背景色。
+这项功能仍属实验性：DOM／Canvas 容器及其合成结果可以由 CSS 调整，但如果圆球内部由
+原生 AppKit／Core Animation 绘制，Theme Switcher 无法改写其像素或内部动画。
+
 ## 使用流程
 
 1. 打开 app，从 macOS 菜单栏的调色板图标进入主题工作室。
@@ -96,7 +108,7 @@ Image Skin 图片字段只接受 raster asset（PNG、JPEG、WebP、GIF、AVIF�
    首次连接不会自动应用预选模板；之后重新连接则会恢复 runtime 保存的最近一次
    成功应用快照。之后仅保存到 repository 或仍留在草稿中的更改不会包含在内。
 3. 直接应用内置模板，或先“制作可编辑副本”；也可从左下角新建空白主题。
-4. 在背景与玻璃、色彩、字体与布局、组件、规则、高级 CSS、素材及信息标签页中编辑。
+4. 在背景与玻璃、Voice、色彩、字体与布局、组件、规则、高级 CSS、素材及信息标签页中编辑。
    橙色圆点表示该主题仍有未保存更改；切换到其他主题后再返回也不会丢失草稿。
 5. 保存后点击应用；需要分享时点击导出，会得到包含所有嵌入素材的单个
    `.codextheme`。收到模板的人可从同一位置导入。

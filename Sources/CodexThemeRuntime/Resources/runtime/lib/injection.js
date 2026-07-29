@@ -5,12 +5,15 @@ const fs = require("node:fs");
 const path = require("node:path");
 const {
   CdpSession,
+  codexAvatarOverlayTargets,
   codexPageTargets,
   listTargets,
   targetWebSocket,
 } = require("./cdp");
 
 const BASE64_CHUNK_CHARACTERS = 256 * 1024;
+const TARGET_KIND_MAIN = "main";
+const TARGET_KIND_AVATAR_OVERLAY = "avatar-overlay";
 const RUNTIME_GLOBALS = Object.freeze({
   begin: "__codexThemeSwitcherBegin",
   appendAsset: "__codexThemeSwitcherAppendAsset",
@@ -340,14 +343,60 @@ async function reconcileExistingSession(session, theme) {
   await applyTheme(session, theme);
 }
 
+function avatarOverlayTheme(theme) {
+  if (
+    !theme
+    || typeof theme.avatarOverlayCSS !== "string"
+    || !theme.avatarOverlayCSS.trim()
+  ) {
+    return null;
+  }
+  const referencedAssetIDs = new Set(
+    [...theme.avatarOverlayCSS.matchAll(
+      /codex-theme-asset:\/\/([0-9a-f-]{36})/gi,
+    )].map((match) => match[1].toLowerCase()),
+  );
+  return {
+    ...theme,
+    css: theme.avatarOverlayCSS,
+    digest: `${theme.digest}:avatar-overlay`,
+    assets: (theme.assets || []).filter(
+      ({ id }) => referencedAssetIDs.has(String(id).toLowerCase()),
+    ),
+  };
+}
+
+function themeForTargetKind(theme, targetKind) {
+  return targetKind === TARGET_KIND_AVATAR_OVERLAY
+    ? avatarOverlayTheme(theme)
+    : theme;
+}
+
 async function injectRenderers(
   debugPort,
   theme,
   sessions = new Map(),
   logger = () => {},
 ) {
-  const targets = codexPageTargets(await listTargets(debugPort));
-  const liveTargetIDs = new Set(targets.map((target) => target.id));
+  const listedTargets = await listTargets(debugPort);
+  const mainTargets = codexPageTargets(listedTargets).map((target) => ({
+    target,
+    kind: TARGET_KIND_MAIN,
+  }));
+  const overlayTheme = avatarOverlayTheme(theme);
+  const overlayTargets = codexAvatarOverlayTargets(listedTargets)
+    .filter(({ id }) => overlayTheme || sessions.has(id))
+    .map((target) => ({
+      target,
+      kind: TARGET_KIND_AVATAR_OVERLAY,
+    }));
+  const targets = [...mainTargets, ...overlayTargets];
+  const liveTargetIDs = new Set(
+    [
+      ...codexPageTargets(listedTargets),
+      ...codexAvatarOverlayTargets(listedTargets),
+    ].map((target) => target.id),
+  );
 
   for (const [targetID, session] of sessions) {
     if (session.closed || !liveTargetIDs.has(targetID)) {
@@ -357,21 +406,32 @@ async function injectRenderers(
   }
 
   let successful = 0;
-  for (const target of targets) {
+  for (const { target, kind } of targets) {
     let session = sessions.get(target.id);
     const isNew = !session || session.closed;
+    const targetTheme = themeForTargetKind(theme, kind);
     try {
+      if (kind === TARGET_KIND_AVATAR_OVERLAY && !targetTheme) {
+        if (session && !session.closed) {
+          await reconcileExistingSession(session, null);
+          session.close();
+          sessions.delete(target.id);
+        }
+        continue;
+      }
       if (isNew) {
         session = await CdpSession.connect(
           targetWebSocket(target),
           target.id,
           logger,
         );
+        session.codexThemeTargetKind = kind;
         await installRuntime(session);
         sessions.set(target.id, session);
-        if (theme) await applyTheme(session, theme);
+        if (targetTheme) await applyTheme(session, targetTheme);
       } else {
-        await reconcileExistingSession(session, theme);
+        session.codexThemeTargetKind = kind;
+        await reconcileExistingSession(session, targetTheme);
       }
       successful += 1;
     } catch (error) {
@@ -396,7 +456,15 @@ async function broadcastTheme(sessions, theme, logger = () => {}) {
       continue;
     }
     try {
-      await applyTheme(session, theme);
+      const targetTheme = themeForTargetKind(
+        theme,
+        session.codexThemeTargetKind || TARGET_KIND_MAIN,
+      );
+      if (targetTheme) {
+        await applyTheme(session, targetTheme);
+      } else {
+        await clearTheme(session);
+      }
       successful += 1;
     } catch (error) {
       logger(`apply target ${targetID} failed: ${error.message}`);
@@ -429,8 +497,11 @@ async function clearRenderers(sessions, logger = () => {}) {
 module.exports = {
   BASE64_CHUNK_CHARACTERS,
   RUNTIME_GLOBALS,
+  TARGET_KIND_AVATAR_OVERLAY,
+  TARGET_KIND_MAIN,
   abortExpression,
   appendAssetExpression,
+  avatarOverlayTheme,
   applyExpression,
   applyTheme,
   base64Chunks,

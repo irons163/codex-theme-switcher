@@ -44,6 +44,9 @@ final rendering in Codex should still be verified after applying the theme.
 - Background and glass (Image Skin): separate light/dark backgrounds, seven sizing modes including
   Fit / Fill, focal-point cropping, an optional wallpaper canvas that spans the entire window or
   avoids the sidebar, filters, overlays, per-section glass, and a central content panel.
+- Experimental ChatGPT Voice styling: independent Light/Dark scale, opacity, color filters, glow,
+  and backdrop controls plus Voice-only Advanced CSS. Voice CSS is sent only to the dedicated
+  `avatar-overlay` renderer; main-window wallpaper and component rules never enter that renderer.
 - Arbitrary component declarations.
 - Arbitrary CSS selector rules.
 - A complete raw CSS escape hatch.
@@ -102,6 +105,24 @@ per asset. The combined limit for all assets is 32 MB, and a single `.codextheme
 48 MB. Fonts can still be embedded through the advanced asset feature, but cannot be assigned as
 Image Skin backgrounds.
 
+## ChatGPT Voice Styling
+
+The Voice tab controls CSS-addressable surfaces in ChatGPT Voice without broadening the main theme
+scope. Theme Switcher recognizes the dedicated `avatar-overlay` renderer and sends it a separate
+stylesheet. If no Voice style is enabled, Theme Switcher does not attach to that overlay. Disabling
+an applied Voice style clears the overlay stylesheet and detaches its session.
+
+The built-in controls cover scale, opacity, brightness, contrast, saturation, hue rotation, blur,
+glow, and an optional backdrop tint. Voice Advanced CSS is isolated to `avatar-overlay` and can use
+portable `theme-asset("ASSET-UUID")` references under the same import and URL security rules as the
+main theme.
+
+This is intentionally marked experimental. Depending on the installed Codex version, the Voice orb
+may combine DOM, Canvas, WebGL, and native AppKit/Core Animation layers. CSS can style recognizable
+DOM/Canvas containers and their composited output, but it cannot rewrite pixels or animation inside
+a native layer. The editor preview demonstrates the requested CSS effects rather than promising a
+pixel-identical rendering of every Codex release.
+
 ## Workflow
 
 1. Open the app and enter the theme studio from the palette icon in the macOS menu bar.
@@ -111,7 +132,7 @@ Image Skin backgrounds.
    saved only to the repository, or left in a draft, are not included.
 3. Apply a built-in template directly, or first “Make an Editable Copy”; you can also create a blank
    theme from the bottom-left corner.
-4. Edit the Background & Glass, Colors, Typography & Layout, Components, Rules, Advanced CSS,
+4. Edit the Background & Glass, Voice, Colors, Typography & Layout, Components, Rules, Advanced CSS,
    Assets, and Info tabs. An orange dot means the theme still has unsaved changes; switching to
    another theme and back does not lose the draft.
 5. Save, then apply. To share the theme, click Export to get a single `.codextheme` containing all

@@ -46,6 +46,9 @@ selector rules、raw CSS、および実際の Codex renderer における最終�
 - 背景とガラス（Image Skin）：Light／Dark 個別の背景、Fit / Fill など 7 種類の
   サイズモード、焦点クロップ、ウィンドウ全体を対象にするか左サイドバーを除外できる
   wallpaper canvas、フィルター、overlay、領域別 glass、中央コンテンツパネル。
+- 実験的な ChatGPT Voice スタイル：Light／Dark ごとのスケール、不透明度、
+  カラーフィルター、グロー、背景、および Voice 専用の高度な CSS。
+  スタイルは独立した `avatar-overlay` renderer にのみ送信されます。
 - 任意の component declarations。
 - 任意の CSS selector rules。
 - 完全な raw CSS escape hatch。
@@ -106,6 +109,18 @@ Image Skin の画像フィールドは raster asset（PNG、JPEG、WebP、GIF、
 `.codextheme` の上限は 48 MB です。フォントは引き続き高度なアセット機能で
 埋め込めますが、Image Skin の背景には指定できません。
 
+## ChatGPT Voice スタイル
+
+Voice タブは、ChatGPT Voice 内で CSS から参照できる表面に独立したスタイルシートを
+適用します。メインウィンドウの壁紙やコンポーネントルールは `avatar-overlay` に
+送信されません。Voice スタイルが無効な場合は接続せず、無効化するとスタイルを
+消去して session を切断します。
+
+スケール、不透明度、明るさ、コントラスト、彩度、色相回転、ぼかし、グロー、背景色を
+調整できます。この機能は実験的です。CSS は DOM／Canvas コンテナと合成結果を変更
+できますが、ネイティブ AppKit／Core Animation レイヤー内部のピクセルやアニメーション
+までは変更できません。
+
 ## 使用手順
 
 1. app を開き、macOS menu bar のパレットアイコンからテーマスタジオに入ります。
@@ -115,7 +130,7 @@ Image Skin の画像フィールドは raster asset（PNG、JPEG、WebP、GIF、
    その後に保存しただけの変更や、まだ下書きの変更は含まれません。
 3. 組み込みテンプレートを直接適用するか、先に「編集可能なコピーを作成」を選択します。
    左下から空のテーマを新規作成することもできます。
-4. 背景とガラス、カラー、フォントとレイアウト、コンポーネント、ルール、高度な CSS、
+4. 背景とガラス、Voice、カラー、フォントとレイアウト、コンポーネント、ルール、高度な CSS、
    アセット、情報の各タブで編集します。オレンジ色の点は、そのテーマに未保存の変更が
    あることを示します。別のテーマへ切り替えて戻っても下書きは失われません。
 5. 保存してから適用します。共有する場合はエクスポートを押すと、すべての埋め込み

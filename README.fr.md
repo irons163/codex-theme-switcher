@@ -48,6 +48,9 @@ Codex doit encore être vérifié après application du thème.
   dimensionnement dont Fit / Fill, recadrage par point focal, toile de fond d’écran couvrant toute
   la fenêtre ou évitant la barre latérale, filtres, overlay, glass par section et panneau de
   contenu central.
+- Style expérimental de ChatGPT Voice : réglages Light/Dark séparés pour l’échelle, l’opacité, les
+  filtres de couleur, la lueur, l’arrière-plan et un CSS avancé propre à Voice, envoyé uniquement
+  au renderer `avatar-overlay`.
 - Déclarations de composants arbitraires.
 - CSS selector rules arbitraires.
 - Escape hatch complet pour le raw CSS.
@@ -111,6 +114,18 @@ une limite de 16 MB par asset. La limite cumulée de toutes les ressources est d
 `.codextheme` unique est limité à 48 MB. Les polices peuvent toujours être intégrées grâce aux
 fonctions avancées de ressources, mais ne peuvent pas servir d’arrière-plan Image Skin.
 
+## Style de ChatGPT Voice
+
+L’onglet Voice utilise une feuille de style indépendante pour les surfaces de ChatGPT Voice
+accessibles en CSS. Le fond d’écran et les règles de composants de la fenêtre principale ne sont
+jamais envoyés à `avatar-overlay`. Si Voice n’est pas activé, Theme Switcher ne s’y connecte pas ;
+le désactiver efface la feuille de style et ferme la session.
+
+Les contrôles couvrent l’échelle, l’opacité, la luminosité, le contraste, la saturation, la rotation
+de teinte, le flou, la lueur et la couleur d’arrière-plan. Cette fonction reste expérimentale :
+CSS peut modifier les conteneurs DOM/Canvas et leur rendu composé, mais pas les pixels ni les
+animations internes d’une couche native AppKit/Core Animation.
+
 ## Flux de travail
 
 1. Ouvrez l’app et accédez au studio de thèmes depuis l’icône de palette dans la barre des menus
@@ -122,7 +137,7 @@ fonctions avancées de ressources, mais ne peuvent pas servir d’arrière-plan 
    brouillon.
 3. Appliquez directement un modèle intégré ou commencez par « Créer une copie modifiable » ; vous
    pouvez aussi créer un thème vide depuis le coin inférieur gauche.
-4. Modifiez les onglets Arrière-plan et verre, Couleurs, Typographie et disposition, Composants,
+4. Modifiez les onglets Arrière-plan et verre, Voice, Couleurs, Typographie et disposition, Composants,
    Règles, CSS avancé, Ressources et Informations. Un point orange indique que le thème contient
    encore des modifications non enregistrées ; le brouillon reste intact si vous passez à un autre
    thème avant de revenir.

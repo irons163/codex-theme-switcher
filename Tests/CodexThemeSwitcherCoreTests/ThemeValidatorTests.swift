@@ -362,4 +362,29 @@ final class ThemeValidatorTests: XCTestCase {
         )
         XCTAssertTrue(paths.contains("imageSkin.centerPanel.shadowOffsetX"))
     }
+
+    func testVoiceStyleRejectsUnsafeCSSColorsAndOutOfRangeValues() {
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.orbScale = 2.01
+        voice.light.glowOpacity = -0.01
+        voice.dark.hueRotation = 181
+        voice.dark.glowColor = "red; display: none"
+        voice.rawCSS = ".voice { background: url(https://tracker.invalid); }"
+        var theme = TestFixtures.theme()
+        theme.voiceStyle = voice
+
+        let result = validator.validate(theme)
+        let paths = Set(result.issues.map(\.path))
+
+        XCTAssertTrue(paths.contains("voiceStyle.light.orbScale"))
+        XCTAssertTrue(paths.contains("voiceStyle.light.glowOpacity"))
+        XCTAssertTrue(paths.contains("voiceStyle.dark.hueRotation"))
+        XCTAssertTrue(paths.contains("voiceStyle.dark.glowColor"))
+        XCTAssertTrue(
+            result.issues.contains {
+                $0.code == .unsafeURL
+                    && $0.path == "voiceStyle.rawCSS"
+            }
+        )
+    }
 }

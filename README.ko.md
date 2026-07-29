@@ -45,6 +45,9 @@ raw CSS, 실제 Codex renderer의 최종 결과는 적용 후에도 확인해야
 - 배경과 유리(Image Skin): Light／Dark 개별 배경, Fit / Fill 등 일곱 가지 크기 모드,
   초점 크롭, 전체 창을 대상으로 하거나 왼쪽 사이드바를 제외할 수 있는 wallpaper canvas,
   필터, overlay, 영역별 glass, 중앙 콘텐츠 패널.
+- 실험적 ChatGPT Voice 스타일: Light／Dark별 크기, 불투명도, 색상 필터, 글로우,
+  배경 및 Voice 전용 고급 CSS를 조절하며, 독립된 `avatar-overlay` renderer에만
+  전송합니다.
 - 임의의 component declarations.
 - 임의의 CSS selector rules.
 - 완전한 raw CSS escape hatch.
@@ -103,6 +106,17 @@ asset 하나당 최대 16 MB입니다. 모든 asset의 합계는 최대 32 MB, �
 최대 48 MB입니다. 글꼴은 고급 asset 기능으로 계속 포함할 수 있지만 Image Skin
 배경으로 지정할 수는 없습니다.
 
+## ChatGPT Voice 스타일
+
+Voice 탭은 ChatGPT Voice에서 CSS로 찾을 수 있는 표면에 독립된 스타일시트를 적용합니다.
+메인 창의 wallpaper와 component 규칙은 `avatar-overlay`로 보내지지 않습니다. Voice
+스타일이 꺼져 있으면 해당 renderer에 연결하지 않으며, 적용 후 끄면 스타일을 지우고
+session을 닫습니다.
+
+크기, 불투명도, 밝기, 대비, 채도, 색조 회전, 흐림, 글로우, 배경색을 조절할 수 있습니다.
+이 기능은 실험적입니다. CSS는 DOM／Canvas 컨테이너와 합성 결과를 바꿀 수 있지만,
+네이티브 AppKit／Core Animation 레이어 내부의 픽셀이나 애니메이션은 바꿀 수 없습니다.
+
 ## 사용 흐름
 
 1. app을 열고 macOS menu bar의 팔레트 아이콘에서 테마 스튜디오로 들어갑니다.
@@ -112,7 +126,7 @@ asset 하나당 최대 16 MB입니다. 모든 asset의 합계는 최대 32 MB, �
    초안 상태인 변경은 포함하지 않습니다.
 3. 내장 템플릿을 바로 적용하거나 먼저 “편집 가능한 사본 만들기”를 선택합니다.
    왼쪽 아래에서 빈 테마를 새로 만들 수도 있습니다.
-4. 배경과 유리, 색상, 글꼴과 레이아웃, 컴포넌트, 규칙, 고급 CSS, asset, 정보 탭에서
+4. 배경과 유리, Voice, 색상, 글꼴과 레이아웃, 컴포넌트, 규칙, 고급 CSS, asset, 정보 탭에서
    편집합니다. 주황색 점은 해당 테마에 저장하지 않은 변경이 있음을 나타냅니다.
    다른 테마로 전환했다 돌아와도 초안은 사라지지 않습니다.
 5. 저장한 뒤 적용합니다. 공유하려면 내보내기를 눌러 모든 내장 asset을 포함한 단일

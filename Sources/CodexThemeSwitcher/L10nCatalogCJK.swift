@@ -1083,6 +1083,110 @@ enum L10nCatalogCJK {
             "“{0}”不是有效的 Codex App。",
             "「{0}」は有効なCodex Appではありません。",
             "“{0}”은(는) 올바른 Codex 앱이 아닙니다."
+        ),
+        .init("Voice", "Voice", "Voice", "Voice"),
+        .init(
+            "Customize CSS-addressable ChatGPT Voice orb surfaces and surrounding effects. Voice uses an isolated renderer and never receives the main window wallpaper or component rules.",
+            "自定义 ChatGPT Voice 圆球中可由 CSS 控制的表面与周边效果。Voice 使用独立 renderer，不会接收主窗口的壁纸或组件规则。",
+            "CSSで操作できるChatGPT Voiceオーブの表面と周辺効果をカスタマイズします。Voiceは独立したrendererを使用し、メインウインドウの壁紙やコンポーネントルールは適用されません。",
+            "CSS로 제어할 수 있는 ChatGPT Voice 오브 표면과 주변 효과를 사용자 지정합니다. Voice는 독립 renderer를 사용하며 기본 창의 배경화면이나 구성 요소 규칙을 받지 않습니다."
+        ),
+        .init(
+            "Enable Voice styling",
+            "启用 Voice 样式",
+            "Voiceスタイルを有効化",
+            "Voice 스타일 활성화"
+        ),
+        .init(
+            "Disable Voice styling",
+            "停用 Voice 样式",
+            "Voiceスタイルを無効化",
+            "Voice 스타일 비활성화"
+        ),
+        .init("Experimental", "实验功能", "実験的機能", "실험 기능"),
+        .init(
+            "Codex versions may use DOM, Canvas, WebGL, or native layers. CSS cannot alter the inside of a native orb.",
+            "不同 Codex 版本可能使用 DOM、Canvas、WebGL 或原生图层；CSS 无法改变原生圆球内部。",
+            "CodexのバージョンによってDOM、Canvas、WebGL、またはネイティブレイヤーが使われます。CSSではネイティブオーブの内部を変更できません。",
+            "Codex 버전에 따라 DOM, Canvas, WebGL 또는 네이티브 레이어를 사용할 수 있습니다. CSS로 네이티브 오브 내부를 변경할 수 없습니다."
+        ),
+        .init(
+            "Reset current appearance",
+            "重置当前外观",
+            "現在の外観をリセット",
+            "현재 모양 재설정"
+        ),
+        .init(
+            "Remove Voice style",
+            "移除 Voice 样式",
+            "Voiceスタイルを削除",
+            "Voice 스타일 제거"
+        ),
+        .init("Effect preview", "效果预览", "効果プレビュー", "효과 미리보기"),
+        .init(
+            "This previews the CSS filters. How much reaches the real orb depends on the current Codex Voice renderer.",
+            "这里预览 CSS 滤镜；实际圆球能应用多少效果，取决于当前 Codex Voice renderer。",
+            "CSSフィルターのプレビューです。実際のオーブにどこまで反映されるかは、現在のCodex Voice rendererによって異なります。",
+            "CSS 필터 미리보기입니다. 실제 오브에 적용되는 범위는 현재 Codex Voice renderer에 따라 달라집니다."
+        ),
+        .init("Orb surface", "圆球表面", "オーブ表面", "오브 표면"),
+        .init(
+            "Applied to Canvas and recognizable orb containers inside the Voice overlay.",
+            "应用到 Voice overlay 中可识别的 Canvas 与圆球容器。",
+            "Voice overlay内のCanvasと認識可能なオーブコンテナに適用されます。",
+            "Voice overlay 안의 Canvas와 인식 가능한 오브 컨테이너에 적용됩니다."
+        ),
+        .init("Scale", "缩放", "拡大縮小", "크기 조절"),
+        .init("Hue rotation", "色相旋转", "色相回転", "색조 회전"),
+        .init("Blur", "模糊", "ぼかし", "흐림"),
+        .init("Outer glow", "外围光晕", "外側グロー", "외부 광선"),
+        .init("Glow color", "光晕颜色", "グローの色", "광선 색상"),
+        .init("Glow opacity", "光晕不透明度", "グローの不透明度", "광선 불투명도"),
+        .init("Glow spread", "光晕范围", "グローの広がり", "광선 범위"),
+        .init("Voice backdrop", "Voice 背景", "Voice背景", "Voice 배경"),
+        .init(
+            "Transparent by default. Raising opacity adds a tint behind the Voice overlay.",
+            "默认完全透明。提高不透明度会在 Voice overlay 后方加入底色。",
+            "既定では完全に透明です。不透明度を上げるとVoice overlayの背後に色が付きます。",
+            "기본값은 완전 투명입니다. 불투명도를 높이면 Voice overlay 뒤에 색상이 추가됩니다."
+        ),
+        .init("Backdrop color", "背景颜色", "背景色", "배경 색상"),
+        .init("Backdrop opacity", "背景不透明度", "背景の不透明度", "배경 불투명도"),
+        .init(
+            "Voice Advanced CSS",
+            "Voice 高级 CSS",
+            "Voice高度なCSS",
+            "Voice 고급 CSS"
+        ),
+        .init(
+            "Delivered only to avatar-overlay, never the main Codex window. theme-asset(\"UUID\") is supported; imports, external URLs, and file URLs remain blocked.",
+            "只会传送到 avatar-overlay，不会进入 Codex 主窗口。支持 theme-asset(\"UUID\")；仍会阻止导入、外部 URL 与 file URL。",
+            "avatar-overlayのみに送られ、Codexのメインウインドウには入りません。theme-asset(\"UUID\")を使用できますが、import、外部URL、file URLは引き続き拒否されます。",
+            "avatar-overlay에만 전달되며 Codex 기본 창에는 적용되지 않습니다. theme-asset(\"UUID\")를 지원하지만 import, 외부 URL 및 file URL은 계속 차단됩니다."
+        ),
+        .init(
+            "Copy Voice appearance",
+            "复制 Voice 外观",
+            "Voiceの外観をコピー",
+            "Voice 모양 복사"
+        ),
+        .init(
+            "Reset Voice appearance",
+            "重置 Voice 外观",
+            "Voiceの外観をリセット",
+            "Voice 모양 재설정"
+        ),
+        .init(
+            "Voice renderer connected",
+            "Voice renderer 已连接",
+            "Voice rendererに接続済み",
+            "Voice renderer 연결됨"
+        ),
+        .init(
+            "Waiting for a Voice conversation",
+            "等待开启 Voice 对话",
+            "Voice会話の開始を待機中",
+            "Voice 대화 시작 대기 중"
         )
     ]
 }

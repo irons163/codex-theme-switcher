@@ -112,6 +112,9 @@
         },
         "imageSkin": {
           "$ref": "#/$defs/imageSkin"
+        },
+        "voiceStyle": {
+          "$ref": "#/$defs/voiceStyle"
         }
       }
     },
@@ -422,6 +425,75 @@
         },
         "targets": {
           "$ref": "#/$defs/targets"
+        }
+      }
+    },
+    "voiceStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "isEnabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "light": {
+          "$ref": "#/$defs/voiceVariant"
+        },
+        "dark": {
+          "$ref": "#/$defs/voiceVariant"
+        },
+        "rawCSS": {
+          "$ref": "#/$defs/cssText"
+        }
+      }
+    },
+    "voiceVariant": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "orbScale": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 2
+        },
+        "orbOpacity": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "brightness": {
+          "$ref": "#/$defs/tripleNumber"
+        },
+        "contrast": {
+          "$ref": "#/$defs/tripleNumber"
+        },
+        "saturation": {
+          "$ref": "#/$defs/tripleNumber"
+        },
+        "hueRotation": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "blur": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 40
+        },
+        "glowColor": {
+          "$ref": "#/$defs/skinColor"
+        },
+        "glowOpacity": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "glowBlur": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 120
+        },
+        "backdropColor": {
+          "$ref": "#/$defs/skinColor"
+        },
+        "backdropOpacity": {
+          "$ref": "#/$defs/unitNumber"
         }
       }
     },

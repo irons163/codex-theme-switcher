@@ -24,6 +24,8 @@ public struct ThemeCompilationWarning: Codable, Equatable, Sendable, Identifiabl
 public struct CompiledTheme: Equatable, Sendable {
     public var themeID: UUID
     public var css: String
+    /// CSS delivered only to the dedicated ChatGPT Voice avatar overlay.
+    public var avatarOverlayCSS: String
     public var warnings: [ThemeCompilationWarning]
     public var runtimeAssets: [ThemeAsset]
 
@@ -39,11 +41,13 @@ public struct CompiledTheme: Equatable, Sendable {
     public init(
         themeID: UUID,
         css: String,
+        avatarOverlayCSS: String = "",
         warnings: [ThemeCompilationWarning] = [],
         runtimeAssets: [ThemeAsset] = []
     ) {
         self.themeID = themeID
         self.css = css
+        self.avatarOverlayCSS = avatarOverlayCSS
         self.warnings = warnings
         self.runtimeAssets = runtimeAssets
     }
@@ -295,12 +299,30 @@ public struct ThemeCompiler: Sendable {
             in: unresolvedCSS,
             assets: document.assets
         )
+        let unresolvedAvatarOverlayCSS = document.voiceStyle
+            .map(ThemeVoiceStyleCompiler.compile)
+            ?? ""
+        let resolvedAvatarOverlay = try externalizeAssets(
+            in: unresolvedAvatarOverlayCSS,
+            assets: document.assets
+        )
+        var runtimeAssetsByID = Dictionary(
+            uniqueKeysWithValues: resolved.assets.map { ($0.id, $0) }
+        )
+        for asset in resolvedAvatarOverlay.assets {
+            runtimeAssetsByID[asset.id] = asset
+        }
+        let runtimeAssets = runtimeAssetsByID.values.sorted {
+            $0.id.uuidString.lowercased()
+                < $1.id.uuidString.lowercased()
+        }
 
         return CompiledTheme(
             themeID: document.id,
             css: resolved.css,
+            avatarOverlayCSS: resolvedAvatarOverlay.css,
             warnings: warnings,
-            runtimeAssets: resolved.assets
+            runtimeAssets: runtimeAssets
         )
     }
 

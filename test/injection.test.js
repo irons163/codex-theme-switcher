@@ -364,6 +364,13 @@ function page(id) {
   };
 }
 
+function avatarPage(id = "avatar") {
+  return {
+    ...page(id),
+    url: "app://-/index.html?avatar-overlay=1",
+  };
+}
+
 test("poll status skips resending a matching digest and style", async (t) => {
   let targets = [page("main")];
   const { created, isolated } = await isolatedInjection(t, () => targets);
@@ -414,6 +421,72 @@ test("poll applies to a new target while retaining a matching target", async (t)
     created[1].messages[2].params.source,
     rendererInjectionSource(),
   );
+});
+
+test("voice CSS is isolated to avatar-overlay and main CSS stays on main", async (t) => {
+  const targets = [page("main"), avatarPage()];
+  const { created, isolated } = await isolatedInjection(t, () => targets);
+  const payload = theme({
+    css: ":root{--main:true}",
+    avatarOverlayCSS: ":root{--voice:true}",
+    assets: [asset("main-wallpaper", "AAAA")],
+  });
+
+  const sessions = await isolated.injectRenderers(57340, payload);
+
+  assert.deepEqual([...sessions.keys()], ["main", "avatar"]);
+  assert.equal(created.length, 2);
+  const mainBegin = created[0].calls.find(
+    ({ operation }) => operation === "begin",
+  );
+  const voiceBegin = created[1].calls.find(
+    ({ operation }) => operation === "begin",
+  );
+  assert.equal(mainBegin.payload.css, payload.css);
+  assert.equal(voiceBegin.payload.css, payload.avatarOverlayCSS);
+  assert.equal(mainBegin.payload.assets.length, 1);
+  assert.equal(voiceBegin.payload.assets.length, 0);
+  assert.equal(
+    created[0].codexThemeTargetKind,
+    isolated.TARGET_KIND_MAIN,
+  );
+  assert.equal(
+    created[1].codexThemeTargetKind,
+    isolated.TARGET_KIND_AVATAR_OVERLAY,
+  );
+});
+
+test("avatar-overlay is untouched until a Voice style is enabled", async (t) => {
+  const targets = [page("main"), avatarPage()];
+  const { created, isolated } = await isolatedInjection(t, () => targets);
+
+  const sessions = await isolated.injectRenderers(57340, theme());
+
+  assert.deepEqual([...sessions.keys()], ["main"]);
+  assert.equal(created.length, 1);
+  assert.equal(created[0].id, "main");
+});
+
+test("disabling Voice style clears and detaches the overlay session", async (t) => {
+  const targets = [page("main"), avatarPage()];
+  const { created, isolated } = await isolatedInjection(t, () => targets);
+  const sessions = await isolated.injectRenderers(57340, theme({
+    avatarOverlayCSS: ":root{--voice:true}",
+  }));
+  const voiceSession = created[1];
+
+  await isolated.injectRenderers(
+    57340,
+    theme({ digest: "digest-two", avatarOverlayCSS: "" }),
+    sessions,
+  );
+
+  assert.deepEqual([...sessions.keys()], ["main"]);
+  assert.deepEqual(
+    voiceSession.calls.map(({ operation }) => operation),
+    ["begin", "commit", "status", "clear"],
+  );
+  assert.equal(voiceSession.closed, true);
 });
 
 test("poll reapplies when the renderer digest does not match", async (t) => {

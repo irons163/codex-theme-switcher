@@ -28,6 +28,14 @@ final class CodexThemeAgentCLITests: XCTestCase {
             runtime["codexAppOption"] as? String,
             "--codex-app <path>"
         )
+        XCTAssertEqual(
+            runtime["voiceStyleIsolation"] as? Bool,
+            true
+        )
+        XCTAssertEqual(
+            runtime["rendererTargets"] as? [String],
+            ["main", "avatar-overlay"]
+        )
     }
 
     func testValidateAcceptsDocumentFromStandardInput() async throws {

@@ -556,6 +556,9 @@ public struct CodexThemeAgentCLI {
                     "name": $0.name
                 ] as [String: Any]
             },
+            "avatarOverlayCSS": compiled.avatarOverlayCSS,
+            "avatarOverlayCSSCharacterCount":
+                compiled.avatarOverlayCSS.count,
             "css": compiled.css,
             "cssCharacterCount": compiled.css.count,
             "themeID": compiled.themeID.uuidString.lowercased(),
@@ -797,6 +800,7 @@ public struct CodexThemeAgentCLI {
                 css: compiled.css,
                 themeID: input.document.id.uuidString,
                 themeName: input.document.metadata.name,
+                avatarOverlayCSS: compiled.avatarOverlayCSS,
                 assets: compiled.runtimeAssets.map {
                     ThemeRuntimeAsset(
                         id: $0.id.uuidString.lowercased(),
@@ -1344,7 +1348,12 @@ public struct CodexThemeAgentCLI {
                     "running_application",
                     "launch_services",
                     "known_locations"
-                ]
+                ],
+                "rendererTargets": [
+                    "main",
+                    "avatar-overlay"
+                ],
+                "voiceStyleIsolation": true
             ],
             "schemaVersion": ThemeDocument.currentSchemaVersion,
             "security": [

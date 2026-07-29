@@ -156,6 +156,25 @@ final class RuntimeModelsTests: XCTestCase {
         )
     }
 
+    func testRuntimeThemePayloadEncodesVoiceCSSOnlyWhenPresent() throws {
+        let payload = RuntimeThemePayload(
+            themeID: "theme-id",
+            themeName: "Theme Name",
+            css: ":root{}",
+            avatarOverlayCSS: ":root{--voice:true}"
+        )
+        let object = try XCTUnwrap(
+            JSONSerialization.jsonObject(
+                with: JSONEncoder().encode(payload)
+            ) as? [String: String]
+        )
+
+        XCTAssertEqual(
+            object["avatarOverlayCSS"],
+            ":root{--voice:true}"
+        )
+    }
+
     func testRuntimeThemePayloadEncodesAssetsWithoutNames() throws {
         let payload = RuntimeThemePayload(
             themeID: "theme-id",

@@ -27,7 +27,7 @@ const {
 const { sleep } = require("./processes");
 
 const APP_ID = "codex-theme-switcher";
-const PROTOCOL_VERSION = 2;
+const PROTOCOL_VERSION = 3;
 const MAX_THEME_CSS_BYTES = 64 * 1024 * 1024;
 const MAX_THEME_ASSET_BYTES = 16 * 1024 * 1024;
 const MAX_THEME_TOTAL_ASSET_BYTES = 32 * 1024 * 1024;
@@ -268,11 +268,13 @@ function assetFingerprint(mediaType, decoded) {
     .digest("hex");
 }
 
-function themeDigest(themeID, css, assets) {
+function themeDigest(themeID, css, avatarOverlayCSS, assets) {
   const digest = crypto.createHash("sha256")
     .update(themeID)
     .update("\0")
-    .update(css);
+    .update(css)
+    .update("\0")
+    .update(avatarOverlayCSS);
   for (const asset of assets) {
     digest
       .update("\0")
@@ -319,12 +321,27 @@ function validateThemePayload(theme) {
       code: "invalid-theme",
     });
   }
-  if (Buffer.byteLength(theme.css, "utf8") > MAX_THEME_CSS_BYTES) {
+  const avatarOverlayCSS = theme.avatarOverlayCSS === undefined
+    ? ""
+    : theme.avatarOverlayCSS;
+  if (typeof avatarOverlayCSS !== "string") {
+    throw Object.assign(new Error("Avatar overlay CSS must be a string."), {
+      code: "invalid-theme",
+    });
+  }
+  if (
+    Buffer.byteLength(theme.css, "utf8")
+      + Buffer.byteLength(avatarOverlayCSS, "utf8")
+    > MAX_THEME_CSS_BYTES
+  ) {
     throw Object.assign(new Error("Compiled theme CSS exceeds the 64 MB limit."), {
       code: "theme-too-large",
     });
   }
-  if (containsUnsafeThemeCSS(theme.css)) {
+  if (
+    containsUnsafeThemeCSS(theme.css)
+    || containsUnsafeThemeCSS(avatarOverlayCSS)
+  ) {
     throw Object.assign(
       new Error(
         "Theme CSS may not use @import or load external/local file URLs.",
@@ -394,7 +411,9 @@ function validateThemePayload(theme) {
   }
   assets.sort((left, right) => left.id.localeCompare(right.id));
 
-  const referencedIDs = referencedThemeAssetIDs(theme.css);
+  const referencedIDs = referencedThemeAssetIDs(
+    `${theme.css}\n${avatarOverlayCSS}`,
+  );
   for (const id of referencedIDs) {
     if (!assetIDs.has(id)) {
       throw Object.assign(
@@ -418,8 +437,9 @@ function validateThemePayload(theme) {
     themeID,
     themeName: theme.themeName.trim(),
     css,
+    avatarOverlayCSS,
     assets,
-    digest: themeDigest(themeID, css, assets),
+    digest: themeDigest(themeID, css, avatarOverlayCSS, assets),
   };
 }
 
@@ -595,8 +615,14 @@ async function serveBridge(options) {
   async function bridgeStatus() {
     const cdp = await cdpStatus(state.debugPort);
     let activeSessionCount = 0;
+    let avatarOverlayRendererCount = 0;
     for (const session of state.sessions.values()) {
-      if (!session.closed) activeSessionCount += 1;
+      if (!session.closed) {
+        activeSessionCount += 1;
+        if (session.codexThemeTargetKind === "avatar-overlay") {
+          avatarOverlayRendererCount += 1;
+        }
+      }
     }
     return {
       app: APP_ID,
@@ -619,6 +645,10 @@ async function serveBridge(options) {
         activeThemeID: state.activeTheme?.themeID || null,
         activeThemeName: state.activeTheme?.themeName || null,
         injectedRendererCount: activeSessionCount,
+        avatarOverlayRendererCount,
+        voiceStyleEnabled: Boolean(
+          state.activeTheme?.avatarOverlayCSS?.trim(),
+        ),
         lastError: state.lastError,
       },
     };

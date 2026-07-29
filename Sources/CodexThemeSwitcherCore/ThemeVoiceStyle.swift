@@ -1,0 +1,203 @@
+import Foundation
+
+/// Best-effort styling for ChatGPT Voice's dedicated avatar-overlay renderer.
+///
+/// The renderer can contain ordinary DOM, SVG, Canvas, WebGL, and native
+/// Core Animation surfaces depending on the installed Codex version. These
+/// settings affect CSS-addressable surfaces and the renderer container only;
+/// they deliberately make no promise about native layers.
+public struct ThemeVoiceStyle: Codable, Equatable, Sendable {
+    public var isEnabled: Bool
+    public var light: ThemeVoiceVariant
+    public var dark: ThemeVoiceVariant
+    /// Advanced CSS delivered only to the avatar-overlay renderer.
+    public var rawCSS: String
+
+    public init(
+        isEnabled: Bool = false,
+        light: ThemeVoiceVariant = .lightDefault,
+        dark: ThemeVoiceVariant = .darkDefault,
+        rawCSS: String = ""
+    ) {
+        self.isEnabled = isEnabled
+        self.light = light
+        self.dark = dark
+        self.rawCSS = rawCSS
+    }
+
+    public func variant(for appearance: ThemeSkinAppearance) -> ThemeVoiceVariant {
+        appearance == .light ? light : dark
+    }
+
+    public mutating func setVariant(
+        _ variant: ThemeVoiceVariant,
+        for appearance: ThemeSkinAppearance
+    ) {
+        switch appearance {
+        case .light:
+            light = variant
+        case .dark:
+            dark = variant
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case isEnabled
+        case light
+        case dark
+        case rawCSS
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        isEnabled = try values.decodeIfPresent(
+            Bool.self,
+            forKey: .isEnabled
+        ) ?? false
+        if values.contains(.light), try !values.decodeNil(forKey: .light) {
+            light = try ThemeVoiceVariant(
+                from: values.superDecoder(forKey: .light),
+                defaults: .lightDefault
+            )
+        } else {
+            light = .lightDefault
+        }
+        if values.contains(.dark), try !values.decodeNil(forKey: .dark) {
+            dark = try ThemeVoiceVariant(
+                from: values.superDecoder(forKey: .dark),
+                defaults: .darkDefault
+            )
+        } else {
+            dark = .darkDefault
+        }
+        rawCSS = try values.decodeIfPresent(
+            String.self,
+            forKey: .rawCSS
+        ) ?? ""
+    }
+}
+
+public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
+    public var orbScale: Double
+    public var orbOpacity: Double
+    public var brightness: Double
+    public var contrast: Double
+    public var saturation: Double
+    public var hueRotation: Double
+    public var blur: Double
+    public var glowColor: String
+    public var glowOpacity: Double
+    public var glowBlur: Double
+    public var backdropColor: String
+    public var backdropOpacity: Double
+
+    public init(
+        orbScale: Double = 1,
+        orbOpacity: Double = 1,
+        brightness: Double = 1,
+        contrast: Double = 1,
+        saturation: Double = 1,
+        hueRotation: Double = 0,
+        blur: Double = 0,
+        glowColor: String = "#66D9FF",
+        glowOpacity: Double = 0.55,
+        glowBlur: Double = 28,
+        backdropColor: String = "#000000",
+        backdropOpacity: Double = 0
+    ) {
+        self.orbScale = orbScale
+        self.orbOpacity = orbOpacity
+        self.brightness = brightness
+        self.contrast = contrast
+        self.saturation = saturation
+        self.hueRotation = hueRotation
+        self.blur = blur
+        self.glowColor = glowColor
+        self.glowOpacity = glowOpacity
+        self.glowBlur = glowBlur
+        self.backdropColor = backdropColor
+        self.backdropOpacity = backdropOpacity
+    }
+
+    public static let lightDefault = ThemeVoiceVariant(
+        glowColor: "#2F80ED",
+        glowOpacity: 0.42,
+        backdropColor: "#FFFFFF"
+    )
+
+    public static let darkDefault = ThemeVoiceVariant()
+
+    private enum CodingKeys: String, CodingKey {
+        case orbScale
+        case orbOpacity
+        case brightness
+        case contrast
+        case saturation
+        case hueRotation
+        case blur
+        case glowColor
+        case glowOpacity
+        case glowBlur
+        case backdropColor
+        case backdropOpacity
+    }
+
+    public init(from decoder: Decoder) throws {
+        try self.init(from: decoder, defaults: .darkDefault)
+    }
+
+    init(
+        from decoder: Decoder,
+        defaults: ThemeVoiceVariant
+    ) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        orbScale = try values.decodeIfPresent(
+            Double.self,
+            forKey: .orbScale
+        ) ?? defaults.orbScale
+        orbOpacity = try values.decodeIfPresent(
+            Double.self,
+            forKey: .orbOpacity
+        ) ?? defaults.orbOpacity
+        brightness = try values.decodeIfPresent(
+            Double.self,
+            forKey: .brightness
+        ) ?? defaults.brightness
+        contrast = try values.decodeIfPresent(
+            Double.self,
+            forKey: .contrast
+        ) ?? defaults.contrast
+        saturation = try values.decodeIfPresent(
+            Double.self,
+            forKey: .saturation
+        ) ?? defaults.saturation
+        hueRotation = try values.decodeIfPresent(
+            Double.self,
+            forKey: .hueRotation
+        ) ?? defaults.hueRotation
+        blur = try values.decodeIfPresent(
+            Double.self,
+            forKey: .blur
+        ) ?? defaults.blur
+        glowColor = try values.decodeIfPresent(
+            String.self,
+            forKey: .glowColor
+        ) ?? defaults.glowColor
+        glowOpacity = try values.decodeIfPresent(
+            Double.self,
+            forKey: .glowOpacity
+        ) ?? defaults.glowOpacity
+        glowBlur = try values.decodeIfPresent(
+            Double.self,
+            forKey: .glowBlur
+        ) ?? defaults.glowBlur
+        backdropColor = try values.decodeIfPresent(
+            String.self,
+            forKey: .backdropColor
+        ) ?? defaults.backdropColor
+        backdropOpacity = try values.decodeIfPresent(
+            Double.self,
+            forKey: .backdropOpacity
+        ) ?? defaults.backdropOpacity
+    }
+}

@@ -52,6 +52,8 @@ struct ThemeEditorView: View {
             ThemePreviewPage(theme: theme, model: model)
         case .skin:
             ThemeSkinEditorView(model: model)
+        case .voice:
+            ThemeVoiceEditorView(model: model)
         case .colors:
             ColorEditorPage(model: model)
         case .typography:

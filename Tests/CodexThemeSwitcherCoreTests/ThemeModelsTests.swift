@@ -355,6 +355,49 @@ final class ThemeModelsTests: XCTestCase {
         XCTAssertEqual(skin.dark.backgroundColor, "#010203")
     }
 
+    func testVoiceStyleRoundTripsAndPartialVariantsUseAppearanceDefaults() throws {
+        let decoded = try JSONDecoder().decode(
+            ThemeVoiceStyle.self,
+            from: Data(#"""
+            {
+              "isEnabled": true,
+              "light": { "orbScale": 1.25 },
+              "dark": { "glowOpacity": 0.8 },
+              "rawCSS": ".custom-voice { opacity: .9; }"
+            }
+            """#.utf8)
+        )
+
+        XCTAssertTrue(decoded.isEnabled)
+        XCTAssertEqual(decoded.light.orbScale, 1.25)
+        XCTAssertEqual(
+            decoded.light.glowColor,
+            ThemeVoiceVariant.lightDefault.glowColor
+        )
+        XCTAssertEqual(decoded.dark.glowOpacity, 0.8)
+        XCTAssertEqual(
+            decoded.dark.glowColor,
+            ThemeVoiceVariant.darkDefault.glowColor
+        )
+
+        var theme = TestFixtures.theme()
+        theme.voiceStyle = decoded
+        let data = try JSONEncoder().encode(theme)
+        XCTAssertEqual(
+            try JSONDecoder().decode(ThemeDocument.self, from: data),
+            theme
+        )
+    }
+
+    func testNilVoiceStyleIsOmittedFromEncodedDocument() throws {
+        let data = try JSONEncoder().encode(TestFixtures.theme())
+        let object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+
+        XCTAssertNil(object["voiceStyle"])
+    }
+
     func testSemanticRoleOverridesManualVariableName() {
         let variable = ThemeVariable(
             name: "--ignored",

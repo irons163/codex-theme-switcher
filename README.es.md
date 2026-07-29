@@ -48,6 +48,9 @@ después de aplicar el tema.
 - Fondo y cristal (Image Skin): fondos claro/oscuro separados, siete modos de tamaño, incluidos
   Fit / Fill, recorte por punto focal, lienzo de fondo opcional que ocupa toda la ventana o evita
   la barra lateral, filtros, overlay, glass por sección y panel de contenido central.
+- Estilo experimental de ChatGPT Voice: controles Light/Dark independientes de escala, opacidad,
+  filtros de color, resplandor, fondo y CSS avanzado exclusivo de Voice, enviado únicamente al
+  renderer `avatar-overlay`.
 - Declaraciones de componentes arbitrarias.
 - CSS selector rules arbitrarias.
 - Escape hatch de raw CSS completo.
@@ -110,6 +113,18 @@ límite de 16 MB por asset. El límite combinado de todos los recursos es de 32 
 `.codextheme` está limitado a 48 MB. Las fuentes se pueden seguir integrando mediante las funciones
 avanzadas de recursos, pero no se pueden asignar como fondos de Image Skin.
 
+## Estilo de ChatGPT Voice
+
+La pestaña Voice usa una hoja de estilo independiente para las superficies de ChatGPT Voice que
+CSS puede localizar. El fondo y las reglas de componentes de la ventana principal nunca se envían
+a `avatar-overlay`. Si Voice no está activado, Theme Switcher no se conecta a ese renderer;
+desactivarlo borra el estilo y cierra la sesión.
+
+Los controles incluyen escala, opacidad, brillo, contraste, saturación, rotación de tono,
+desenfoque, resplandor y color de fondo. La función sigue siendo experimental: CSS puede modificar
+contenedores DOM/Canvas y su resultado compuesto, pero no los píxeles ni las animaciones internas
+de una capa nativa AppKit/Core Animation.
+
 ## Flujo de trabajo
 
 1. Abra la app y acceda al estudio de temas desde el icono de la paleta en la barra de menús de
@@ -120,7 +135,7 @@ avanzadas de recursos, pero no se pueden asignar como fondos de Image Skin.
    incluir los cambios que solo se hayan guardado posteriormente ni los que sigan en un borrador.
 3. Aplique directamente una plantilla integrada o elija primero «Crear una copia editable»;
    también puede crear un tema vacío desde la esquina inferior izquierda.
-4. Edite las pestañas Fondo y cristal, Colores, Tipografía y disposición, Componentes, Reglas, CSS
+4. Edite las pestañas Fondo y cristal, Voice, Colores, Tipografía y disposición, Componentes, Reglas, CSS
    avanzado, Recursos e Información. Un punto naranja indica que el tema aún tiene cambios sin
    guardar; el borrador no se pierde al cambiar a otro tema y volver.
 5. Guarde y después aplique. Para compartir el tema, haga clic en Exportar y obtendrá un único

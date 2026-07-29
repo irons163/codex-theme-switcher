@@ -15,6 +15,9 @@ public struct ThemeDocument: Codable, Equatable, Sendable, Identifiable {
     public var layers: [ThemeLayer]
     public var assets: [ThemeAsset]
     public var imageSkin: ThemeImageSkin?
+    /// Optional styling that is delivered only to ChatGPT Voice's dedicated
+    /// avatar-overlay renderer. It is never mixed into the main Codex window.
+    public var voiceStyle: ThemeVoiceStyle?
 
     public init(
         schemaVersion: Int = ThemeDocument.currentSchemaVersion,
@@ -22,7 +25,8 @@ public struct ThemeDocument: Codable, Equatable, Sendable, Identifiable {
         metadata: ThemeMetadata,
         layers: [ThemeLayer] = [],
         assets: [ThemeAsset] = [],
-        imageSkin: ThemeImageSkin? = nil
+        imageSkin: ThemeImageSkin? = nil,
+        voiceStyle: ThemeVoiceStyle? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.id = id
@@ -30,6 +34,7 @@ public struct ThemeDocument: Codable, Equatable, Sendable, Identifiable {
         self.layers = layers
         self.assets = assets
         self.imageSkin = imageSkin
+        self.voiceStyle = voiceStyle
     }
 }
 

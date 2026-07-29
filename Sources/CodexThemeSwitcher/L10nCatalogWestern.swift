@@ -1170,6 +1170,139 @@ enum L10nCatalogWestern {
             french: "« {0} » n’est pas une application Codex valide.",
             spanish: "«{0}» no es una aplicación Codex válida."
         ),
+        Entry(key: "Voice", french: "Voice", spanish: "Voice"),
+        Entry(
+            key: "Customize CSS-addressable ChatGPT Voice orb surfaces and surrounding effects. Voice uses an isolated renderer and never receives the main window wallpaper or component rules.",
+            french: "Personnalisez les surfaces de l’orbe ChatGPT Voice accessibles en CSS et leurs effets. Voice utilise un moteur isolé qui ne reçoit jamais le fond d’écran ni les règles de composants de la fenêtre principale.",
+            spanish: "Personaliza las superficies de la esfera de ChatGPT Voice accesibles mediante CSS y sus efectos. Voice usa un renderer aislado que nunca recibe el fondo ni las reglas de componentes de la ventana principal."
+        ),
+        Entry(
+            key: "Enable Voice styling",
+            french: "Activer le style Voice",
+            spanish: "Activar estilo de Voice"
+        ),
+        Entry(
+            key: "Disable Voice styling",
+            french: "Désactiver le style Voice",
+            spanish: "Desactivar estilo de Voice"
+        ),
+        Entry(
+            key: "Experimental",
+            french: "Expérimental",
+            spanish: "Experimental"
+        ),
+        Entry(
+            key: "Codex versions may use DOM, Canvas, WebGL, or native layers. CSS cannot alter the inside of a native orb.",
+            french: "Selon la version de Codex, l’orbe peut utiliser le DOM, Canvas, WebGL ou des calques natifs. CSS ne peut pas modifier l’intérieur d’un orbe natif.",
+            spanish: "Según la versión de Codex, la esfera puede usar DOM, Canvas, WebGL o capas nativas. CSS no puede modificar el interior de una esfera nativa."
+        ),
+        Entry(
+            key: "Reset current appearance",
+            french: "Réinitialiser l’apparence actuelle",
+            spanish: "Restablecer apariencia actual"
+        ),
+        Entry(
+            key: "Remove Voice style",
+            french: "Supprimer le style Voice",
+            spanish: "Eliminar estilo de Voice"
+        ),
+        Entry(
+            key: "Effect preview",
+            french: "Aperçu des effets",
+            spanish: "Vista previa de efectos"
+        ),
+        Entry(
+            key: "This previews the CSS filters. How much reaches the real orb depends on the current Codex Voice renderer.",
+            french: "Cet aperçu montre les filtres CSS. Leur effet sur l’orbe réel dépend du renderer Voice de la version actuelle de Codex.",
+            spanish: "Esta vista previa muestra los filtros CSS. Su efecto en la esfera real depende del renderer de Voice de la versión actual de Codex."
+        ),
+        Entry(
+            key: "Orb surface",
+            french: "Surface de l’orbe",
+            spanish: "Superficie de la esfera"
+        ),
+        Entry(
+            key: "Applied to Canvas and recognizable orb containers inside the Voice overlay.",
+            french: "Appliqué aux Canvas et aux conteneurs d’orbe reconnaissables dans la superposition Voice.",
+            spanish: "Se aplica a Canvas y contenedores de esfera reconocibles dentro de la superposición de Voice."
+        ),
+        Entry(key: "Scale", french: "Échelle", spanish: "Escala"),
+        Entry(
+            key: "Hue rotation",
+            french: "Rotation de teinte",
+            spanish: "Rotación de tono"
+        ),
+        Entry(key: "Blur", french: "Flou", spanish: "Desenfoque"),
+        Entry(
+            key: "Outer glow",
+            french: "Halo extérieur",
+            spanish: "Resplandor exterior"
+        ),
+        Entry(
+            key: "Glow color",
+            french: "Couleur du halo",
+            spanish: "Color del resplandor"
+        ),
+        Entry(
+            key: "Glow opacity",
+            french: "Opacité du halo",
+            spanish: "Opacidad del resplandor"
+        ),
+        Entry(
+            key: "Glow spread",
+            french: "Étendue du halo",
+            spanish: "Extensión del resplandor"
+        ),
+        Entry(
+            key: "Voice backdrop",
+            french: "Arrière-plan Voice",
+            spanish: "Fondo de Voice"
+        ),
+        Entry(
+            key: "Transparent by default. Raising opacity adds a tint behind the Voice overlay.",
+            french: "Transparent par défaut. Augmenter l’opacité ajoute une teinte derrière la superposition Voice.",
+            spanish: "Transparente de forma predeterminada. Aumentar la opacidad añade un color detrás de la superposición de Voice."
+        ),
+        Entry(
+            key: "Backdrop color",
+            french: "Couleur d’arrière-plan",
+            spanish: "Color de fondo"
+        ),
+        Entry(
+            key: "Backdrop opacity",
+            french: "Opacité de l’arrière-plan",
+            spanish: "Opacidad del fondo"
+        ),
+        Entry(
+            key: "Voice Advanced CSS",
+            french: "CSS avancé Voice",
+            spanish: "CSS avanzado de Voice"
+        ),
+        Entry(
+            key: "Delivered only to avatar-overlay, never the main Codex window. theme-asset(\"UUID\") is supported; imports, external URLs, and file URLs remain blocked.",
+            french: "Envoyé uniquement à avatar-overlay, jamais à la fenêtre principale de Codex. theme-asset(\"UUID\") est pris en charge ; les imports, URL externes et URL file restent bloqués.",
+            spanish: "Se envía solo a avatar-overlay, nunca a la ventana principal de Codex. Se admite theme-asset(\"UUID\"); las importaciones, URL externas y URL file siguen bloqueadas."
+        ),
+        Entry(
+            key: "Copy Voice appearance",
+            french: "Copier l’apparence Voice",
+            spanish: "Copiar apariencia de Voice"
+        ),
+        Entry(
+            key: "Reset Voice appearance",
+            french: "Réinitialiser l’apparence Voice",
+            spanish: "Restablecer apariencia de Voice"
+        ),
+        Entry(
+            key: "Voice renderer connected",
+            french: "Renderer Voice connecté",
+            spanish: "Renderer de Voice conectado"
+        ),
+        Entry(
+            key: "Waiting for a Voice conversation",
+            french: "En attente d’une conversation Voice",
+            spanish: "Esperando una conversación de Voice"
+        ),
     ]
 
     static let french: [String: String] = Dictionary(

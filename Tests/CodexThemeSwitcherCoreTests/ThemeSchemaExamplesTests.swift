@@ -124,7 +124,7 @@ final class ThemeSchemaExamplesTests: XCTestCase {
         }
     }
 
-    func testTrackedSchemaIsValidJSONAndDescribesArchiveAndImageSkin() throws {
+    func testTrackedSchemaIsValidJSONAndDescribesArchiveSkinsAndVoice() throws {
         let url = repositoryRoot
             .appendingPathComponent("Sources/CodexThemeAgentCLI/Resources")
             .appendingPathComponent("codextheme.schema.json")
@@ -137,6 +137,8 @@ final class ThemeSchemaExamplesTests: XCTestCase {
         XCTAssertEqual(object["type"] as? String, "object")
         XCTAssertNotNil(definitions["themeDocument"])
         XCTAssertNotNil(definitions["imageSkin"])
+        XCTAssertNotNil(definitions["voiceStyle"])
+        XCTAssertNotNil(definitions["voiceVariant"])
         XCTAssertNotNil(object["x-codex-limits"])
         XCTAssertNotNil(object["x-codex-security"])
     }

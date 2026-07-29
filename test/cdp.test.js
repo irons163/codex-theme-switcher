@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const {
+  codexAvatarOverlayTargets,
   codexDebugArgs,
   codexPageTargets,
   targetWebSocket,
@@ -58,6 +59,24 @@ test("codexPageTargets accepts main renderer pages and excludes overlays", () =>
     codexPageTargets([accepted, withQuery, withFragment, avatar])
       .map(({ id }) => id),
     ["main", "query", "fragment"],
+  );
+});
+
+test("codexAvatarOverlayTargets accepts only the dedicated voice overlay", () => {
+  const main = target({ id: "main" });
+  const avatar = target({
+    id: "avatar",
+    url: "app://-/index.html?avatar-overlay=1",
+  });
+  const lookalike = target({
+    id: "lookalike",
+    url: "https://example.com/index.html?avatar-overlay=1",
+  });
+
+  assert.deepEqual(
+    codexAvatarOverlayTargets([main, avatar, lookalike])
+      .map(({ id }) => id),
+    ["avatar"],
   );
 });
 

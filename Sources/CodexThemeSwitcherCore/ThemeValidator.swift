@@ -463,6 +463,92 @@ public struct ThemeValidator: Sendable {
             }
         }
 
+        if let voice = document.voiceStyle {
+            let appearances: [
+                (name: String, value: ThemeVoiceVariant)
+            ] = [
+                ("light", voice.light),
+                ("dark", voice.dark)
+            ]
+            for appearance in appearances {
+                let path = "voiceStyle.\(appearance.name)"
+                let variant = appearance.value
+                let colorValues = [
+                    ("glowColor", variant.glowColor),
+                    ("backdropColor", variant.backdropColor)
+                ]
+                for (name, value) in colorValues {
+                    totalCSSCharacters += value.count
+                    let valuePath = "\(path).\(name)"
+                    if value.trimmingCharacters(
+                        in: .whitespacesAndNewlines
+                    ).isEmpty
+                        || value.contains(";")
+                        || value.contains("{")
+                        || value.contains("}")
+                        || value.localizedCaseInsensitiveContains("!important")
+                        || value.contains("/*")
+                        || value.contains("*/")
+                        || value.contains("@")
+                        || value.unicodeScalars.contains(where: {
+                            $0.value < 0x20 || $0.value == 0x7F
+                        }) {
+                        add(
+                            .invalidSkinCSSValue,
+                            path: valuePath,
+                            message: "Voice colors must be one CSS color value without declaration delimiters."
+                        )
+                    }
+                    appendSecurityIssues(
+                        in: value,
+                        path: valuePath,
+                        to: &issues
+                    )
+                }
+
+                let unitValues = [
+                    ("orbOpacity", variant.orbOpacity),
+                    ("glowOpacity", variant.glowOpacity),
+                    ("backdropOpacity", variant.backdropOpacity)
+                ]
+                for (name, value) in unitValues
+                where !value.isFinite || !(0...1).contains(value) {
+                    add(
+                        .invalidSkinNumber,
+                        path: "\(path).\(name)",
+                        message: "Voice value must be finite and between 0 and 1."
+                    )
+                }
+
+                let ranges: [
+                    (String, Double, ClosedRange<Double>)
+                ] = [
+                    ("orbScale", variant.orbScale, 0.5...2),
+                    ("brightness", variant.brightness, 0...3),
+                    ("contrast", variant.contrast, 0...3),
+                    ("saturation", variant.saturation, 0...3),
+                    ("hueRotation", variant.hueRotation, -180...180),
+                    ("blur", variant.blur, 0...40),
+                    ("glowBlur", variant.glowBlur, 0...120)
+                ]
+                for (name, value, range) in ranges
+                where !value.isFinite || !range.contains(value) {
+                    add(
+                        .invalidSkinNumber,
+                        path: "\(path).\(name)",
+                        message: "Voice value is outside the supported range."
+                    )
+                }
+            }
+
+            totalCSSCharacters += voice.rawCSS.count
+            appendSecurityIssues(
+                in: voice.rawCSS,
+                path: "voiceStyle.rawCSS",
+                to: &issues
+            )
+        }
+
         if totalCSSCharacters > configuration.maximumCSSCharacters {
             add(
                 .cssTooLarge,

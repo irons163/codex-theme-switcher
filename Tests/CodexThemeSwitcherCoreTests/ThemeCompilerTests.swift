@@ -748,6 +748,81 @@ final class ThemeCompilerTests: XCTestCase {
         }
     }
 
+    func testVoiceStyleCompilesIntoIsolatedAvatarOverlayCSS() throws {
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.orbScale = 1.25
+        voice.dark.hueRotation = -45
+        voice.rawCSS = ".voice-extra { border-radius: 50%; }"
+        var theme = TestFixtures.theme()
+        theme.voiceStyle = voice
+
+        let compiled = try ThemeCompiler().compile(theme)
+
+        XCTAssertFalse(compiled.css.contains("--cts-voice-scale"))
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-scale: 1.25;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-hue: -45deg;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                ".voice-extra { border-radius: 50%; }"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "html:root[data-codex-theme-switcher-theme]"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "scale: var(--cts-voice-scale) !important;"
+            )
+        )
+        XCTAssertFalse(
+            compiled.avatarOverlayCSS.contains("transform: scale(")
+        )
+    }
+
+    func testDisabledVoiceStyleProducesNoAvatarOverlayCSS() throws {
+        var theme = TestFixtures.theme()
+        theme.voiceStyle = ThemeVoiceStyle(isEnabled: false)
+
+        XCTAssertEqual(
+            try ThemeCompiler().compile(theme).avatarOverlayCSS,
+            ""
+        )
+    }
+
+    func testVoiceAdvancedCSSCanReferencePortableAssets() throws {
+        let asset = TestFixtures.imageAsset(
+            name: "voice.png",
+            bytes: [1, 2, 3]
+        )
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.rawCSS = #"""
+        .voice-extra {
+          background-image: theme-asset("\#(asset.id.uuidString)");
+        }
+        """#
+        var theme = TestFixtures.theme(assets: [asset])
+        theme.voiceStyle = voice
+
+        let compiled = try ThemeCompiler().compile(theme)
+
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "codex-theme-asset://\(asset.id.uuidString.lowercased())"
+            )
+        )
+        XCTAssertEqual(compiled.runtimeAssets, [asset])
+    }
+
     func testEscaperHandlesIdentifiersStringsAndComments() {
         XCTAssertEqual(CSSEscaper.escapeIdentifier("9 lives"), "\\39 \\20 lives")
         XCTAssertEqual(CSSEscaper.escapeString("a\"b\\c\n"), "a\\\"b\\\\c\\a ")

@@ -86,8 +86,35 @@ test("validateThemePayload trims metadata and preserves CSS verbatim", () => {
   assert.equal(validated.themeID, "midnight");
   assert.equal(validated.themeName, "Midnight");
   assert.equal(validated.css, css);
+  assert.equal(validated.avatarOverlayCSS, "");
   assert.deepEqual(validated.assets, []);
   assert.match(validated.digest, /^[0-9a-f]{64}$/);
+});
+
+test("validateThemePayload preserves safe Voice CSS and includes it in digest", () => {
+  const base = {
+    themeID: "voice",
+    themeName: "Voice",
+    css: ":root{}",
+  };
+  const withoutVoice = validateThemePayload(base);
+  const withVoice = validateThemePayload({
+    ...base,
+    avatarOverlayCSS: ":root{--voice-glow:#0ff}",
+  });
+
+  assert.equal(
+    withVoice.avatarOverlayCSS,
+    ":root{--voice-glow:#0ff}",
+  );
+  assert.notEqual(withVoice.digest, withoutVoice.digest);
+  assert.throws(
+    () => validateThemePayload({
+      ...base,
+      avatarOverlayCSS: "@import 'https://example.com/voice.css';",
+    }),
+    (error) => error.code === "unsafe-css",
+  );
 });
 
 test("validateThemePayload rejects missing and oversized fields", () => {
@@ -217,6 +244,25 @@ test("validateThemePayload canonicalizes referenced runtime assets", () => {
   );
   assert.match(validated.assets[0].fingerprint, /^[0-9a-f]{64}$/);
   assert.match(validated.digest, /^[0-9a-f]{64}$/);
+});
+
+test("Voice CSS may own a portable runtime asset without main CSS using it", () => {
+  const id = "a8d603e1-f01d-48d0-bd8f-cbfe4d179a66";
+  const validated = validateThemePayload({
+    themeID: "voice-asset",
+    themeName: "Voice asset",
+    css: ":root{}",
+    avatarOverlayCSS:
+      `.voice{background:url("codex-theme-asset://${id}")}`,
+    assets: [{
+      id,
+      mediaType: "image/png",
+      dataBase64: "AA==",
+    }],
+  });
+
+  assert.equal(validated.assets.length, 1);
+  assert.equal(validated.avatarOverlayCSS.includes(id), true);
 });
 
 test("validateThemePayload rejects malformed, duplicate, missing, and unused assets", () => {

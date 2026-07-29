@@ -107,6 +107,15 @@ function codexPageTargets(targets) {
   });
 }
 
+function codexAvatarOverlayTargets(targets) {
+  return targets.filter((target) => {
+    if (target.type !== "page" || !targetWebSocket(target)) return false;
+    const url = String(target.url || "");
+    return /^app:\/\/-\/index\.html(?:[?#]|$)/.test(url)
+      && url.includes("avatar-overlay");
+  });
+}
+
 async function listTargets(debugPort) {
   return fetchJSON(`http://127.0.0.1:${debugPort}/json`, {}, 1000);
 }
@@ -250,6 +259,7 @@ function ensureCodexApp(codexApp) {
 module.exports = {
   CdpSession,
   cdpStatus,
+  codexAvatarOverlayTargets,
   codexDebugArgs,
   codexPageTargets,
   ensureCodexApp,

@@ -268,6 +268,10 @@ enum L10n {
         text("背景與玻璃", "Skin")
     }
 
+    static var voice: String {
+        text("Voice", "Voice")
+    }
+
     static var colors: String {
         text("色彩", "Colors")
     }
