@@ -501,6 +501,33 @@ final class ThemeModelsTests: XCTestCase {
         XCTAssertNil(object["voiceStyle"])
     }
 
+    func testAnimatedPortraitVoiceDefaultsMatchTunedPreset() {
+        let variant = ThemeVoiceVariant.animatedPortraitDefault
+
+        XCTAssertEqual(variant.backgroundImageFit, .contain)
+        XCTAssertEqual(variant.backgroundZoom, 1.72)
+        XCTAssertEqual(variant.backgroundImageOpacity, 0.44)
+        XCTAssertEqual(variant.orbBackgroundImageFit, .cover)
+        XCTAssertEqual(variant.orbBackgroundInset, 0)
+        XCTAssertTrue(variant.orbBackgroundFollowsVoicePulse)
+        XCTAssertEqual(variant.orbBackgroundPulseStrength, 2)
+        XCTAssertEqual(variant.orbMouthSensitivity, 0.8)
+        XCTAssertEqual(variant.orbMouthAttackMilliseconds, 8)
+        XCTAssertEqual(variant.orbMouthReleaseMilliseconds, 40)
+        XCTAssertEqual(variant.orbMouthNoiseGate, 0.045)
+        XCTAssertEqual(variant.orbMouthResponseCurve, 1.45)
+        XCTAssertEqual(variant.orbMouthSmoothing, 0.9)
+        XCTAssertTrue(variant.orbIdleMotionEnabled)
+        XCTAssertEqual(variant.orbIdleMotionStrength, 1.4)
+        XCTAssertEqual(variant.orbIdleMotionPeriodSeconds, 5.8)
+        XCTAssertEqual(variant.orbBlinkIntervalSeconds, 3)
+        XCTAssertEqual(variant.orbBlinkDurationMilliseconds, 200)
+        XCTAssertEqual(variant.orbScale, 3)
+        XCTAssertEqual(variant.orbOpacity, 0)
+        XCTAssertEqual(variant.glowOpacity, 0)
+        XCTAssertEqual(variant.glowBlur, 39)
+    }
+
     func testSemanticRoleOverridesManualVariableName() {
         let variable = ThemeVariable(
             name: "--ignored",

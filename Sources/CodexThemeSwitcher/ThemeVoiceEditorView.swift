@@ -1295,16 +1295,7 @@ struct ThemeVoiceEditorView: View {
         Binding(
             get: { style.isEnabled },
             set: { enabled in
-                model.mutateDraft(
-                    actionName: L10n.text(
-                        enabled ? "啟用 Voice 樣式" : "停用 Voice 樣式",
-                        enabled ? "Enable Voice styling" : "Disable Voice styling"
-                    )
-                ) { document in
-                    var value = document.voiceStyle ?? ThemeVoiceStyle()
-                    value.isEnabled = enabled
-                    document.voiceStyle = value
-                }
+                model.setVoiceStyleEnabled(enabled)
             }
         )
     }

@@ -111,6 +111,7 @@ final class ThemeAppModel: ObservableObject {
     private let repository: FileThemeRepository
     private let archiveService: ThemeArchiveService
     private let compiler: ThemeCompiler
+    private let voiceDefaultResourceDirectory: URL?
     private var runtime: ThemeRuntimeController?
     private var monitorTask: Task<Void, Never>?
     private var unsavedDrafts: [UUID: ThemeDocument] = [:]
@@ -125,6 +126,8 @@ final class ThemeAppModel: ObservableObject {
         repository = FileThemeRepository()
         archiveService = ThemeArchiveService()
         compiler = ThemeCompiler()
+        voiceDefaultResourceDirectory =
+            VoiceDefaultPresetResources.directoryURL
         runtime = try? ThemeRuntimeController.standard(
             codexApp: resolvedCodexApp
         )
@@ -136,6 +139,8 @@ final class ThemeAppModel: ObservableObject {
         compiler: ThemeCompiler = ThemeCompiler(),
         codexAppURL: URL = RuntimeLocator.defaultCodexApp,
         hasCustomCodexApp: Bool = false,
+        voiceDefaultResourceDirectory: URL? =
+            VoiceDefaultPresetResources.directoryURL,
         runtime: ThemeRuntimeController?
     ) {
         self.codexAppURL = codexAppURL
@@ -143,6 +148,8 @@ final class ThemeAppModel: ObservableObject {
         self.repository = repository
         self.archiveService = archiveService
         self.compiler = compiler
+        self.voiceDefaultResourceDirectory =
+            voiceDefaultResourceDirectory
         self.runtime = runtime
     }
 
@@ -321,6 +328,7 @@ final class ThemeAppModel: ObservableObject {
 
     func createTheme() {
         var theme = BuiltInThemes.midnight
+        let voicePreset = defaultVoicePresetOrFallback()
         let now = Date()
         theme.id = UUID()
         theme.metadata.name = L10n.text("未命名主題", "Untitled Theme")
@@ -330,6 +338,8 @@ final class ThemeAppModel: ObservableObject {
         theme.metadata.tags = []
         theme.metadata.createdAt = now
         theme.metadata.updatedAt = now
+        theme.voiceStyle = voicePreset.style
+        theme.assets.append(contentsOf: voicePreset.assets)
 
         Task {
             await perform {
@@ -1609,6 +1619,24 @@ final class ThemeAppModel: ObservableObject {
         }
     }
 
+    func setVoiceStyleEnabled(_ enabled: Bool) {
+        mutateDraft(
+            actionName: L10n.text(
+                enabled ? "啟用 Voice 樣式" : "停用 Voice 樣式",
+                enabled ? "Enable Voice styling" : "Disable Voice styling"
+            )
+        ) { document in
+            if var voice = document.voiceStyle {
+                voice.isEnabled = enabled
+                document.voiceStyle = voice
+            } else if enabled {
+                let preset = defaultVoicePresetOrFallback()
+                document.voiceStyle = preset.style
+                document.assets.append(contentsOf: preset.assets)
+            }
+        }
+    }
+
     func removeVoiceStyle() {
         mutateDraft(
             actionName: L10n.text(
@@ -1634,6 +1662,7 @@ final class ThemeAppModel: ObservableObject {
     }
 
     func resetVoiceVariant(for appearance: ThemeSkinAppearance) {
+        let preset = defaultVoicePresetOrFallback()
         mutateDraft(
             actionName: L10n.text(
                 "重設 Voice 外觀",
@@ -1649,10 +1678,11 @@ final class ThemeAppModel: ObservableObject {
                 removedVariant.orbBlinkAssetID
             ].compactMap { $0 } + removedVariant.orbMouthFrameAssetIDs
             voice.setVariant(
-                appearance == .light ? .lightDefault : .darkDefault,
+                preset.style.variant(for: appearance),
                 for: appearance
             )
             document.voiceStyle = voice
+            document.assets.append(contentsOf: preset.assets)
             for id in Set(removedAssetIDs) {
                 pruneAssetIfUnreferenced(id, from: &document)
             }
@@ -2080,6 +2110,60 @@ final class ThemeAppModel: ObservableObject {
                 data: frameData
             )
         }
+    }
+
+    func makeDefaultVoicePreset() throws -> (
+        style: ThemeVoiceStyle,
+        assets: [ThemeAsset]
+    ) {
+        guard let directory = voiceDefaultResourceDirectory else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        let frames = try makeMouthSpriteFrameAssets(
+            from: directory.appendingPathComponent(
+                VoiceDefaultPresetResources.mouthSpriteFilename
+            ),
+            gridSize: 2
+        )
+        guard let closedMouth = frames.first else {
+            throw ThemeAppError.invalidMouthSpriteSheet(
+                VoiceDefaultPresetResources.mouthSpriteFilename
+            )
+        }
+        let blink = try makeBackgroundAsset(
+            from: directory.appendingPathComponent(
+                VoiceDefaultPresetResources.blinkFilename
+            )
+        )
+        var variant = ThemeVoiceVariant.animatedPortraitDefault
+        variant.orbBackgroundAssetID = closedMouth.id
+        variant.orbMouthFrameAssetIDs = Array(frames.dropFirst().map(\.id))
+        variant.orbBlinkAssetID = blink.id
+        return (
+            ThemeVoiceStyle(
+                isEnabled: true,
+                light: variant,
+                dark: variant
+            ),
+            frames + [blink]
+        )
+    }
+
+    private func defaultVoicePresetOrFallback() -> (
+        style: ThemeVoiceStyle,
+        assets: [ThemeAsset]
+    ) {
+        if let preset = try? makeDefaultVoicePreset() {
+            return preset
+        }
+        return (
+            ThemeVoiceStyle(
+                isEnabled: true,
+                light: .animatedPortraitDefault,
+                dark: .animatedPortraitDefault
+            ),
+            []
+        )
     }
 }
 

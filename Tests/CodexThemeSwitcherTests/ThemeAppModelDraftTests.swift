@@ -5,6 +5,15 @@ import XCTest
 @testable import CodexThemeSwitcher
 
 final class ThemeAppModelDraftTests: XCTestCase {
+    private var voiceDefaultsDirectory: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Examples")
+            .appendingPathComponent("voice-mouth-sprites")
+    }
+
     @MainActor
     func testMouthSpriteSheetSplitsIntoFourOrderedSquareAssets() throws {
         let root = FileManager.default.temporaryDirectory
@@ -90,6 +99,87 @@ final class ThemeAppModelDraftTests: XCTestCase {
             XCTAssertEqual(properties[kCGImagePropertyPixelWidth] as? Int, 418)
             XCTAssertEqual(properties[kCGImagePropertyPixelHeight] as? Int, 418)
         }
+    }
+
+    @MainActor
+    func testDefaultVoicePresetIncludesTunedImagesForBothAppearances() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "CodexThemeSwitcherVoicePresetTests-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let model = ThemeAppModel(
+            repository: FileThemeRepository(rootDirectory: root),
+            voiceDefaultResourceDirectory: voiceDefaultsDirectory,
+            runtime: nil
+        )
+
+        let preset = try model.makeDefaultVoicePreset()
+        let light = preset.style.light
+
+        XCTAssertTrue(preset.style.isEnabled)
+        XCTAssertEqual(preset.assets.count, 5)
+        XCTAssertEqual(preset.style.light, preset.style.dark)
+        XCTAssertEqual(light.orbScale, 3)
+        XCTAssertEqual(light.orbOpacity, 0)
+        XCTAssertEqual(light.orbMouthFrameAssetIDs.count, 3)
+        XCTAssertNotNil(light.orbBackgroundAssetID)
+        XCTAssertNotNil(light.orbBlinkAssetID)
+        XCTAssertEqual(
+            Set(
+                [light.orbBackgroundAssetID, light.orbBlinkAssetID]
+                    .compactMap { $0 }
+                    + light.orbMouthFrameAssetIDs
+            ),
+            Set(preset.assets.map(\.id))
+        )
+        XCTAssertTrue(preset.assets.allSatisfy {
+            $0.mediaType == "image/png" && $0.decodedData != nil
+        })
+    }
+
+    @MainActor
+    func testFirstVoiceEnableSeedsDefaultPresetWithoutOverwritingLater() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "CodexThemeSwitcherVoiceEnableTests-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        var theme = BuiltInThemes.midnight
+        theme.id = UUID()
+        theme.metadata.name = "Voice defaults"
+        theme.voiceStyle = nil
+        let repository = FileThemeRepository(rootDirectory: root)
+        _ = try await repository.save(theme, collisionPolicy: .fail)
+        let model = ThemeAppModel(
+            repository: repository,
+            voiceDefaultResourceDirectory: voiceDefaultsDirectory,
+            runtime: nil
+        )
+        await model.reloadThemes(selecting: theme.id)
+
+        model.setVoiceStyleEnabled(true)
+
+        let seeded = try XCTUnwrap(model.draft)
+        XCTAssertEqual(seeded.assets.count, 5)
+        XCTAssertEqual(
+            seeded.voiceStyle?.light,
+            seeded.voiceStyle?.dark
+        )
+        XCTAssertEqual(seeded.voiceStyle?.light.orbScale, 3)
+        let seededAssetIDs = seeded.assets.map(\.id)
+
+        model.setVoiceStyleEnabled(false)
+        model.setVoiceStyleEnabled(true)
+
+        XCTAssertEqual(model.draft?.assets.map(\.id), seededAssetIDs)
+        XCTAssertTrue(model.draft?.voiceStyle?.isEnabled == true)
     }
 
     @MainActor

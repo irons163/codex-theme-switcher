@@ -232,6 +232,50 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
 
     public static let darkDefault = ThemeVoiceVariant()
 
+    /// Tuned animated-portrait defaults used when Voice styling is enabled
+    /// for the first time. Asset references are attached by the app because
+    /// portable theme assets require document-specific UUIDs.
+    public static let animatedPortraitDefault = ThemeVoiceVariant(
+        backgroundImageFit: .contain,
+        backgroundPositionX: 0.5,
+        backgroundPositionY: 0.5,
+        backgroundZoom: 1.72,
+        backgroundImageOpacity: 0.44,
+        backgroundImageBlur: 0,
+        orbBackgroundImageFit: .cover,
+        orbBackgroundPositionX: 0.5,
+        orbBackgroundPositionY: 0.5,
+        orbBackgroundImageOpacity: 1,
+        orbBackgroundImageBlur: 0,
+        orbBackgroundInset: 0,
+        orbBackgroundFollowsVoicePulse: true,
+        orbBackgroundPulseStrength: 2,
+        orbMouthSensitivity: 0.8,
+        orbMouthAttackMilliseconds: 8,
+        orbMouthReleaseMilliseconds: 40,
+        orbMouthNoiseGate: 0.045,
+        orbMouthResponseCurve: 1.45,
+        orbMouthSmoothing: 0.9,
+        orbMouthFrameHoldMilliseconds: 80,
+        orbIdleMotionEnabled: true,
+        orbIdleMotionStrength: 1.4,
+        orbIdleMotionPeriodSeconds: 5.8,
+        orbBlinkIntervalSeconds: 3,
+        orbBlinkDurationMilliseconds: 200,
+        orbScale: 3,
+        orbOpacity: 0,
+        brightness: 1,
+        contrast: 1,
+        saturation: 1,
+        hueRotation: 0,
+        blur: 0,
+        glowColor: "#66D9FF",
+        glowOpacity: 0,
+        glowBlur: 39,
+        backdropColor: "#000000",
+        backdropOpacity: 0
+    )
+
     private enum CodingKeys: String, CodingKey {
         case backgroundAssetID
         case backgroundImageFit
