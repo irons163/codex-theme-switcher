@@ -163,7 +163,7 @@ function install(dom = fakeDOM()) {
   return dom;
 }
 
-test("VERSION=22 exposes transaction APIs and source evaluation is idempotent", () => {
+test("VERSION=23 exposes transaction APIs and source evaluation is idempotent", () => {
   const dom = install();
   const runtime = dom.window.__codexThemeSwitcherRuntime;
   const functions = [
@@ -175,7 +175,7 @@ test("VERSION=22 exposes transaction APIs and source evaluation is idempotent", 
     "__codexThemeSwitcherClear",
   ];
 
-  assert.equal(runtime.version, 22);
+  assert.equal(runtime.version, 23);
   for (const name of functions) {
     assert.equal(typeof dom.window[name], "function", name);
   }
@@ -557,6 +557,187 @@ test("runtime uses documentElement as style host and never schedules revival", (
   dom.window.__codexThemeSwitcherCommit({ transactionID: "transaction-1" });
   assert.equal(dom.children.length, 1);
   assert.equal(timeoutCalls, 0);
+});
+
+function voiceImagePreloadDOM() {
+  const dom = fakeDOM();
+  const liveProperties = new Map();
+  const observers = [];
+  const images = [];
+  const pendingDecodes = new Map();
+  const orb = {
+    style: {
+      getPropertyValue(name) {
+        return liveProperties.get(name) || "";
+      },
+      setProperty(name, value) {
+        liveProperties.set(name, value);
+      },
+      removeProperty(name) {
+        liveProperties.delete(name);
+      },
+    },
+    getBoundingClientRect() {
+      return { left: 0, top: 0, width: 112, height: 112 };
+    },
+    querySelector() {
+      return null;
+    },
+  };
+  dom.document.querySelector = (selector) => (
+    selector === ".codex-avatar-root" ? orb : null
+  );
+  dom.sandbox.getComputedStyle = (element) => ({
+    backgroundImage: "",
+    backgroundPosition: "",
+    backgroundSize: "",
+    getPropertyValue(name) {
+      if (element !== dom.document.documentElement) return "";
+      if (name === "--cts-voice-orb-image-enabled") return "1";
+      if (name === "--cts-voice-orb-mouth-frame-count") return "3";
+      if (name === "--cts-voice-orb-mouth-frame-0") {
+        return 'url("frame-0")';
+      }
+      if (name === "--cts-voice-orb-mouth-frame-1") {
+        return 'url("frame-1")';
+      }
+      if (name === "--cts-voice-orb-mouth-frame-2") {
+        return 'url("frame-2")';
+      }
+      if (name === "--cts-voice-orb-background-opacity") return "1";
+      if (name === "--cts-voice-orb-blink-enabled") return "1";
+      if (name === "--cts-voice-orb-blink-image") {
+        return 'url("blink")';
+      }
+      return "";
+    },
+  });
+  dom.sandbox.MutationObserver = class FakeMutationObserver {
+    constructor(callback) {
+      this.callback = callback;
+      this.disconnected = false;
+      observers.push(this);
+    }
+
+    observe(target, options) {
+      this.target = target;
+      this.options = options;
+    }
+
+    disconnect() {
+      this.disconnected = true;
+    }
+  };
+  dom.sandbox.Image = class FakeImage {
+    constructor() {
+      this.complete = false;
+      this.naturalWidth = 627;
+      this.naturalHeight = 627;
+    }
+
+    decode() {
+      return new Promise((resolve, reject) => {
+        pendingDecodes.set(this.source, { reject, resolve });
+      });
+    }
+
+    set src(value) {
+      this.source = value;
+      this.complete = true;
+      images.push(this);
+    }
+  };
+
+  install(dom);
+  dom.window.__codexThemeSwitcherBegin(beginPayload({
+    css: ":root { --cts-voice-orb-image-enabled: 1; }",
+  }));
+  dom.window.__codexThemeSwitcherCommit({ transactionID: "transaction-1" });
+  return {
+    dom,
+    images,
+    liveProperties,
+    observers,
+    pendingDecodes,
+  };
+}
+
+test("Voice images decode before mouth animation is unlocked", async () => {
+  const fixture = voiceImagePreloadDOM();
+  const pulse = fixture.dom.window
+    .__codexThemeSwitcherRuntime.voicePulse;
+
+  assert.deepEqual(
+    fixture.images.map((image) => image.source),
+    ["frame-0", "frame-1", "frame-2", "blink"],
+  );
+  assert.equal(pulse.mouthImagesPreparing, true);
+  assert.equal(pulse.mouthSourcesReady, false);
+  assert.equal(pulse.mouthImagesFailed, false);
+  assert.equal(
+    fixture.liveProperties.get("--cts-voice-orb-active-image"),
+    'url("frame-0")',
+  );
+  assert.equal(
+    fixture.liveProperties.get("--cts-voice-orb-mouth-image-b"),
+    'url("frame-0")',
+  );
+  assert.equal(
+    fixture.liveProperties.get("--cts-voice-orb-mouth-opacity-b"),
+    "1.0000",
+  );
+  assert.equal(
+    fixture.liveProperties.get("--cts-voice-orb-blink-opacity"),
+    "0.0000",
+  );
+
+  for (const source of ["frame-0", "frame-1", "frame-2"]) {
+    fixture.pendingDecodes.get(source).resolve();
+  }
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(pulse.mouthSourcesReady, false);
+  assert.equal(pulse.mouthImagesPreparing, true);
+
+  fixture.pendingDecodes.get("blink").resolve();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(pulse.mouthSourcesReady, true);
+  assert.equal(pulse.mouthImagesPreparing, false);
+  assert.equal(pulse.mouthImagesFailed, false);
+  assert.equal(pulse.preloadedVoiceImages.length, 4);
+  assert.equal(
+    fixture.liveProperties.get("--cts-voice-orb-active-image"),
+    'url("frame-0")',
+  );
+});
+
+test("failed Voice image decode keeps the closed mouth pinned", async () => {
+  const fixture = voiceImagePreloadDOM();
+  const pulse = fixture.dom.window
+    .__codexThemeSwitcherRuntime.voicePulse;
+
+  for (const source of ["frame-0", "frame-1", "blink"]) {
+    fixture.pendingDecodes.get(source).resolve();
+  }
+  fixture.pendingDecodes.get("frame-2").reject(
+    new Error("decode failed"),
+  );
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(pulse.mouthSourcesReady, false);
+  assert.equal(pulse.mouthImagesPreparing, false);
+  assert.equal(pulse.mouthImagesFailed, true);
+  assert.equal(
+    fixture.liveProperties.get("--cts-voice-orb-active-image"),
+    'url("frame-0")',
+  );
+  assert.equal(
+    fixture.liveProperties.get("--cts-voice-orb-mouth-image-b"),
+    'url("frame-0")',
+  );
+  assert.equal(
+    fixture.liveProperties.get("--cts-voice-orb-blink-opacity"),
+    "0.0000",
+  );
 });
 
 test("custom Voice orb image follows native sprite frame size", async () => {

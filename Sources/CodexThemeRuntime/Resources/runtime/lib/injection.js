@@ -12,7 +12,7 @@ const {
 } = require("./cdp");
 
 const BASE64_CHUNK_CHARACTERS = 256 * 1024;
-const RENDERER_RUNTIME_VERSION = 22;
+const RENDERER_RUNTIME_VERSION = 23;
 const TARGET_KIND_MAIN = "main";
 const TARGET_KIND_AVATAR_OVERLAY = "avatar-overlay";
 const RUNTIME_GLOBALS = Object.freeze({

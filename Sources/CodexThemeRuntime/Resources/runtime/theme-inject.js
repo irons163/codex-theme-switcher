@@ -4,7 +4,7 @@
   const GLOBAL_KEY = "__codexThemeSwitcherRuntime";
   const STYLE_ID = "codex-theme-switcher-style";
   const STAGING_STYLE_ID = `${STYLE_ID}-staging`;
-  const VERSION = 22;
+  const VERSION = 23;
   const PUBLISHED_AUDIO_SMOOTHING = 0.86;
   const VOICE_ORB_SELECTOR = ".codex-avatar-root";
   const VOICE_PULSE_ENABLED = "--cts-voice-orb-pulse-enabled";
@@ -31,6 +31,7 @@
   const VOICE_IDLE_Y = "--cts-voice-orb-idle-y";
   const VOICE_IDLE_ROTATION = "--cts-voice-orb-idle-rotation";
   const VOICE_BLINK_ENABLED = "--cts-voice-orb-blink-enabled";
+  const VOICE_BLINK_IMAGE = "--cts-voice-orb-blink-image";
   const VOICE_BLINK_INTERVAL = "--cts-voice-orb-blink-interval-ms";
   const VOICE_BLINK_DURATION = "--cts-voice-orb-blink-duration-ms";
   const VOICE_BLINK_OPACITY = "--cts-voice-orb-blink-opacity";
@@ -179,6 +180,27 @@
     return sources;
   }
 
+  function voiceBlinkSource() {
+    if (!booleanCustomProperty(VOICE_BLINK_ENABLED)) return "";
+    const source = customProperty(
+      document.documentElement,
+      VOICE_BLINK_IMAGE,
+    );
+    return source && source.toLowerCase() !== "none" ? source : "";
+  }
+
+  function resetVoiceMouthDynamics(pulse, clearCache = true) {
+    pulse.mouthLevel = 0;
+    pulse.mouthFrameIndex = 0;
+    pulse.mouthLastTimestamp = 0;
+    pulse.mouthRawLevel = 0;
+    pulse.mouthNoiseFloor = 0;
+    pulse.mouthPeakLevel = 0;
+    pulse.mouthEnvelopeReady = false;
+    pulse.mouthGateOpen = false;
+    if (clearCache) resetVoiceMouthCache(pulse);
+  }
+
   function clearVoiceMouth(root) {
     root?.style?.removeProperty?.(VOICE_MOUTH_ACTIVE_IMAGE);
     root?.style?.removeProperty?.(VOICE_MOUTH_IMAGE_A);
@@ -212,6 +234,160 @@
     pulse.blinkOpacity = "";
     pulse.blinkStartedAt = 0;
     pulse.nextBlinkAt = 0;
+  }
+
+  function pinVoiceMouthClosed(root) {
+    if (!root) return;
+    const pulse = runtime.voicePulse;
+    const source = pulse.mouthSources[0];
+    resetVoiceMouthDynamics(pulse, false);
+    setVoiceMouthProperty(
+      root,
+      "blinkOpacity",
+      VOICE_BLINK_OPACITY,
+      "0.0000",
+    );
+    if (!source) {
+      clearVoiceMouth(root);
+      resetVoiceMouthCache(pulse);
+      return;
+    }
+    const baseOpacity = clamp(
+      numericCustomProperty("--cts-voice-orb-background-opacity", 1),
+      0,
+      1,
+    );
+    setVoiceMouthProperty(
+      root,
+      "mouthActiveSource",
+      VOICE_MOUTH_ACTIVE_IMAGE,
+      source,
+    );
+    setVoiceMouthProperty(
+      root,
+      "mouthSourceA",
+      VOICE_MOUTH_IMAGE_A,
+      source,
+    );
+    setVoiceMouthProperty(
+      root,
+      "mouthSourceB",
+      VOICE_MOUTH_IMAGE_B,
+      source,
+    );
+    setVoiceMouthProperty(
+      root,
+      "mouthOpacityA",
+      VOICE_MOUTH_OPACITY_A,
+      "0.0000",
+    );
+    setVoiceMouthProperty(
+      root,
+      "mouthOpacityB",
+      VOICE_MOUTH_OPACITY_B,
+      baseOpacity.toFixed(4),
+    );
+  }
+
+  function preloadVoiceImageSource(source) {
+    const url = extractCSSURL(source);
+    if (!url || typeof Image !== "function") {
+      return Promise.resolve({
+        image: null,
+        ready: typeof Image !== "function",
+      });
+    }
+
+    return new Promise((resolve) => {
+      const image = new Image();
+      let settled = false;
+      let decodingStarted = false;
+      const finish = (ready) => {
+        if (settled) return;
+        settled = true;
+        image.onload = null;
+        image.onerror = null;
+        resolve({ image, ready });
+      };
+      image.onerror = () => finish(false);
+      image.onload = () => {
+        if (decodingStarted) return;
+        decodingStarted = true;
+        if (typeof image.decode !== "function") {
+          finish(true);
+          return;
+        }
+        let decoding;
+        try {
+          decoding = image.decode();
+        } catch {
+          finish(false);
+          return;
+        }
+        Promise.resolve(decoding).then(
+          () => finish(true),
+          () => finish(false),
+        );
+      };
+      image.src = url;
+      if (
+        image.complete
+        && Number(image.naturalWidth || image.width) > 0
+      ) {
+        image.onload();
+      }
+    });
+  }
+
+  function resetVoiceImagePreparation(pulse) {
+    pulse.mouthSourcesKey = "";
+    pulse.mouthSources = [];
+    pulse.mouthSourcesReady = false;
+    pulse.mouthImagesPreparing = false;
+    pulse.mouthImagesFailed = false;
+    pulse.preloadedVoiceImages = [];
+  }
+
+  function prepareVoiceImages(generation) {
+    const pulse = runtime.voicePulse;
+    const sources = voiceMouthFrameSources();
+    const blinkSource = voiceBlinkSource();
+    const key = [...sources, blinkSource].join("\u0000");
+    pulse.mouthSourcesKey = key;
+    pulse.mouthSources = sources;
+    pulse.mouthSourcesReady = false;
+    pulse.mouthImagesPreparing = false;
+    pulse.mouthImagesFailed = false;
+    pulse.preloadedVoiceImages = [];
+    resetVoiceMouthDynamics(pulse);
+    resetVoiceIdleCache(pulse);
+    pinVoiceMouthClosed(pulse.root);
+
+    const imageSources = [...new Set(
+      [...sources, blinkSource].filter(Boolean),
+    )];
+    if (imageSources.length === 0 || typeof Image !== "function") {
+      pulse.mouthSourcesReady = true;
+      return;
+    }
+
+    pulse.mouthImagesPreparing = true;
+    Promise.all(imageSources.map(preloadVoiceImageSource)).then((results) => {
+      if (
+        generation !== runtime.voicePulse.generation
+        || key !== runtime.voicePulse.mouthSourcesKey
+      ) {
+        return;
+      }
+      const current = runtime.voicePulse;
+      current.mouthImagesPreparing = false;
+      current.preloadedVoiceImages = results
+        .map(({ image }) => image)
+        .filter(Boolean);
+      current.mouthImagesFailed = results.some(({ ready }) => !ready);
+      current.mouthSourcesReady = !current.mouthImagesFailed;
+      pinVoiceMouthClosed(current.root);
+    });
   }
 
   function voiceIdleConfiguration() {
@@ -313,7 +489,12 @@
     );
 
     let blink = 0;
-    if (!config.blinkEnabled || speaking) {
+    if (
+      !config.blinkEnabled
+      || !pulse.mouthSourcesReady
+      || pulse.mouthImagesFailed
+      || speaking
+    ) {
       pulse.blinkStartedAt = 0;
       pulse.nextBlinkAt = now + nextBlinkDelay(config.blinkInterval);
     } else {
@@ -357,36 +538,14 @@
 
   function synchronizeVoiceMouth(root, rawEnergy) {
     const pulse = runtime.voicePulse;
-    let sources = pulse.mouthSources;
     if (!pulse.mouthSourcesReady) {
-      sources = voiceMouthFrameSources();
-      pulse.mouthSources = sources;
-      pulse.mouthSourcesReady = true;
-      const sourcesKey = sources.join("\u0000");
-      if (sourcesKey !== pulse.mouthSourcesKey) {
-        pulse.mouthSourcesKey = sourcesKey;
-        pulse.mouthLevel = 0;
-        pulse.mouthFrameIndex = 0;
-        pulse.mouthLastTimestamp = 0;
-        pulse.mouthRawLevel = 0;
-        pulse.mouthNoiseFloor = 0;
-        pulse.mouthPeakLevel = 0;
-        pulse.mouthEnvelopeReady = false;
-        pulse.mouthGateOpen = false;
-        resetVoiceMouthCache(pulse);
-      }
+      pinVoiceMouthClosed(root);
+      return;
     }
+    const sources = pulse.mouthSources;
     if (!root || sources.length < 2) {
       clearVoiceMouth(root);
-      pulse.mouthLevel = 0;
-      pulse.mouthFrameIndex = 0;
-      pulse.mouthLastTimestamp = 0;
-      pulse.mouthRawLevel = 0;
-      pulse.mouthNoiseFloor = 0;
-      pulse.mouthPeakLevel = 0;
-      pulse.mouthEnvelopeReady = false;
-      pulse.mouthGateOpen = false;
-      resetVoiceMouthCache(pulse);
+      resetVoiceMouthDynamics(pulse);
       return;
     }
     const sensitivity = clamp(
@@ -1230,17 +1389,7 @@
     pulse.analysis = null;
     pulse.analysisLoading = false;
     pulse.lastPosition = null;
-    pulse.mouthLevel = 0;
-    pulse.mouthFrameIndex = 0;
-    pulse.mouthLastTimestamp = 0;
-    pulse.mouthRawLevel = 0;
-    pulse.mouthNoiseFloor = 0;
-    pulse.mouthPeakLevel = 0;
-    pulse.mouthEnvelopeReady = false;
-    pulse.mouthGateOpen = false;
-    pulse.mouthSourcesKey = "";
-    pulse.mouthSources = [];
-    pulse.mouthSourcesReady = false;
+    resetVoiceMouthDynamics(pulse);
     pulse.publishedAudioRenderer = null;
     pulse.publishedAudioSearchCountdown = 0;
     pulse.publishedAudioSnapshot = null;
@@ -1257,6 +1406,9 @@
     if (!root || generation !== pulse.generation) return;
     pulse.root = root;
     pulse.active = true;
+    if (!pulse.mouthSourcesReady) {
+      pinVoiceMouthClosed(root);
+    }
 
     if (typeof MutationObserver === "function") {
       pulse.rootObserver = new MutationObserver((records = []) => {
@@ -1300,6 +1452,7 @@
       pulse.colorSchemeListener,
     );
     detachVoicePulseRoot();
+    resetVoiceImagePreparation(pulse);
     pulse.domObserver = null;
     pulse.appearanceObserver = null;
     pulse.colorSchemeQuery = null;
@@ -1338,6 +1491,7 @@
     if (!voiceOrbImageIsEnabled()) {
       return;
     }
+    prepareVoiceImages(generation);
 
     const findRoot = () => (
       typeof document.querySelector === "function"
@@ -1788,6 +1942,9 @@
       mouthSourcesKey: "",
       mouthSources: [],
       mouthSourcesReady: false,
+      mouthImagesPreparing: false,
+      mouthImagesFailed: false,
+      preloadedVoiceImages: [],
       publishedAudioRenderer: null,
       publishedAudioSearchCountdown: 0,
       publishedAudioSnapshot: null,
