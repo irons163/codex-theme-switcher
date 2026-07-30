@@ -10,13 +10,13 @@ Theme Switcher 会在启动 Codex 时临时注入样式，不会修改、替换�
 
 ## 下载
 
-**当前稳定版：0.3.0**
+**当前稳定版：0.3.1**
 
-[Apple Silicon DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-apple-silicon.dmg)
+[Apple Silicon DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.1/CodexThemeSwitcher-0.3.1-apple-silicon.dmg)
 ·
-[Intel DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-intel.dmg)
+[Intel DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.1/CodexThemeSwitcher-0.3.1-intel.dmg)
 ·
-[版本说明与校验和](https://github.com/irons163/codex-theme-switcher/releases/tag/v0.3.0)
+[版本说明与校验和](https://github.com/irons163/codex-theme-switcher/releases/tag/v0.3.1)
 
 需要 macOS 13 或更高版本。两种安装包均已签名并通过 Apple 公证。
 

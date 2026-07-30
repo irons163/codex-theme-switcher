@@ -10,13 +10,13 @@ Theme Switcher injects temporary styles when it launches Codex. It does not modi
 
 ## Download
 
-**Current stable release: 0.3.0**
+**Current stable release: 0.3.1**
 
-[Apple Silicon DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-apple-silicon.dmg)
+[Apple Silicon DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.1/CodexThemeSwitcher-0.3.1-apple-silicon.dmg)
 ·
-[Intel DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-intel.dmg)
+[Intel DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.1/CodexThemeSwitcher-0.3.1-intel.dmg)
 ·
-[Release notes and checksums](https://github.com/irons163/codex-theme-switcher/releases/tag/v0.3.0)
+[Release notes and checksums](https://github.com/irons163/codex-theme-switcher/releases/tag/v0.3.1)
 
 Requires macOS 13 or later. Both installers are signed and notarized by Apple.
 

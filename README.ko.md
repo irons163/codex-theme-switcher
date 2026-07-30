@@ -10,13 +10,13 @@ Theme Switcher는 Codex를 실행할 때 임시 스타일을 주입합니다. �
 
 ## 다운로드
 
-**현재 안정 버전: 0.3.0**
+**현재 안정 버전: 0.3.1**
 
-[Apple Silicon DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-apple-silicon.dmg)
+[Apple Silicon DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.1/CodexThemeSwitcher-0.3.1-apple-silicon.dmg)
 ·
-[Intel DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-intel.dmg)
+[Intel DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.1/CodexThemeSwitcher-0.3.1-intel.dmg)
 ·
-[릴리스 노트 및 체크섬](https://github.com/irons163/codex-theme-switcher/releases/tag/v0.3.0)
+[릴리스 노트 및 체크섬](https://github.com/irons163/codex-theme-switcher/releases/tag/v0.3.1)
 
 macOS 13 이상이 필요합니다. 두 설치 파일 모두 서명되었으며 Apple 공증을 완료했습니다.
 
