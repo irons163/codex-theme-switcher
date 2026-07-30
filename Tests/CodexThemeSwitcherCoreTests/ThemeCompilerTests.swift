@@ -784,8 +784,49 @@ final class ThemeCompilerTests: XCTestCase {
                 "scale: var(--cts-voice-scale) !important;"
             )
         )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "scale(var(--cts-voice-scale));"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-layout-shift-x"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-layout-shift-y"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "left: 50vw !important;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "top: 50vh !important;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "[data-avatar-overlay-hit-region=\"mascot\"]"
+            )
+        )
         XCTAssertFalse(
-            compiled.avatarOverlayCSS.contains("transform: scale(")
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-scale-shift-x"
+            )
+        )
+        XCTAssertFalse(
+            compiled.avatarOverlayCSS.contains(
+                """
+                [class*="voiceorb" i]
+                ) {
+                  scale: var(--cts-voice-scale) !important;
+                """
+            )
         )
     }
 
@@ -916,6 +957,16 @@ final class ThemeCompilerTests: XCTestCase {
                 "--cts-voice-orb-background-position: 25% 75%;"
             )
         )
+        XCTAssertFalse(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-position-x"
+            )
+        )
+        XCTAssertFalse(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-position-y"
+            )
+        )
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
                 "--cts-voice-orb-background-opacity: 0.6;"
@@ -933,6 +984,11 @@ final class ThemeCompilerTests: XCTestCase {
         )
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-image-enabled: 1;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
                 "--cts-voice-orb-pulse-enabled: 1;"
             )
         )
@@ -943,7 +999,30 @@ final class ThemeCompilerTests: XCTestCase {
         )
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
-                "scale: var(--cts-voice-orb-live-pulse, 1);"
+                """
+                html:root[data-codex-theme-switcher-theme] canvas {
+                  opacity: var(--cts-voice-opacity) !important;
+                  scale: var(--cts-voice-scale) !important;
+                """
+            )
+        )
+        XCTAssertFalse(
+            compiled.avatarOverlayCSS.contains(
+                """
+                [class*="voiceorb" i]
+                ) {
+                  opacity: var(--cts-voice-opacity) !important;
+                """
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "var(--cts-voice-orb-live-left, 15.625%)"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "var(--cts-voice-orb-live-height, 68.2692%)"
             )
         )
         XCTAssertTrue(
@@ -959,6 +1038,111 @@ final class ThemeCompilerTests: XCTestCase {
         )
         XCTAssertFalse(compiled.css.contains("voice-orb.png"))
         XCTAssertEqual(Set(compiled.runtimeAssets.map(\.id)), [outer.id, orb.id])
+    }
+
+    func testVoiceMouthFramesCompileAsPortableOrderedAssets() throws {
+        let closed = TestFixtures.imageAsset(
+            name: "mouth-closed.png",
+            bytes: [1, 2, 3]
+        )
+        let medium = TestFixtures.imageAsset(
+            name: "mouth-medium.png",
+            bytes: [4, 5, 6]
+        )
+        let open = TestFixtures.imageAsset(
+            name: "mouth-open.png",
+            bytes: [7, 8, 9]
+        )
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.orbBackgroundAssetID = closed.id
+        voice.light.orbMouthFrameAssetIDs = [medium.id, open.id]
+        voice.light.orbMouthSensitivity = 1.4
+        voice.light.orbMouthAttackMilliseconds = 24
+        voice.light.orbMouthReleaseMilliseconds = 110
+        voice.light.orbMouthNoiseGate = 0.045
+        voice.light.orbMouthResponseCurve = 0.65
+        voice.light.orbMouthSmoothing = 0.6
+        voice.light.orbMouthFrameHoldMilliseconds = 120
+        var theme = TestFixtures.theme(assets: [open, closed, medium])
+        theme.voiceStyle = voice
+
+        let compiled = try ThemeCompiler().compile(theme)
+        let css = compiled.avatarOverlayCSS
+
+        XCTAssertTrue(
+            css.contains("--cts-voice-orb-mouth-frame-count: 3;")
+        )
+        XCTAssertTrue(
+            css.contains("--cts-voice-orb-mouth-sensitivity: 1.4;")
+        )
+        XCTAssertTrue(
+            css.contains("--cts-voice-orb-mouth-attack-ms: 24;")
+        )
+        XCTAssertTrue(
+            css.contains("--cts-voice-orb-mouth-release-ms: 110;")
+        )
+        XCTAssertTrue(
+            css.contains("--cts-voice-orb-mouth-noise-gate: 0.045;")
+        )
+        XCTAssertTrue(
+            css.contains("--cts-voice-orb-mouth-response-curve: 0.65;")
+        )
+        XCTAssertTrue(
+            css.contains("--cts-voice-orb-mouth-smoothing: 0.6;")
+        )
+        XCTAssertTrue(
+            css.contains("--cts-voice-orb-mouth-hold-ms: 120;")
+        )
+        XCTAssertTrue(
+            css.contains(
+                "--cts-voice-orb-active-image,"
+            )
+        )
+        XCTAssertTrue(css.contains(")::before {"))
+        XCTAssertTrue(
+            css.contains("--cts-voice-orb-blink-opacity")
+        )
+        XCTAssertEqual(
+            Set(compiled.runtimeAssets.map(\.id)),
+            [closed.id, medium.id, open.id]
+        )
+    }
+
+    func testVoiceIdleMotionAndBlinkCompileAsPortableSettings() throws {
+        let portrait = TestFixtures.imageAsset(
+            name: "portrait.png",
+            bytes: [1, 2, 3]
+        )
+        let blink = TestFixtures.imageAsset(
+            name: "portrait-closed-eyes.png",
+            bytes: [4, 5, 6]
+        )
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.orbBackgroundAssetID = portrait.id
+        voice.light.orbIdleMotionEnabled = true
+        voice.light.orbIdleMotionStrength = 0.45
+        voice.light.orbIdleMotionPeriodSeconds = 5.2
+        voice.light.orbBlinkAssetID = blink.id
+        voice.light.orbBlinkIntervalSeconds = 3.8
+        voice.light.orbBlinkDurationMilliseconds = 160
+        var theme = TestFixtures.theme(assets: [blink, portrait])
+        theme.voiceStyle = voice
+
+        let compiled = try ThemeCompiler().compile(theme)
+        let css = compiled.avatarOverlayCSS
+
+        XCTAssertTrue(css.contains("--cts-voice-orb-idle-enabled: 1;"))
+        XCTAssertTrue(css.contains("--cts-voice-orb-idle-strength: 0.45;"))
+        XCTAssertTrue(css.contains("--cts-voice-orb-idle-period-ms: 5200;"))
+        XCTAssertTrue(css.contains("--cts-voice-orb-blink-enabled: 1;"))
+        XCTAssertTrue(css.contains("--cts-voice-orb-blink-interval-ms: 3800;"))
+        XCTAssertTrue(css.contains("--cts-voice-orb-blink-duration-ms: 160;"))
+        XCTAssertTrue(css.contains("var(--cts-voice-orb-idle-x, 0px)"))
+        XCTAssertTrue(css.contains("--cts-voice-orb-blink-image"))
+        XCTAssertEqual(
+            Set(compiled.runtimeAssets.map(\.id)),
+            [portrait.id, blink.id]
+        )
     }
 
     func testEscaperHandlesIdentifiersStringsAndComments() {

@@ -378,6 +378,23 @@ final class ThemeModelsTests: XCTestCase {
                 "orbBackgroundInset": 6,
                 "orbBackgroundFollowsVoicePulse": false,
                 "orbBackgroundPulseStrength": 1.35,
+                "orbMouthFrameAssetIDs": [
+                  "adcb6bb4-d138-41a5-86d6-ae583c66d9db",
+                  "041873a8-4c44-4928-bc55-f737580aca70"
+                ],
+                "orbMouthSensitivity": 1.5,
+                "orbMouthAttackMilliseconds": 22,
+                "orbMouthReleaseMilliseconds": 115,
+                "orbMouthNoiseGate": 0.04,
+                "orbMouthResponseCurve": 0.68,
+                "orbMouthSmoothing": 0.61,
+                "orbMouthFrameHoldMilliseconds": 130,
+                "orbIdleMotionEnabled": true,
+                "orbIdleMotionStrength": 0.45,
+                "orbIdleMotionPeriodSeconds": 5.2,
+                "orbBlinkAssetID": "21eca502-1bda-4eb4-a1ad-aa7ba09f9be2",
+                "orbBlinkIntervalSeconds": 3.8,
+                "orbBlinkDurationMilliseconds": 160,
                 "orbScale": 1.25
               },
               "dark": { "glowOpacity": 0.8 },
@@ -409,6 +426,31 @@ final class ThemeModelsTests: XCTestCase {
         XCTAssertEqual(decoded.light.orbBackgroundInset, 6)
         XCTAssertFalse(decoded.light.orbBackgroundFollowsVoicePulse)
         XCTAssertEqual(decoded.light.orbBackgroundPulseStrength, 1.35)
+        XCTAssertEqual(
+            decoded.light.orbMouthFrameAssetIDs.map {
+                $0.uuidString.lowercased()
+            },
+            [
+                "adcb6bb4-d138-41a5-86d6-ae583c66d9db",
+                "041873a8-4c44-4928-bc55-f737580aca70"
+            ]
+        )
+        XCTAssertEqual(decoded.light.orbMouthSensitivity, 1.5)
+        XCTAssertEqual(decoded.light.orbMouthAttackMilliseconds, 22)
+        XCTAssertEqual(decoded.light.orbMouthReleaseMilliseconds, 115)
+        XCTAssertEqual(decoded.light.orbMouthNoiseGate, 0.04)
+        XCTAssertEqual(decoded.light.orbMouthResponseCurve, 0.68)
+        XCTAssertEqual(decoded.light.orbMouthSmoothing, 0.61)
+        XCTAssertEqual(decoded.light.orbMouthFrameHoldMilliseconds, 130)
+        XCTAssertTrue(decoded.light.orbIdleMotionEnabled)
+        XCTAssertEqual(decoded.light.orbIdleMotionStrength, 0.45)
+        XCTAssertEqual(decoded.light.orbIdleMotionPeriodSeconds, 5.2)
+        XCTAssertEqual(
+            decoded.light.orbBlinkAssetID?.uuidString.lowercased(),
+            "21eca502-1bda-4eb4-a1ad-aa7ba09f9be2"
+        )
+        XCTAssertEqual(decoded.light.orbBlinkIntervalSeconds, 3.8)
+        XCTAssertEqual(decoded.light.orbBlinkDurationMilliseconds, 160)
         XCTAssertEqual(decoded.light.orbScale, 1.25)
         XCTAssertEqual(
             decoded.light.glowColor,
@@ -426,6 +468,20 @@ final class ThemeModelsTests: XCTestCase {
         XCTAssertEqual(decoded.dark.orbBackgroundInset, 4)
         XCTAssertTrue(decoded.dark.orbBackgroundFollowsVoicePulse)
         XCTAssertEqual(decoded.dark.orbBackgroundPulseStrength, 1)
+        XCTAssertTrue(decoded.dark.orbMouthFrameAssetIDs.isEmpty)
+        XCTAssertEqual(decoded.dark.orbMouthSensitivity, 1)
+        XCTAssertEqual(decoded.dark.orbMouthAttackMilliseconds, 18)
+        XCTAssertEqual(decoded.dark.orbMouthReleaseMilliseconds, 72)
+        XCTAssertEqual(decoded.dark.orbMouthNoiseGate, 0.05)
+        XCTAssertEqual(decoded.dark.orbMouthResponseCurve, 0.9)
+        XCTAssertEqual(decoded.dark.orbMouthSmoothing, 0.72)
+        XCTAssertEqual(decoded.dark.orbMouthFrameHoldMilliseconds, 80)
+        XCTAssertFalse(decoded.dark.orbIdleMotionEnabled)
+        XCTAssertEqual(decoded.dark.orbIdleMotionStrength, 0.35)
+        XCTAssertEqual(decoded.dark.orbIdleMotionPeriodSeconds, 4.8)
+        XCTAssertNil(decoded.dark.orbBlinkAssetID)
+        XCTAssertEqual(decoded.dark.orbBlinkIntervalSeconds, 4.2)
+        XCTAssertEqual(decoded.dark.orbBlinkDurationMilliseconds, 140)
 
         var theme = TestFixtures.theme()
         theme.voiceStyle = decoded

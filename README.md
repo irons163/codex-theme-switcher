@@ -117,16 +117,29 @@ Background images are embedded in `.codextheme` files and support the same seven
 Image Skin, including Fit, Fill, Stretch, Fit Width, Fit Height, Original, and Tile. The built-in
 controls also provide a separate image clipped inside the DOM orb, with its own sizing, focal point,
 opacity, blur, and inset. That custom image can follow the native Voice sprite pulse, with an
-adjustable 0–2× pulse strength. Orb scale, opacity, brightness, contrast, saturation, hue rotation, blur,
+adjustable 0–2× pulse strength. A talking portrait can use up to nine ordered mouth-pose images.
+The runtime reads Voice output intensity with adjustable sensitivity, noise gate, response curve,
+fast opening, and smooth closing, then directly selects the nearest mouth pose.
+This is amplitude-driven animation rather than phoneme lip sync. A single 2×2 or 3×3 sheet can be
+imported and is split automatically from left to right, top to bottom. See the
+[2×2](Examples/voice-mouth-sprites/anime-girl-mouth-2x2.png) and
+[3×3](Examples/voice-mouth-sprites/anime-girl-mouth-3x3.png) anime portrait samples.
+During silence, an optional idle mode gently sways the portrait and smoothly settles when speech
+starts. A matching closed-eye portrait can be embedded for randomized blinking, with adjustable
+average interval and blink duration. Both idle effects pause while Voice is speaking.
+Orb scale, opacity, brightness, contrast, saturation, hue rotation, blur,
 glow, and an optional backdrop tint remain independently adjustable. Voice Advanced CSS is isolated
 to `avatar-overlay` and can use portable `theme-asset("ASSET-UUID")` references under the same import
 and URL security rules as the main theme.
 
 This is intentionally marked experimental. Depending on the installed Codex version, the Voice orb
-may combine DOM, Canvas, WebGL, and native AppKit/Core Animation layers. The embedded orb image works
-with the current `.codex-avatar-root` DOM implementation; a future native or Canvas-only orb may not
+may combine DOM, Canvas, WebGL, and native AppKit/Core Animation layers. The current WebGL renderer
+and legacy `.codex-avatar-root` implementation are supported; a future native-only orb may not
 expose its inside to CSS. The editor preview uses the observed `408:400` overlay geometry, while a
 dragged orb can still occupy a different runtime position.
+
+<img src="Examples/voice-mouth-sprites/anime-girl-mouth-2x2.png" width="480" alt="2×2 anime talking-mouth sprite sheet">
+<img src="Examples/voice-mouth-sprites/anime-girl-mouth-3x3.png" width="480" alt="3×3 anime talking-mouth sprite sheet">
 
 ## Workflow
 

@@ -163,7 +163,7 @@ function install(dom = fakeDOM()) {
   return dom;
 }
 
-test("VERSION=3 exposes transaction APIs and source evaluation is idempotent", () => {
+test("VERSION=22 exposes transaction APIs and source evaluation is idempotent", () => {
   const dom = install();
   const runtime = dom.window.__codexThemeSwitcherRuntime;
   const functions = [
@@ -175,7 +175,7 @@ test("VERSION=3 exposes transaction APIs and source evaluation is idempotent", (
     "__codexThemeSwitcherClear",
   ];
 
-  assert.equal(runtime.version, 3);
+  assert.equal(runtime.version, 22);
   for (const name of functions) {
     assert.equal(typeof dom.window[name], "function", name);
   }
@@ -578,7 +578,25 @@ test("custom Voice orb image follows native sprite frame size", async () => {
         liveProperties.delete(name);
       },
     },
+    getBoundingClientRect() {
+      return {
+        left: 178 + (
+          Number.parseFloat(
+            liveProperties.get("--cts-voice-orb-layout-shift-x"),
+          ) || 0
+        ),
+        top: 160 + (
+          Number.parseFloat(
+            liveProperties.get("--cts-voice-orb-layout-shift-y"),
+          ) || 0
+        ),
+        width: 112,
+        height: 121,
+      };
+    },
   };
+  dom.window.innerWidth = 356;
+  dom.window.innerHeight = 320;
   dom.document.querySelector = (selector) => (
     selector === ".codex-avatar-root" ? orb : null
   );
@@ -589,6 +607,7 @@ test("custom Voice orb image follows native sprite frame size", async () => {
           if (name === "--cts-voice-orb-pulse-enabled") {
             return pulseEnabled;
           }
+          if (name === "--cts-voice-orb-image-enabled") return "1";
           if (name === "--cts-voice-orb-pulse-strength") return "1";
           return "";
         },
@@ -655,14 +674,47 @@ test("custom Voice orb image follows native sprite frame size", async () => {
 
   install(dom);
   dom.window.__codexThemeSwitcherBegin(beginPayload({
-    css: ":root { --cts-voice-orb-pulse-enabled: 1; }",
+    css: [
+      ":root {",
+      "  --cts-voice-orb-image-enabled: 1;",
+      "  --cts-voice-orb-pulse-enabled: 1;",
+      "}",
+    ].join("\n"),
   }));
   dom.window.__codexThemeSwitcherCommit({ transactionID: "transaction-1" });
   await new Promise((resolve) => setImmediate(resolve));
 
   assert.equal(
-    liveProperties.get("--cts-voice-orb-live-pulse"),
-    "0.5000",
+    liveProperties.get("--cts-voice-orb-live-width"),
+    "33.3333%",
+  );
+  assert.equal(
+    liveProperties.get("--cts-voice-orb-live-left"),
+    "0.0000%",
+  );
+  assert.equal(
+    liveProperties.get("--cts-voice-orb-live-height"),
+    "33.3333%",
+  );
+  assert.ok(
+    Math.abs(
+      178
+        + Number.parseFloat(
+          liveProperties.get("--cts-voice-orb-layout-shift-x"),
+        )
+        + 112 / 6
+        - 178
+    ) < 0.14,
+  );
+  assert.ok(
+    Math.abs(
+      160
+        + Number.parseFloat(
+          liveProperties.get("--cts-voice-orb-layout-shift-y"),
+        )
+        + 121 / 6
+        - 160
+    ) < 0.14,
   );
   assert.equal(
     dom.window.__codexThemeSwitcherStatus().voicePulseActive,
@@ -675,12 +727,38 @@ test("custom Voice orb image follows native sprite frame size", async () => {
     [...rootObserver.options.attributeFilter],
     ["style"],
   );
+  assert.equal(rootObserver.options.childList, true);
+  assert.equal(rootObserver.options.subtree, true);
 
   orb.style.backgroundPosition = "100% 0%";
   rootObserver.callback();
   assert.equal(
-    liveProperties.get("--cts-voice-orb-live-pulse"),
-    "1.0000",
+    liveProperties.get("--cts-voice-orb-live-width"),
+    "100.0000%",
+  );
+  assert.equal(
+    liveProperties.get("--cts-voice-orb-live-height"),
+    "100.0000%",
+  );
+  assert.ok(
+    Math.abs(
+      178
+        + Number.parseFloat(
+          liveProperties.get("--cts-voice-orb-layout-shift-x"),
+        )
+        + 112 / 2
+        - 178
+    ) < 0.14,
+  );
+  assert.ok(
+    Math.abs(
+      160
+        + Number.parseFloat(
+          liveProperties.get("--cts-voice-orb-layout-shift-y"),
+        )
+        + 121 / 2
+        - 160
+    ) < 0.14,
   );
 
   pulseEnabled = "0";
@@ -688,13 +766,18 @@ test("custom Voice orb image follows native sprite frame size", async () => {
     observer.target === dom.document.documentElement
     && !observer.disconnected
   )).callback();
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(
     dom.window.__codexThemeSwitcherStatus().voicePulseActive,
-    false,
+    true,
   );
   assert.equal(
-    liveProperties.has("--cts-voice-orb-live-pulse"),
-    false,
+    liveProperties.get("--cts-voice-orb-live-width"),
+    "33.3333%",
+  );
+  assert.equal(
+    liveProperties.get("--cts-voice-orb-live-left"),
+    "33.3333%",
   );
 
   pulseEnabled = "1";
@@ -710,7 +793,15 @@ test("custom Voice orb image follows native sprite frame size", async () => {
 
   dom.window.__codexThemeSwitcherClear();
   assert.equal(
-    liveProperties.has("--cts-voice-orb-live-pulse"),
+    liveProperties.has("--cts-voice-orb-live-width"),
+    false,
+  );
+  assert.equal(
+    liveProperties.has("--cts-voice-orb-layout-shift-x"),
+    false,
+  );
+  assert.equal(
+    liveProperties.has("--cts-voice-orb-layout-shift-y"),
     false,
   );
   assert.equal(observers.every((observer) => observer.disconnected), true);
@@ -718,4 +809,455 @@ test("custom Voice orb image follows native sprite frame size", async () => {
     dom.window.__codexThemeSwitcherStatus().voicePulseActive,
     false,
   );
+});
+
+test("custom Voice orb image follows the realtime WebGL canvas", () => {
+  const dom = fakeDOM();
+  const liveProperties = new Map();
+  const layoutProperties = new Map();
+  const propertySetCounts = new Map();
+  const computedPropertyReadCounts = new Map();
+  const observers = [];
+  const uniforms = new Map([
+    ["u_resolution", new Float32Array([228, 242])],
+    ["u_time", 0],
+    ["u_outputLevel", 0],
+    ["u_stateListen", 1],
+    ["u_stateThink", 0],
+    ["u_stateSpeak", 0],
+  ]);
+  let nextFrameID = 0;
+  let frameCallback = null;
+  let now = 0;
+  const cancelledFrames = [];
+  const program = {};
+  const gl = {
+    CURRENT_PROGRAM: 0x8b8d,
+    getParameter(parameter) {
+      return parameter === this.CURRENT_PROGRAM ? program : null;
+    },
+    getUniformLocation(_program, name) {
+      return uniforms.has(name) ? name : null;
+    },
+    getUniform(_program, location) {
+      return uniforms.get(location);
+    },
+  };
+  const canvas = {
+    offsetLeft: -40,
+    offsetTop: 0,
+    offsetWidth: 152,
+    offsetHeight: 161,
+    offsetParent: null,
+    getAttribute(name) {
+      return name === "data-avatar-overlay-placement"
+        ? "bottom-end"
+        : null;
+    },
+    getBoundingClientRect() {
+      return {
+        left: 163,
+        top: 8,
+        width: 152,
+        height: 161,
+      };
+    },
+    getContext(kind) {
+      return kind === "webgl" ? gl : null;
+    },
+  };
+  const voiceRenderer = {
+    canvas,
+    outputLevel: 0,
+    publishedAudioLevels: null,
+    setPublishedAudioLevels(levels) {
+      this.publishedAudioLevels = levels;
+    },
+  };
+  canvas.__reactFiber$voiceTest = {
+    memoizedState: {
+      memoizedState: { current: voiceRenderer },
+      next: null,
+    },
+    return: null,
+  };
+  const layoutTarget = {
+    style: {
+      getPropertyValue(name) {
+        return layoutProperties.get(name) || "";
+      },
+      setProperty(name, value) {
+        layoutProperties.set(name, value);
+      },
+      removeProperty(name) {
+        layoutProperties.delete(name);
+      },
+    },
+    getBoundingClientRect() {
+      return {
+        left: 178 + (
+          Number.parseFloat(
+            layoutProperties.get("--cts-voice-orb-layout-shift-x"),
+          ) || 0
+        ),
+        top: 160 + (
+          Number.parseFloat(
+            layoutProperties.get("--cts-voice-orb-layout-shift-y"),
+          ) || 0
+        ),
+        width: 112,
+        height: 121,
+      };
+    },
+  };
+  const orb = {
+    style: {
+      getPropertyValue(name) {
+        return liveProperties.get(name) || "";
+      },
+      setProperty(name, value) {
+        liveProperties.set(name, value);
+        propertySetCounts.set(name, (propertySetCounts.get(name) || 0) + 1);
+      },
+      removeProperty(name) {
+        liveProperties.delete(name);
+      },
+    },
+    getBoundingClientRect() {
+      return layoutTarget.getBoundingClientRect();
+    },
+    closest(selector) {
+      return selector === '[data-avatar-overlay-hit-region="mascot"]'
+        ? layoutTarget
+        : null;
+    },
+    querySelector(selector) {
+      return selector === "canvas[data-avatar-overlay-placement]"
+        ? canvas
+        : null;
+    },
+  };
+  canvas.offsetParent = orb;
+  dom.window.innerWidth = 356;
+  dom.window.innerHeight = 320;
+  dom.document.querySelector = (selector) => (
+    selector === ".codex-avatar-root" ? orb : null
+  );
+  dom.sandbox.getComputedStyle = (element) => ({
+    getPropertyValue(name) {
+      if (element !== dom.document.documentElement) return "";
+      computedPropertyReadCounts.set(
+        name,
+        (computedPropertyReadCounts.get(name) || 0) + 1,
+      );
+      if (name === "--cts-voice-orb-image-enabled") return "1";
+      if (name === "--cts-voice-orb-pulse-enabled") return "1";
+      if (name === "--cts-voice-orb-pulse-strength") return "1";
+      if (name === "--cts-voice-scale") return "3";
+      if (name === "--cts-voice-orb-mouth-frame-count") return "3";
+      if (name === "--cts-voice-orb-mouth-frame-0") return "url(frame-0)";
+      if (name === "--cts-voice-orb-mouth-frame-1") return "url(frame-1)";
+      if (name === "--cts-voice-orb-mouth-frame-2") return "url(frame-2)";
+      if (name === "--cts-voice-orb-mouth-sensitivity") return "1";
+      if (name === "--cts-voice-orb-mouth-attack-ms") return "8";
+      if (name === "--cts-voice-orb-mouth-release-ms") return "5";
+      if (name === "--cts-voice-orb-mouth-noise-gate") return "0.05";
+      if (name === "--cts-voice-orb-mouth-response-curve") return "0.72";
+      if (name === "--cts-voice-orb-background-opacity") return "1";
+      if (name === "--cts-voice-orb-idle-enabled") return "1";
+      if (name === "--cts-voice-orb-idle-strength") return "1";
+      if (name === "--cts-voice-orb-idle-period-ms") return "4000";
+      if (name === "--cts-voice-orb-blink-enabled") return "1";
+      if (name === "--cts-voice-orb-blink-interval-ms") return "1000";
+      if (name === "--cts-voice-orb-blink-duration-ms") return "100";
+      return "";
+    },
+  });
+  dom.sandbox.MutationObserver = class FakeMutationObserver {
+    constructor(callback) {
+      this.callback = callback;
+      this.disconnected = false;
+      observers.push(this);
+    }
+
+    observe(target, options) {
+      this.target = target;
+      this.options = options;
+    }
+
+    disconnect() {
+      this.disconnected = true;
+    }
+  };
+  dom.sandbox.requestAnimationFrame = (callback) => {
+    nextFrameID += 1;
+    frameCallback = callback;
+    return nextFrameID;
+  };
+  dom.sandbox.cancelAnimationFrame = (frameID) => {
+    cancelledFrames.push(frameID);
+  };
+  dom.sandbox.performance = {
+    now() {
+      return now;
+    },
+  };
+  dom.sandbox.Math = Object.create(Math);
+  dom.sandbox.Math.random = () => 0.5;
+
+  install(dom);
+  dom.window.__codexThemeSwitcherBegin(beginPayload({
+    css: [
+      ":root {",
+      "  --cts-voice-orb-image-enabled: 1;",
+      "  --cts-voice-orb-pulse-enabled: 1;",
+      "}",
+    ].join("\n"),
+  }));
+  dom.window.__codexThemeSwitcherCommit({ transactionID: "transaction-1" });
+
+  const number = (name) => Number.parseFloat(liveProperties.get(name));
+  const layoutNumber = (name) => Number.parseFloat(
+    layoutProperties.get(name),
+  );
+  assert.ok(number("--cts-voice-orb-live-left") > -9);
+  assert.ok(number("--cts-voice-orb-live-left") < -6);
+  assert.ok(number("--cts-voice-orb-live-top") > 28);
+  assert.ok(number("--cts-voice-orb-live-top") < 32);
+  assert.ok(number("--cts-voice-orb-live-width") > 77);
+  assert.ok(number("--cts-voice-orb-live-width") < 81);
+  assert.ok(number("--cts-voice-orb-live-height") > 71);
+  assert.ok(number("--cts-voice-orb-live-height") < 75);
+  assert.equal(liveProperties.get("--cts-voice-orb-live-pulse"), "1.0000");
+  assert.ok(
+    Math.abs(
+      178
+        + layoutNumber("--cts-voice-orb-layout-shift-x")
+        + (
+          number("--cts-voice-orb-live-left")
+          + number("--cts-voice-orb-live-width") / 2
+        ) * 1.12
+        - 178
+    ) < 0.14,
+  );
+  assert.ok(
+    Math.abs(
+      160
+        + layoutNumber("--cts-voice-orb-layout-shift-y")
+        + (
+          number("--cts-voice-orb-live-top")
+          + number("--cts-voice-orb-live-height") / 2
+        ) * 1.21
+        - 160
+    ) < 0.14,
+  );
+  assert.equal(
+    liveProperties.has("--cts-voice-orb-scale-shift-x"),
+    false,
+  );
+  assert.equal(
+    liveProperties.has("--cts-voice-orb-scale-shift-y"),
+    false,
+  );
+  assert.equal(
+    liveProperties.get("--cts-voice-orb-active-image"),
+    "url(frame-0)",
+  );
+  assert.equal(
+    liveProperties.get("--cts-voice-orb-mouth-image-a"),
+    "url(frame-0)",
+  );
+  assert.equal(
+    liveProperties.get("--cts-voice-orb-mouth-image-b"),
+    "url(frame-0)",
+  );
+  assert.equal(
+    liveProperties.get("--cts-voice-orb-mouth-opacity-a"),
+    "0.0000",
+  );
+  assert.equal(
+    liveProperties.get("--cts-voice-orb-mouth-opacity-b"),
+    "1.0000",
+  );
+  assert.equal(
+    liveProperties.get("--cts-voice-orb-blink-opacity"),
+    "0.0000",
+  );
+  assert.equal(typeof frameCallback, "function");
+  const canvasRootObserver = observers.find(
+    (observer) => observer.target === orb,
+  );
+  assert.ok(canvasRootObserver);
+  const propertyWritesBeforeOwnStyleMutation = [
+    ...propertySetCounts.values(),
+  ].reduce((total, count) => total + count, 0);
+  canvasRootObserver.callback([
+    { type: "attributes", attributeName: "style" },
+  ]);
+  assert.equal(
+    [...propertySetCounts.values()].reduce(
+      (total, count) => total + count,
+      0,
+    ),
+    propertyWritesBeforeOwnStyleMutation,
+  );
+
+  const unchangedImageCounts = new Map([
+    [
+      "--cts-voice-orb-active-image",
+      propertySetCounts.get("--cts-voice-orb-active-image"),
+    ],
+    [
+      "--cts-voice-orb-mouth-image-a",
+      propertySetCounts.get("--cts-voice-orb-mouth-image-a"),
+    ],
+    [
+      "--cts-voice-orb-mouth-image-b",
+      propertySetCounts.get("--cts-voice-orb-mouth-image-b"),
+    ],
+  ]);
+  const cachedFrameReadCounts = [0, 1, 2].map((index) => {
+    const property = `--cts-voice-orb-mouth-frame-${index}`;
+    return [property, computedPropertyReadCounts.get(property)];
+  });
+  now = 16;
+  frameCallback();
+  for (const [property, count] of unchangedImageCounts) {
+    assert.equal(propertySetCounts.get(property), count);
+  }
+  for (const [property, count] of cachedFrameReadCounts) {
+    assert.equal(computedPropertyReadCounts.get(property), count);
+  }
+  assert.equal(
+    dom.window.__codexThemeSwitcherRuntime.voicePulse.mouthEnergySource,
+    "webgl-output-level",
+  );
+
+  voiceRenderer.setPublishedAudioLevels({
+    high: 0.42,
+    low: 0.44,
+    mid: 0.45,
+    overall: 0.46,
+  });
+  uniforms.set("u_outputLevel", 0.46);
+  now = 100;
+  const currentFrame = frameCallback;
+  currentFrame();
+  assert.ok(number("--cts-voice-orb-live-width") > 88);
+  assert.ok(number("--cts-voice-orb-live-height") > 81);
+  assert.ok(number("--cts-voice-orb-live-pulse") > 1.1);
+  assert.equal(
+    liveProperties.get("--cts-voice-orb-active-image"),
+    "url(frame-2)",
+  );
+  assert.equal(
+    liveProperties.get("--cts-voice-orb-mouth-image-a"),
+    "url(frame-2)",
+  );
+  assert.equal(
+    liveProperties.get("--cts-voice-orb-mouth-image-b"),
+    "url(frame-2)",
+  );
+  assert.equal(number("--cts-voice-orb-mouth-opacity-a"), 0);
+  assert.equal(number("--cts-voice-orb-mouth-opacity-b"), 1);
+  assert.ok(
+    Math.abs(number("--cts-voice-orb-idle-x")) < 0.5,
+  );
+  assert.equal(
+    dom.window.__codexThemeSwitcherRuntime.voicePulse.mouthEnergySource,
+    "published-audio-levels-desmoothed",
+  );
+
+  voiceRenderer.setPublishedAudioLevels({
+    high: 0.36,
+    low: 0.38,
+    mid: 0.39,
+    overall: 0.4,
+  });
+  now = 116;
+  frameCallback();
+  assert.equal(voiceRenderer.publishedAudioLevels.overall, 0.4);
+  assert.ok(
+    dom.window.__codexThemeSwitcherRuntime.voicePulse.mouthRawLevel < 0.05,
+  );
+  assert.equal(number("--cts-voice-orb-mouth-opacity-a"), 0);
+  assert.equal(number("--cts-voice-orb-mouth-opacity-b"), 1);
+  for (let index = 0; index < 30; index += 1) {
+    now += 16;
+    frameCallback();
+  }
+  assert.equal(
+    liveProperties.get("--cts-voice-orb-active-image"),
+    "url(frame-0)",
+  );
+  assert.equal(
+    liveProperties.get("--cts-voice-orb-mouth-image-a"),
+    "url(frame-0)",
+  );
+  assert.ok(
+    Math.abs(number("--cts-voice-orb-idle-x")) > 0.5,
+  );
+
+  now = 1600;
+  frameCallback();
+  now = 1650;
+  frameCallback();
+  assert.ok(number("--cts-voice-orb-blink-opacity") > 0.95);
+
+  voiceRenderer.setPublishedAudioLevels({
+    high: 0.42,
+    low: 0.44,
+    mid: 0.45,
+    overall: 0.46,
+  });
+  now = 1666;
+  frameCallback();
+  assert.equal(number("--cts-voice-orb-blink-opacity"), 0);
+  assert.equal(number("--cts-voice-orb-mouth-opacity-a"), 0);
+  assert.equal(number("--cts-voice-orb-mouth-opacity-b"), 1);
+
+  dom.window.__codexThemeSwitcherBegin(beginPayload({
+    transactionID: "transaction-refresh",
+    digest: "digest-refresh",
+    css: ":root { --cts-voice-orb-image-enabled: 1; }",
+  }));
+  dom.window.__codexThemeSwitcherCommit({
+    transactionID: "transaction-refresh",
+  });
+
+  dom.window.__codexThemeSwitcherClear();
+  assert.equal(
+    liveProperties.has("--cts-voice-orb-live-width"),
+    false,
+  );
+  assert.equal(
+    liveProperties.has("--cts-voice-orb-active-image"),
+    false,
+  );
+  assert.equal(
+    liveProperties.has("--cts-voice-orb-mouth-image-a"),
+    false,
+  );
+  assert.equal(
+    liveProperties.has("--cts-voice-orb-mouth-opacity-b"),
+    false,
+  );
+  assert.equal(
+    liveProperties.has("--cts-voice-orb-idle-x"),
+    false,
+  );
+  assert.equal(
+    liveProperties.has("--cts-voice-orb-blink-opacity"),
+    false,
+  );
+  assert.equal(
+    layoutProperties.has("--cts-voice-orb-layout-shift-x"),
+    false,
+  );
+  assert.equal(
+    layoutProperties.has("--cts-voice-orb-layout-shift-y"),
+    false,
+  );
+  assert.equal(cancelledFrames.length, 2);
+  assert.equal(observers.every((observer) => observer.disconnected), true);
 });

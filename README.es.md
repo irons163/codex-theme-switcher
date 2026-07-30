@@ -124,8 +124,20 @@ Las imágenes se integran en `.codextheme` y admiten los siete modos de tamaño 
 También se puede recortar una imagen independiente dentro de la esfera DOM, con tamaño, punto
 focal, opacidad, desenfoque y margen interior propios. Esta imagen puede seguir el pulso del sprite
 nativo de Voice, con una intensidad ajustable de 0 a 2×. Los demás controles de la esfera siguen
-siendo independientes. Esta imagen funciona con la implementación DOM `.codex-avatar-root` actual;
-una futura esfera nativa o solo Canvas podría no exponer su interior a CSS. La vista previa sigue
+siendo independientes. Un retrato parlante puede usar hasta nueve imágenes de boca ordenadas. El
+runtime usa la intensidad de salida de Voice con sensibilidad, umbral de silencio, curva de respuesta,
+apertura rápida y cierre suave, y selecciona directamente la pose de boca más cercana. Es animación
+por amplitud, no sincronización fonética. También se puede importar una hoja
+2×2 o 3×3, que se divide de izquierda a derecha y de arriba abajo. Consulta los ejemplos de retrato animado
+[2×2](Examples/voice-mouth-sprites/anime-girl-mouth-2x2.png) y
+[3×3](Examples/voice-mouth-sprites/anime-girl-mouth-3x3.png).
+Durante el silencio, un modo de reposo opcional balancea suavemente el retrato y se detiene
+gradualmente cuando empieza el habla. Se puede integrar un retrato equivalente con los ojos cerrados
+para parpadeos aleatorios, con intervalo medio y duración ajustables. Ambos efectos se pausan mientras
+Voice está hablando.
+Se admiten el renderer
+WebGL actual y la implementación `.codex-avatar-root` anterior; una futura esfera solo nativa podría
+no ser controlable. La vista previa sigue
 la geometría observada `408:400`, aunque una esfera arrastrada puede ocupar otra posición en runtime.
 
 ## Flujo de trabajo

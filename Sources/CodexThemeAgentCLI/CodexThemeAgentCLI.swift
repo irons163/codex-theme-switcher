@@ -1353,6 +1353,12 @@ public struct CodexThemeAgentCLI {
                     "main",
                     "avatar-overlay"
                 ],
+                "voiceMouthAnimation": true,
+                "voiceMouthFrameLimit": 9,
+                "voiceMouthSpriteSheets": ["2x2", "3x3"],
+                "voiceMouthSynchronization": "amplitude-envelope-discrete",
+                "voiceIdleAnimation": true,
+                "voiceBlinkImage": true,
                 "voiceStyleIsolation": true
             ],
             "schemaVersion": ThemeDocument.currentSchemaVersion,
@@ -1596,6 +1602,17 @@ public struct CodexThemeAgentCLI {
             }
             if copy.voiceStyle?.dark.orbBackgroundAssetID == oldID {
                 copy.voiceStyle?.dark.orbBackgroundAssetID = newID
+            }
+            if var voiceStyle = copy.voiceStyle {
+                voiceStyle.light.orbMouthFrameAssetIDs =
+                    voiceStyle.light.orbMouthFrameAssetIDs.map {
+                    $0 == oldID ? newID : $0
+                    }
+                voiceStyle.dark.orbMouthFrameAssetIDs =
+                    voiceStyle.dark.orbMouthFrameAssetIDs.map {
+                        $0 == oldID ? newID : $0
+                    }
+                copy.voiceStyle = voiceStyle
             }
         }
         return copy

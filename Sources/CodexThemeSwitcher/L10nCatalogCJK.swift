@@ -373,6 +373,7 @@ enum L10nCatalogCJK {
         ),
         .init("Preview surface", "预览画面", "プレビュー画面", "미리보기 화면"),
         .init("Primary text", "主要文字", "メインテキスト", "기본 텍스트"),
+        .init("Image focal point", "图片焦点", "画像の焦点", "이미지 초점"),
         .init("Quick focal point", "快速设置焦点", "クイックフォーカルポイント", "빠른 초점"),
         .init("Quick styles", "快速样式", "クイックスタイル", "빠른 스타일"),
         .init(
@@ -1131,6 +1132,12 @@ enum L10nCatalogCJK {
         ),
         .init("Orb surface", "圆球表面", "オーブ表面", "오브 표면"),
         .init(
+            "Native orb opacity",
+            "原生圆球不透明度",
+            "元のオーブの不透明度",
+            "기본 오브 불투명도"
+        ),
+        .init(
             "Applied to Canvas and recognizable orb containers inside the Voice overlay.",
             "应用到 Voice overlay 中可识别的 Canvas 与圆球容器。",
             "Voice overlay内のCanvasと認識可能なオーブコンテナに適用されます。",
@@ -1295,6 +1302,263 @@ enum L10nCatalogCJK {
             "圆球图像内缩",
             "オーブ画像の内側余白",
             "오브 이미지 안쪽 여백"
-        )
+        ),
+        .init(
+            "Test speech intensity",
+            "测试说话强度",
+            "発話強度をテスト",
+            "말하기 강도 테스트"
+        ),
+        .init(
+            "Talking mouth frames",
+            "说话嘴型",
+            "発話用の口形",
+            "말하기 입 모양"
+        ),
+        .init(
+            "Frame 1 is the closed mouth. Order the rest from least to most open; Voice selects them from speech intensity.",
+            "第 1 张是闭嘴，其余请按嘴巴由小到大排列；Voice 会根据说话强度选择。",
+            "1枚目は閉じた口です。残りは口の開きが小さい順に並べると、Voiceが発話強度に応じて選択します。",
+            "1번은 닫힌 입입니다. 나머지는 입이 적게 열린 순서부터 크게 열린 순서로 배치하면 Voice가 말하기 강도에 따라 선택합니다."
+        ),
+        .init(
+            "Add images",
+            "添加多张图像",
+            "画像を追加",
+            "이미지 추가"
+        ),
+        .init(
+            "1 · Closed",
+            "1 · 闭嘴",
+            "1・閉じた口",
+            "1 · 닫힌 입"
+        ),
+        .init(
+            "Mouth sensitivity",
+            "嘴型灵敏度",
+            "口形の感度",
+            "입 모양 감도"
+        ),
+        .init(
+            "Mouth smoothing",
+            "嘴型平滑",
+            "口形のスムージング",
+            "입 모양 부드럽게"
+        ),
+        .init(
+            "Minimum frame hold",
+            "最短停留时间",
+            "最短フレーム保持時間",
+            "최소 프레임 유지 시간"
+        ),
+        .init(
+            "Choose mouth images (least to most open)",
+            "选择嘴型图像（由小到大）",
+            "口形画像を選択（小さい順）",
+            "입 모양 이미지 선택(작게 열린 순서부터)"
+        ),
+        .init(
+            "Add mouth images",
+            "添加嘴型图像",
+            "口形画像を追加",
+            "입 모양 이미지 추가"
+        ),
+        .init(
+            "Add mouth image",
+            "添加嘴型图像",
+            "口形画像を追加",
+            "입 모양 이미지 추가"
+        ),
+        .init(
+            "Remove mouth image",
+            "移除嘴型图像",
+            "口形画像を削除",
+            "입 모양 이미지 제거"
+        ),
+        .init(
+            "Reorder mouth images",
+            "调整嘴型顺序",
+            "口形画像の順序を変更",
+            "입 모양 이미지 순서 변경"
+        ),
+        .init(
+            "Choose a 2×2 mouth sprite sheet",
+            "选择 2×2 嘴型图",
+            "2×2口形スプライトシートを選択",
+            "2×2 입 모양 스프라이트 시트 선택"
+        ),
+        .init(
+            "Import 2×2 mouth sprite sheet",
+            "导入 2×2 嘴型图",
+            "2×2口形スプライトシートを読み込む",
+            "2×2 입 모양 스프라이트 시트 가져오기"
+        ),
+        .init(
+            "Import 2×2 sheet",
+            "导入 2×2 嘴型图",
+            "2×2シートを読み込む",
+            "2×2 시트 가져오기"
+        ),
+        .init(
+            "Imported four mouth frames in top-left, top-right, bottom-left, bottom-right order.",
+            "已按左上、右上、左下、右下的顺序导入 4 个嘴型。",
+            "左上、右上、左下、右下の順に4つの口形を読み込みました。",
+            "왼쪽 위, 오른쪽 위, 왼쪽 아래, 오른쪽 아래 순서로 입 모양 4개를 가져왔습니다."
+        ),
+        .init(
+            "“{0}” could not be decoded or split into a 2×2 mouth sprite sheet.",
+            "无法解码“{0}”或将其切割成 2×2 嘴型图。",
+            "「{0}」をデコード、または2×2口形スプライトシートに分割できませんでした。",
+            "“{0}”을(를) 디코딩하거나 2×2 입 모양 스프라이트 시트로 분할할 수 없습니다."
+        ),
+        .init("closed", "闭嘴", "閉じた口", "닫힌 입"),
+        .init(
+            "slightly-open",
+            "微开",
+            "少し開いた口",
+            "살짝 열린 입"
+        ),
+        .init(
+            "medium-open",
+            "中开",
+            "中程度に開いた口",
+            "중간 열린 입"
+        ),
+        .init(
+            "wide-open",
+            "全开",
+            "大きく開いた口",
+            "크게 열린 입"
+        ),
+        .init(
+            "Frame 1 is closed. Order the rest from least to most open; Voice opens quickly, closes smoothly, and directly selects the nearest pose.",
+            "第 1 张是闭嘴，其余按嘴巴由小到大排列；Voice 会快速张嘴、平滑闭嘴并直接切换到最接近的嘴型。",
+            "1枚目は閉じた口です。残りは開きの小さい順に並べます。Voiceは素早く開き、滑らかに閉じ、最も近い口形へ直接切り替えます。",
+            "1번은 닫힌 입입니다. 나머지는 적게 열린 순서부터 배치하세요. Voice가 빠르게 열고 부드럽게 닫으며 가장 가까운 입 모양으로 바로 전환합니다."
+        ),
+        .init(
+            "Set speech intensity to 0 to preview idle sway and blinking.",
+            "将说话强度设为 0，即可预览待机摇晃和眨眼。",
+            "発話強度を0にすると、待機中の揺れとまばたきをプレビューできます。",
+            "말하기 강도를 0으로 설정하면 대기 흔들림과 눈 깜빡임을 미리 볼 수 있습니다."
+        ),
+        .init(
+            "Idle animation",
+            "待机动画",
+            "待機アニメーション",
+            "대기 애니메이션"
+        ),
+        .init(
+            "Gently sways the portrait during silence and smoothly stops when speech begins.",
+            "静音时让人物轻微摇晃，开始说话时平滑停止。",
+            "無音時に人物をわずかに揺らし、発話が始まると滑らかに停止します。",
+            "말이 없을 때 인물을 살짝 흔들고 말하기가 시작되면 부드럽게 멈춥니다."
+        ),
+        .init(
+            "Enable idle sway",
+            "启用待机摇晃",
+            "待機中の揺れを有効にする",
+            "대기 흔들림 사용"
+        ),
+        .init(
+            "Sway strength",
+            "摇晃幅度",
+            "揺れの強さ",
+            "흔들림 강도"
+        ),
+        .init(
+            "Sway period",
+            "摇晃周期",
+            "揺れの周期",
+            "흔들림 주기"
+        ),
+        .init(
+            "Closed-eye image",
+            "闭眼图片",
+            "閉じた目の画像",
+            "눈 감은 이미지"
+        ),
+        .init(
+            "Choose a matching closed-eye portrait with the same framing as the closed-mouth image.",
+            "选择与闭嘴图片构图一致、仅闭上眼睛的人物图片。",
+            "閉じた口の画像と同じ構図で、目だけを閉じた人物画像を選択してください。",
+            "입을 다문 이미지와 구도가 같고 눈만 감은 인물 이미지를 선택하세요."
+        ),
+        .init(
+            "Average blink interval",
+            "平均眨眼间隔",
+            "平均まばたき間隔",
+            "평균 눈 깜빡임 간격"
+        ),
+        .init(
+            "Blink duration",
+            "眨眼时间",
+            "まばたき時間",
+            "눈 깜빡임 시간"
+        ),
+        .init(
+            "Choose closed-eye image",
+            "选择闭眼图片",
+            "閉じた目の画像を選択",
+            "눈 감은 이미지 선택"
+        ),
+        .init(
+            "Set closed-eye image",
+            "设置闭眼图片",
+            "閉じた目の画像を設定",
+            "눈 감은 이미지 설정"
+        ),
+        .init(
+            "Clear closed-eye image",
+            "清除闭眼图片",
+            "閉じた目の画像を消去",
+            "눈 감은 이미지 지우기"
+        ),
+        .init(
+            "Import 3×3 sheet",
+            "导入 3×3 嘴型图",
+            "3×3シートを読み込む",
+            "3×3 시트 가져오기"
+        ),
+        .init(
+            "Choose a {0} mouth sprite sheet",
+            "选择 {0} 嘴型图",
+            "{0}口形スプライトシートを選択",
+            "{0} 입 모양 스프라이트 시트 선택"
+        ),
+        .init(
+            "Import {0} mouth sprite sheet",
+            "导入 {0} 嘴型图",
+            "{0}口形スプライトシートを読み込む",
+            "{0} 입 모양 스프라이트 시트 가져오기"
+        ),
+        .init(
+            "Imported {0} mouth frames from left to right, top to bottom.",
+            "已按从左到右、从上到下导入 {0} 个嘴型。",
+            "左から右、上から下の順に{0}個の口形を読み込みました。",
+            "왼쪽에서 오른쪽, 위에서 아래 순서로 입 모양 {0}개를 가져왔습니다."
+        ),
+        .init(
+            "You can use up to nine mouth images, including the closed-mouth base image.",
+            "嘴型图像最多 9 张（包含闭嘴基准图）。",
+            "閉じた口の基準画像を含め、口形画像は最大9枚まで使用できます。",
+            "닫힌 입 기준 이미지를 포함해 입 모양 이미지는 최대 9장까지 사용할 수 있습니다."
+        ),
+        .init(
+            "“{0}” could not be decoded or split into a 2×2 or 3×3 mouth sprite sheet.",
+            "无法解码“{0}”或将其切割成 2×2／3×3 嘴型图。",
+            "「{0}」をデコード、または2×2／3×3口形スプライトシートに分割できませんでした。",
+            "“{0}”을(를) 디코딩하거나 2×2 또는 3×3 입 모양 스프라이트 시트로 분할할 수 없습니다."
+        ),
+        .init("Mouth attack", "张嘴速度", "口を開く速度", "입 열기 속도"),
+        .init("Mouth release", "闭嘴速度", "口を閉じる速度", "입 닫기 속도"),
+        .init("Noise gate", "静音阈值", "ノイズゲート", "노이즈 게이트"),
+        .init(
+            "Mouth response curve",
+            "嘴型响应曲线",
+            "口形レスポンス曲線",
+            "입 모양 반응 곡선"
+        ),
+        .init("open", "张嘴", "開いた口", "열린 입")
     ]
 }

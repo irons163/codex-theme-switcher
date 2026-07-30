@@ -12,6 +12,7 @@ const {
 } = require("./cdp");
 
 const BASE64_CHUNK_CHARACTERS = 256 * 1024;
+const RENDERER_RUNTIME_VERSION = 22;
 const TARGET_KIND_MAIN = "main";
 const TARGET_KIND_AVATAR_OVERLAY = "avatar-overlay";
 const RUNTIME_GLOBALS = Object.freeze({
@@ -327,7 +328,11 @@ function statusHasCurrentTheme(status) {
 }
 
 async function reconcileExistingSession(session, theme) {
-  const status = await rendererStatus(session);
+  let status = await rendererStatus(session);
+  if (status.version !== RENDERER_RUNTIME_VERSION) {
+    await installRuntime(session);
+    status = await rendererStatus(session);
+  }
   if (!theme) {
     if (statusHasCurrentTheme(status)) await clearTheme(session);
     return;
@@ -351,14 +356,15 @@ function avatarOverlayTheme(theme) {
   ) {
     return null;
   }
+  const css = theme.avatarOverlayCSS;
   const referencedAssetIDs = new Set(
-    [...theme.avatarOverlayCSS.matchAll(
+    [...css.matchAll(
       /codex-theme-asset:\/\/([0-9a-f-]{36})/gi,
     )].map((match) => match[1].toLowerCase()),
   );
   return {
     ...theme,
-    css: theme.avatarOverlayCSS,
+    css,
     digest: `${theme.digest}:avatar-overlay`,
     assets: (theme.assets || []).filter(
       ({ id }) => referencedAssetIDs.has(String(id).toLowerCase()),
@@ -409,8 +415,8 @@ async function injectRenderers(
   for (const { target, kind } of targets) {
     let session = sessions.get(target.id);
     const isNew = !session || session.closed;
-    const targetTheme = themeForTargetKind(theme, kind);
     try {
+      const targetTheme = themeForTargetKind(theme, kind);
       if (kind === TARGET_KIND_AVATAR_OVERLAY && !targetTheme) {
         if (session && !session.closed) {
           await reconcileExistingSession(session, null);
@@ -461,9 +467,9 @@ async function broadcastTheme(sessions, theme, logger = () => {}) {
         session.codexThemeTargetKind || TARGET_KIND_MAIN,
       );
       if (targetTheme) {
-        await applyTheme(session, targetTheme);
+        await reconcileExistingSession(session, targetTheme);
       } else {
-        await clearTheme(session);
+        await reconcileExistingSession(session, null);
       }
       successful += 1;
     } catch (error) {
@@ -496,6 +502,7 @@ async function clearRenderers(sessions, logger = () => {}) {
 
 module.exports = {
   BASE64_CHUNK_CHARACTERS,
+  RENDERER_RUNTIME_VERSION,
   RUNTIME_GLOBALS,
   TARGET_KIND_AVATAR_OVERLAY,
   TARGET_KIND_MAIN,

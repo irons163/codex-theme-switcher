@@ -116,7 +116,7 @@ test("bridge requires the exact bearer token", { timeout: 15000 }, async (t) => 
   const payload = await accepted.json();
   assert.equal(payload.ok, true);
   assert.equal(payload.app, "codex-theme-switcher");
-  assert.equal(payload.protocolVersion, 3);
+  assert.equal(payload.protocolVersion, 24);
 
   assert.equal(fs.statSync(tokenFile).mode & 0o777, 0o600);
 });

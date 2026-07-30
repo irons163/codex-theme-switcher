@@ -125,8 +125,21 @@ Les images sont intégrées au fichier `.codextheme` et prennent en charge les s
 d’Image Skin. Une image distincte peut aussi être découpée dans l’orbe DOM, avec ses propres mode de
 taille, point focal, opacité, flou et marge intérieure. Cette image peut suivre la pulsation du
 sprite Voice natif, avec une intensité réglable de 0 à 2×. Les autres contrôles de l’orbe restent
-indépendants. Cette image fonctionne avec l’implémentation DOM `.codex-avatar-root` actuelle ;
-un futur orbe natif ou uniquement Canvas pourrait ne pas exposer son intérieur à CSS. L’aperçu suit
+indépendants. Un portrait parlant peut contenir jusqu’à neuf images de bouche ordonnées. Le runtime
+utilise l’intensité de sortie Voice avec sensibilité, seuil de silence, courbe de réponse, ouverture
+rapide et fermeture douce, puis sélectionne directement la pose de bouche la plus proche. Il s’agit
+d’une animation par amplitude, pas d’une synchronisation phonétique. Une planche
+2×2 ou 3×3 peut être importée et découpée de gauche à droite, puis de haut en bas. Voir
+les exemples de portrait animé
+[2×2](Examples/voice-mouth-sprites/anime-girl-mouth-2x2.png) et
+[3×3](Examples/voice-mouth-sprites/anime-girl-mouth-3x3.png).
+Pendant le silence, un mode de repos facultatif balance légèrement le portrait et s’arrête en
+douceur quand la parole commence. Un portrait correspondant avec les yeux fermés peut être intégré
+pour des clignements aléatoires, avec intervalle moyen et durée réglables. Les deux effets se mettent
+en pause pendant que Voice parle.
+Le renderer WebGL
+actuel et l’ancienne implémentation `.codex-avatar-root` sont pris en charge ; un futur orbe
+uniquement natif pourrait ne pas être contrôlable. L’aperçu suit
 la géométrie observée `408:400`, mais un orbe déplacé peut occuper une autre position à l’exécution.
 
 ## Flux de travail

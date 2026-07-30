@@ -27,7 +27,7 @@ const {
 const { sleep } = require("./processes");
 
 const APP_ID = "codex-theme-switcher";
-const PROTOCOL_VERSION = 3;
+const PROTOCOL_VERSION = 24;
 const MAX_THEME_CSS_BYTES = 64 * 1024 * 1024;
 const MAX_THEME_ASSET_BYTES = 16 * 1024 * 1024;
 const MAX_THEME_TOTAL_ASSET_BYTES = 32 * 1024 * 1024;

@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ThemeVoiceEditorView: View {
     @ObservedObject var model: ThemeAppModel
+    @State private var previewSpeechLevel = 0.35
 
     private var appearance: ThemeSkinAppearance {
         model.previewAppearance
@@ -25,6 +26,42 @@ struct ThemeVoiceEditorView: View {
     private var orbBackgroundAsset: ThemeAsset? {
         guard let id = variant.orbBackgroundAssetID else { return nil }
         return model.draft?.assets.first { $0.id == id }
+    }
+
+    private var blinkAsset: ThemeAsset? {
+        guard let id = variant.orbBlinkAssetID else { return nil }
+        return model.draft?.assets.first { $0.id == id }
+    }
+
+    private var mouthFrameAssets: [ThemeAsset] {
+        variant.orbMouthFrameAssetIDs.compactMap { id in
+            model.draft?.assets.first { $0.id == id }
+        }
+    }
+
+    private var previewOrbAsset: ThemeAsset? {
+        let frames = [orbBackgroundAsset].compactMap { $0 }
+            + mouthFrameAssets
+        guard !frames.isEmpty else { return nil }
+        let normalizedGate = min(
+            max(variant.orbMouthNoiseGate / 0.46, 0),
+            0.95
+        )
+        let gatedLevel = min(
+            max(
+                (previewSpeechLevel - normalizedGate)
+                    / max(1 - normalizedGate, 0.05),
+                0
+            ),
+            1
+        )
+        let level = pow(
+            min(max(gatedLevel * variant.orbMouthSensitivity, 0), 1),
+            variant.orbMouthResponseCurve
+        )
+        let scaled = level * Double(frames.count - 1)
+        let index = min(Int(scaled.rounded()), frames.count - 1)
+        return frames[index]
     }
 
     var body: some View {
@@ -165,10 +202,42 @@ struct ThemeVoiceEditorView: View {
                 variant: variant,
                 appearance: appearance,
                 backgroundAsset: backgroundAsset,
-                orbBackgroundAsset: orbBackgroundAsset
+                orbBackgroundAsset: previewOrbAsset,
+                blinkAsset: blinkAsset,
+                speechLevel: previewSpeechLevel
             )
             .frame(width: 408, height: 400)
             .frame(maxWidth: .infinity)
+
+            if !variant.orbMouthFrameAssetIDs.isEmpty
+                || variant.orbIdleMotionEnabled
+                || blinkAsset != nil {
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 10) {
+                        Label(
+                            L10n.text(
+                                "測試說話強度",
+                                "Test speech intensity"
+                            ),
+                            systemImage: "waveform"
+                        )
+                        .font(.caption.weight(.semibold))
+                        Slider(value: $previewSpeechLevel, in: 0...1)
+                        Text(Self.percent(previewSpeechLevel))
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 38, alignment: .trailing)
+                    }
+                    Text(
+                        L10n.text(
+                            "將說話強度調到 0，可預覽待機搖晃與眨眼。",
+                            "Set speech intensity to 0 to preview idle sway and blinking."
+                        )
+                    )
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 
@@ -495,6 +564,14 @@ struct ThemeVoiceEditorView: View {
 
             Divider()
 
+            mouthFramesSection
+
+            Divider()
+
+            idleAnimationSection
+
+            Divider()
+
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text(L10n.text("圖片尺寸", "Image sizing"))
@@ -648,6 +725,426 @@ struct ThemeVoiceEditorView: View {
         }
     }
 
+    private var mouthFramesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(
+                        L10n.text(
+                            "說話嘴型",
+                            "Talking mouth frames"
+                        )
+                    )
+                    .font(.caption.weight(.semibold))
+                    Text(
+                        L10n.text(
+                            "第 1 張是閉嘴，其餘依嘴巴由小到大排列；實際 Voice 會快速張嘴、平滑閉嘴並直接切換最接近的嘴型。",
+                            "Frame 1 is closed. Order the rest from least to most open; Voice opens quickly, closes smoothly, and directly selects the nearest pose."
+                        )
+                    )
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                }
+                Spacer()
+
+                Button {
+                    model.chooseVoiceMouthSpriteSheet(
+                        for: appearance,
+                        gridSize: 2
+                    )
+                } label: {
+                    Label(
+                        L10n.text(
+                            "匯入 2×2 嘴型圖",
+                            "Import 2×2 sheet"
+                        ),
+                        systemImage: "square.grid.2x2"
+                    )
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+
+                Button {
+                    model.chooseVoiceMouthSpriteSheet(
+                        for: appearance,
+                        gridSize: 3
+                    )
+                } label: {
+                    Label(
+                        L10n.text(
+                            "匯入 3×3 嘴型圖",
+                            "Import 3×3 sheet"
+                        ),
+                        systemImage: "square.grid.3x3"
+                    )
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+
+                Button {
+                    model.chooseVoiceMouthFrames(for: appearance)
+                } label: {
+                    Label(
+                        L10n.text("加入多張圖片", "Add images"),
+                        systemImage: "photo.badge.plus"
+                    )
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(variant.orbMouthFrameAssetIDs.count >= 8)
+
+                if !model.availableSkinImageAssets.isEmpty {
+                    Menu {
+                        ForEach(
+                            model.availableSkinImageAssets.filter { asset in
+                                asset.id != variant.orbBackgroundAssetID
+                                    && !variant.orbMouthFrameAssetIDs
+                                        .contains(asset.id)
+                            }
+                        ) { asset in
+                            Button(asset.name) {
+                                model.addVoiceMouthFrame(
+                                    asset.id,
+                                    for: appearance
+                                )
+                            }
+                        }
+                    } label: {
+                        Label(
+                            L10n.text("現有素材", "Existing assets"),
+                            systemImage: "photo.stack"
+                        )
+                    }
+                    .menuStyle(.borderlessButton)
+                    .controlSize(.small)
+                    .disabled(variant.orbMouthFrameAssetIDs.count >= 8)
+                }
+            }
+
+            ScrollView(.horizontal) {
+                HStack(spacing: 10) {
+                    mouthFrameTile(
+                        asset: orbBackgroundAsset,
+                        title: L10n.text("1 · 閉嘴", "1 · Closed"),
+                        index: nil
+                    )
+                    ForEach(
+                        Array(mouthFrameAssets.enumerated()),
+                        id: \.element.id
+                    ) { index, asset in
+                        mouthFrameTile(
+                            asset: asset,
+                            title: "\(index + 2)",
+                            index: index
+                        )
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            .scrollIndicators(.hidden)
+
+            settingsGrid {
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "嘴型靈敏度",
+                        "Mouth sensitivity"
+                    ),
+                    value: variantBinding(\.orbMouthSensitivity),
+                    range: 0.25...3,
+                    step: 0.05,
+                    format: { String(format: "%.2f×", $0) }
+                )
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "張嘴速度",
+                        "Mouth attack"
+                    ),
+                    value: variantBinding(
+                        \.orbMouthAttackMilliseconds
+                    ),
+                    range: 8...120,
+                    step: 2,
+                    format: { "\(Int($0)) ms" }
+                )
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "閉嘴速度",
+                        "Mouth release"
+                    ),
+                    value: variantBinding(
+                        \.orbMouthReleaseMilliseconds
+                    ),
+                    range: 5...300,
+                    step: 1,
+                    format: { "\(Int($0)) ms" }
+                )
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "靜音門檻",
+                        "Noise gate"
+                    ),
+                    value: variantBinding(\.orbMouthNoiseGate),
+                    range: 0...0.2,
+                    step: 0.005,
+                    format: Self.percent
+                )
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "嘴型反應曲線",
+                        "Mouth response curve"
+                    ),
+                    value: variantBinding(\.orbMouthResponseCurve),
+                    range: 0.35...1.5,
+                    step: 0.05,
+                    format: { String(format: "%.2f", $0) }
+                )
+            }
+            .disabled(variant.orbMouthFrameAssetIDs.isEmpty)
+            .opacity(variant.orbMouthFrameAssetIDs.isEmpty ? 0.55 : 1)
+        }
+        .padding(10)
+        .background(.quaternary.opacity(0.28))
+        .clipShape(RoundedRectangle(cornerRadius: 9))
+    }
+
+    private var idleAnimationSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(
+                        L10n.text(
+                            "待機動畫",
+                            "Idle animation"
+                        )
+                    )
+                    .font(.caption.weight(.semibold))
+                    Text(
+                        L10n.text(
+                            "沒有說話時輕微搖晃人物；開始說話後會平滑停止。",
+                            "Gently sways the portrait during silence and smoothly stops when speech begins."
+                        )
+                    )
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Toggle(
+                    L10n.text(
+                        "啟用待機搖晃",
+                        "Enable idle sway"
+                    ),
+                    isOn: variantBinding(\.orbIdleMotionEnabled)
+                )
+                .labelsHidden()
+                .toggleStyle(.switch)
+            }
+
+            settingsGrid {
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "搖晃幅度",
+                        "Sway strength"
+                    ),
+                    value: variantBinding(\.orbIdleMotionStrength),
+                    range: 0...2,
+                    step: 0.05,
+                    format: { String(format: "%.2f×", $0) }
+                )
+                .disabled(!variant.orbIdleMotionEnabled)
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "搖晃週期",
+                        "Sway period"
+                    ),
+                    value: variantBinding(\.orbIdleMotionPeriodSeconds),
+                    range: 1.5...12,
+                    step: 0.1,
+                    format: { String(format: "%.1f s", $0) }
+                )
+                .disabled(!variant.orbIdleMotionEnabled)
+            }
+
+            Divider()
+
+            HStack(spacing: 12) {
+                assetPreview(blinkAsset)
+                    .frame(width: 72, height: 72)
+                    .clipShape(Circle())
+                    .overlay {
+                        Circle().stroke(.quaternary)
+                    }
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(
+                        L10n.text(
+                            "閉眼圖片",
+                            "Closed-eye image"
+                        )
+                    )
+                    .font(.caption.weight(.semibold))
+                    Text(
+                        blinkAsset?.name
+                            ?? L10n.text(
+                                "選擇與閉嘴圖片構圖一致、只有眼睛閉上的圖片。",
+                                "Choose a matching closed-eye portrait with the same framing as the closed-mouth image."
+                            )
+                    )
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+
+                    HStack {
+                        Button {
+                            model.chooseVoiceBlinkImage(for: appearance)
+                        } label: {
+                            Label(
+                                L10n.text("選擇圖片", "Choose image"),
+                                systemImage: "eye.slash"
+                            )
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        if !model.availableSkinImageAssets.isEmpty {
+                            Menu {
+                                ForEach(
+                                    model.availableSkinImageAssets
+                                ) { asset in
+                                    Button {
+                                        model.setVoiceBlinkImage(
+                                            asset.id,
+                                            for: appearance
+                                        )
+                                    } label: {
+                                        if asset.id == blinkAsset?.id {
+                                            Label(
+                                                asset.name,
+                                                systemImage: "checkmark"
+                                            )
+                                        } else {
+                                            Text(asset.name)
+                                        }
+                                    }
+                                }
+                            } label: {
+                                Label(
+                                    L10n.text(
+                                        "現有素材",
+                                        "Existing assets"
+                                    ),
+                                    systemImage: "photo.stack"
+                                )
+                            }
+                            .menuStyle(.borderlessButton)
+                        }
+
+                        if blinkAsset != nil {
+                            Button(
+                                L10n.text("清除", "Clear"),
+                                role: .destructive
+                            ) {
+                                model.clearVoiceBlinkImage(
+                                    for: appearance
+                                )
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    .controlSize(.small)
+                }
+                Spacer()
+            }
+
+            settingsGrid {
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "平均眨眼間隔",
+                        "Average blink interval"
+                    ),
+                    value: variantBinding(\.orbBlinkIntervalSeconds),
+                    range: 1...15,
+                    step: 0.1,
+                    format: { String(format: "%.1f s", $0) }
+                )
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "眨眼時間",
+                        "Blink duration"
+                    ),
+                    value: variantBinding(
+                        \.orbBlinkDurationMilliseconds
+                    ),
+                    range: 60...400,
+                    step: 10,
+                    format: { "\(Int($0)) ms" }
+                )
+            }
+            .disabled(blinkAsset == nil)
+            .opacity(blinkAsset == nil ? 0.55 : 1)
+        }
+        .padding(10)
+        .background(.quaternary.opacity(0.28))
+        .clipShape(RoundedRectangle(cornerRadius: 9))
+        .disabled(orbBackgroundAsset == nil)
+        .opacity(orbBackgroundAsset == nil ? 0.55 : 1)
+    }
+
+    private func mouthFrameTile(
+        asset: ThemeAsset?,
+        title: String,
+        index: Int?
+    ) -> some View {
+        VStack(spacing: 5) {
+            assetPreview(asset)
+                .frame(width: 72, height: 72)
+                .clipShape(Circle())
+                .overlay {
+                    Circle().stroke(.quaternary)
+                }
+            Text(title)
+                .font(.caption2.weight(.semibold))
+            if let index {
+                HStack(spacing: 2) {
+                    Button {
+                        model.moveVoiceMouthFrame(
+                            from: index,
+                            to: index - 1,
+                            for: appearance
+                        )
+                    } label: {
+                        Image(systemName: "chevron.left")
+                    }
+                    .disabled(index == 0)
+                    Button {
+                        model.moveVoiceMouthFrame(
+                            from: index,
+                            to: index + 1,
+                            for: appearance
+                        )
+                    } label: {
+                        Image(systemName: "chevron.right")
+                    }
+                    .disabled(index == mouthFrameAssets.count - 1)
+                    Button(role: .destructive) {
+                        model.removeVoiceMouthFrame(
+                            at: index,
+                            for: appearance
+                        )
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                }
+                .buttonStyle(.borderless)
+                .controlSize(.mini)
+            } else {
+                Text(L10n.text("基準", "Base"))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .frame(height: 16)
+            }
+        }
+        .frame(width: 84)
+    }
+
     private var orbSection: some View {
         EditorSection(
             title: L10n.text("圓球表面", "Orb surface"),
@@ -660,12 +1157,15 @@ struct ThemeVoiceEditorView: View {
                 VoiceValueSlider(
                     title: L10n.text("縮放", "Scale"),
                     value: variantBinding(\.orbScale),
-                    range: 0.5...2,
+                    range: 0.5...3,
                     step: 0.01,
                     format: { String(format: "%.2f×", $0) }
                 )
                 VoiceValueSlider(
-                    title: L10n.text("不透明度", "Opacity"),
+                    title: L10n.text(
+                        "原生圓球不透明度",
+                        "Native orb opacity"
+                    ),
                     value: variantBinding(\.orbOpacity),
                     range: 0...1,
                     step: 0.01,
@@ -904,7 +1404,7 @@ struct ThemeVoiceEditorView: View {
 
     private var orbFocalGrid: some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(L10n.text("快速焦點", "Quick focal point"))
+            Text(L10n.text("圖片焦點", "Image focal point"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Grid(horizontalSpacing: 5, verticalSpacing: 5) {
@@ -1078,98 +1578,131 @@ private struct VoiceOrbPreview: View {
     let appearance: ThemeSkinAppearance
     let backgroundAsset: ThemeAsset?
     let orbBackgroundAsset: ThemeAsset?
+    let blinkAsset: ThemeAsset?
+    let speechLevel: Double
 
     var body: some View {
-        GeometryReader { proxy in
-            ZStack(alignment: .top) {
-                Color(
-                    css: variant.backdropColor,
-                    fallback: appearance == .dark ? .black : .white
-                )
-                .opacity(variant.backdropOpacity)
-
-                if let backgroundAsset,
-                   let data = backgroundAsset.decodedData,
-                   let image = NSImage(data: data) {
-                    VoiceBackgroundImagePreview(
-                        image: image,
-                        variant: variant
+        TimelineView(.animation(minimumInterval: 1 / 30)) { timeline in
+            GeometryReader { proxy in
+                ZStack(alignment: .top) {
+                    Color(
+                        css: variant.backdropColor,
+                        fallback: appearance == .dark ? .black : .white
                     )
-                }
+                    .opacity(variant.backdropOpacity)
 
-                let orbDiameter = min(
-                    proxy.size.width * (112 / 408),
-                    proxy.size.height * 0.32
-                )
-                ZStack {
-                    Circle()
-                        .fill(
-                            AngularGradient(
-                                colors: [
-                                    Color(
-                                        red: 0.12,
-                                        green: 0.78,
-                                        blue: 1
-                                    ),
-                                    Color(
-                                        red: 0.58,
-                                        green: 0.25,
-                                        blue: 1
-                                    ),
-                                    Color(
-                                        red: 1,
-                                        green: 0.25,
-                                        blue: 0.65
-                                    ),
-                                    Color(
-                                        red: 0.12,
-                                        green: 0.78,
-                                        blue: 1
-                                    )
-                                ],
-                                center: .center
-                            )
-                        )
-                        .overlay {
-                            Circle()
-                                .fill(.ultraThinMaterial)
-                                .padding(orbDiameter * 0.14)
-                        }
-
-                    if let orbBackgroundAsset,
-                       let data = orbBackgroundAsset.decodedData,
+                    if let backgroundAsset,
+                       let data = backgroundAsset.decodedData,
                        let image = NSImage(data: data) {
-                        VoiceOrbImagePreview(
+                        VoiceBackgroundImagePreview(
                             image: image,
                             variant: variant
                         )
-                        .padding(
-                            variant.orbBackgroundInset
-                                * orbDiameter / 112
-                        )
-                        .clipShape(Circle())
                     }
+
+                    let orbDiameter = min(
+                        proxy.size.width * (112 / 408),
+                        proxy.size.height * 0.32
+                    )
+                    let orbCenter = clampedOrbCenter(
+                        in: proxy.size,
+                        orbDiameter: orbDiameter
+                    )
+                    ZStack {
+                        Circle()
+                            .fill(
+                                AngularGradient(
+                                    colors: [
+                                        Color(
+                                            red: 0.12,
+                                            green: 0.78,
+                                            blue: 1
+                                        ),
+                                        Color(
+                                            red: 0.58,
+                                            green: 0.25,
+                                            blue: 1
+                                        ),
+                                        Color(
+                                            red: 1,
+                                            green: 0.25,
+                                            blue: 0.65
+                                        ),
+                                        Color(
+                                            red: 0.12,
+                                            green: 0.78,
+                                            blue: 1
+                                        )
+                                    ],
+                                    center: .center
+                                )
+                            )
+                            .opacity(variant.orbOpacity)
+                            .overlay {
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .padding(orbDiameter * 0.14)
+                                    .opacity(variant.orbOpacity)
+                            }
+
+                        ZStack {
+                            if let orbBackgroundAsset,
+                               let data = orbBackgroundAsset.decodedData,
+                               let image = NSImage(data: data) {
+                                VoiceOrbImagePreview(
+                                    image: image,
+                                    variant: variant
+                                )
+                                .padding(
+                                    variant.orbBackgroundInset
+                                        * orbDiameter / 112
+                                )
+                                .clipShape(Circle())
+                            }
+
+                            if let blinkAsset,
+                               let data = blinkAsset.decodedData,
+                               let image = NSImage(data: data) {
+                                VoiceOrbImagePreview(
+                                    image: image,
+                                    variant: variant
+                                )
+                                .padding(
+                                    variant.orbBackgroundInset
+                                        * orbDiameter / 112
+                                )
+                                .clipShape(Circle())
+                                .opacity(
+                                    blinkOpacity(at: timeline.date)
+                                )
+                            }
+                        }
+                        .offset(
+                            x: idleMotion(at: timeline.date).x,
+                            y: idleMotion(at: timeline.date).y
+                        )
+                        .rotationEffect(
+                            .degrees(
+                                idleMotion(at: timeline.date).rotation
+                            )
+                        )
+                    }
+                    .frame(width: orbDiameter, height: orbDiameter)
+                    .hueRotation(.degrees(variant.hueRotation))
+                    .saturation(variant.saturation)
+                    .contrast(variant.contrast)
+                    .brightness(variant.brightness - 1)
+                    .blur(radius: variant.blur)
+                    .shadow(
+                        color: Color(
+                            css: variant.glowColor,
+                            fallback: .cyan
+                        ).opacity(variant.glowOpacity),
+                        radius: variant.glowBlur
+                    )
+                    .scaleEffect(variant.orbScale)
+                    .position(orbCenter)
                 }
-                .frame(width: orbDiameter, height: orbDiameter)
-                .hueRotation(.degrees(variant.hueRotation))
-                .saturation(variant.saturation)
-                .contrast(variant.contrast)
-                .brightness(variant.brightness - 1)
-                .blur(radius: variant.blur)
-                .shadow(
-                    color: Color(
-                        css: variant.glowColor,
-                        fallback: .cyan
-                    ).opacity(variant.glowOpacity),
-                    radius: variant.glowBlur
-                )
-                .scaleEffect(variant.orbScale)
-                .opacity(variant.orbOpacity)
-                .position(
-                    x: proxy.size.width / 2,
-                    y: proxy.size.height * (8 / 400)
-                        + orbDiameter / 2
-                )
             }
         }
         .background(
@@ -1182,6 +1715,80 @@ private struct VoiceOrbPreview: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(.quaternary)
         }
+    }
+
+    private var isIdle: Bool {
+        speechLevel <= max(variant.orbMouthNoiseGate, 0.01)
+    }
+
+    private func clampedOrbCenter(
+        in size: CGSize,
+        orbDiameter: CGFloat
+    ) -> CGPoint {
+        let margin: CGFloat = 4
+        let scaledDiameter =
+            orbDiameter * CGFloat(variant.orbScale)
+
+        func coordinate(
+            fallback: CGFloat,
+            visualLength: CGFloat,
+            viewportLength: CGFloat
+        ) -> CGFloat {
+            guard visualLength + margin * 2 < viewportLength else {
+                return viewportLength / 2
+            }
+            let half = visualLength / 2
+            return min(
+                max(fallback, margin + half),
+                viewportLength - margin - half
+            )
+        }
+
+        return CGPoint(
+            x: coordinate(
+                fallback: size.width / 2,
+                visualLength: scaledDiameter,
+                viewportLength: size.width
+            ),
+            y: coordinate(
+                fallback: size.height * (8 / 400) + orbDiameter / 2,
+                visualLength: scaledDiameter,
+                viewportLength: size.height
+            )
+        )
+    }
+
+    private func idleMotion(
+        at date: Date
+    ) -> (x: Double, y: Double, rotation: Double) {
+        guard isIdle, variant.orbIdleMotionEnabled else {
+            return (0, 0, 0)
+        }
+        let period = max(variant.orbIdleMotionPeriodSeconds, 0.1)
+        let phase = (
+            date.timeIntervalSinceReferenceDate / period
+        ) * .pi * 2
+        let strength = variant.orbIdleMotionStrength
+        return (
+            sin(phase) * 3.2 * strength,
+            sin(phase * 0.61 + 1.2) * 1.8 * strength,
+            sin(phase * 0.83 - 0.7) * 1.05 * strength
+        )
+    }
+
+    private func blinkOpacity(at date: Date) -> Double {
+        guard isIdle, blinkAsset != nil else { return 0 }
+        let interval = max(variant.orbBlinkIntervalSeconds, 0.1)
+        let duration = max(
+            variant.orbBlinkDurationMilliseconds / 1_000,
+            0.01
+        )
+        let cycle = interval + duration
+        let time = date.timeIntervalSinceReferenceDate
+            .truncatingRemainder(dividingBy: cycle)
+        guard time >= interval else { return 0 }
+        let progress = min(max((time - interval) / duration, 0), 1)
+        return pow(sin(progress * .pi), 2)
     }
 }
 

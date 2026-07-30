@@ -482,8 +482,19 @@ public struct ThemeValidator: Sendable {
                         name: "orbBackgroundAssetID",
                         id: variant.orbBackgroundAssetID,
                         label: "Voice orb image"
+                    ),
+                    (
+                        name: "orbBlinkAssetID",
+                        id: variant.orbBlinkAssetID,
+                        label: "Voice closed-eye image"
                     )
-                ]
+                ] + variant.orbMouthFrameAssetIDs.enumerated().map {
+                    (
+                        name: "orbMouthFrameAssetIDs[\($0.offset)]",
+                        id: Optional($0.element),
+                        label: "Voice mouth frame"
+                    )
+                }
                 for imageAsset in imageAssets {
                     guard let assetID = imageAsset.id else { continue }
                     if let asset = document.assets.first(
@@ -505,6 +516,40 @@ public struct ThemeValidator: Sendable {
                             message: "\(imageAsset.label) references missing asset \(assetID.uuidString)."
                         )
                     }
+                }
+                if variant.orbMouthFrameAssetIDs.count > 8 {
+                    add(
+                        .invalidSkinNumber,
+                        path: "\(path).orbMouthFrameAssetIDs",
+                        message: "Voice supports at most eight additional mouth frames."
+                    )
+                }
+                if !variant.orbMouthFrameAssetIDs.isEmpty,
+                   variant.orbBackgroundAssetID == nil {
+                    add(
+                        .missingSkinAsset,
+                        path: "\(path).orbBackgroundAssetID",
+                        message: "Voice mouth animation requires a closed-mouth orb image."
+                    )
+                }
+                if variant.orbBlinkAssetID != nil,
+                   variant.orbBackgroundAssetID == nil {
+                    add(
+                        .missingSkinAsset,
+                        path: "\(path).orbBackgroundAssetID",
+                        message: "Voice blinking requires a base orb portrait."
+                    )
+                }
+                if Set(variant.orbMouthFrameAssetIDs).count
+                    != variant.orbMouthFrameAssetIDs.count
+                    || variant.orbBackgroundAssetID.map({
+                        variant.orbMouthFrameAssetIDs.contains($0)
+                    }) == true {
+                    add(
+                        .duplicateIdentifier,
+                        path: "\(path).orbMouthFrameAssetIDs",
+                        message: "Voice mouth frames must reference unique image assets."
+                    )
                 }
                 let colorValues = [
                     ("glowColor", variant.glowColor),
@@ -605,7 +650,62 @@ public struct ThemeValidator: Sendable {
                         variant.orbBackgroundPulseStrength,
                         0...2
                     ),
-                    ("orbScale", variant.orbScale, 0.5...2),
+                    (
+                        "orbMouthSensitivity",
+                        variant.orbMouthSensitivity,
+                        0.25...3
+                    ),
+                    (
+                        "orbMouthAttackMilliseconds",
+                        variant.orbMouthAttackMilliseconds,
+                        8...120
+                    ),
+                    (
+                        "orbMouthReleaseMilliseconds",
+                        variant.orbMouthReleaseMilliseconds,
+                        5...300
+                    ),
+                    (
+                        "orbMouthNoiseGate",
+                        variant.orbMouthNoiseGate,
+                        0...0.2
+                    ),
+                    (
+                        "orbMouthResponseCurve",
+                        variant.orbMouthResponseCurve,
+                        0.35...1.5
+                    ),
+                    (
+                        "orbMouthSmoothing",
+                        variant.orbMouthSmoothing,
+                        0...0.95
+                    ),
+                    (
+                        "orbMouthFrameHoldMilliseconds",
+                        variant.orbMouthFrameHoldMilliseconds,
+                        40...400
+                    ),
+                    (
+                        "orbIdleMotionStrength",
+                        variant.orbIdleMotionStrength,
+                        0...2
+                    ),
+                    (
+                        "orbIdleMotionPeriodSeconds",
+                        variant.orbIdleMotionPeriodSeconds,
+                        1.5...12
+                    ),
+                    (
+                        "orbBlinkIntervalSeconds",
+                        variant.orbBlinkIntervalSeconds,
+                        1...15
+                    ),
+                    (
+                        "orbBlinkDurationMilliseconds",
+                        variant.orbBlinkDurationMilliseconds,
+                        60...400
+                    ),
+                    ("orbScale", variant.orbScale, 0.5...3),
                     ("brightness", variant.brightness, 0...3),
                     ("contrast", variant.contrast, 0...3),
                     ("saturation", variant.saturation, 0...3),

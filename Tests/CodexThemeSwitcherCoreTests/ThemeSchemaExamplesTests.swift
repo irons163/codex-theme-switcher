@@ -151,6 +151,29 @@ final class ThemeSchemaExamplesTests: XCTestCase {
         XCTAssertNotNil(voiceProperties["orbBackgroundInset"])
         XCTAssertNotNil(voiceProperties["orbBackgroundFollowsVoicePulse"])
         XCTAssertNotNil(voiceProperties["orbBackgroundPulseStrength"])
+        XCTAssertNotNil(voiceProperties["orbMouthFrameAssetIDs"])
+        let mouthFrames = try XCTUnwrap(
+            voiceProperties["orbMouthFrameAssetIDs"] as? [String: Any]
+        )
+        XCTAssertEqual(mouthFrames["maxItems"] as? Int, 8)
+        XCTAssertNotNil(voiceProperties["orbMouthSensitivity"])
+        XCTAssertNotNil(voiceProperties["orbMouthAttackMilliseconds"])
+        let mouthRelease = try XCTUnwrap(
+            voiceProperties["orbMouthReleaseMilliseconds"]
+                as? [String: Any]
+        )
+        XCTAssertEqual(mouthRelease["minimum"] as? Int, 5)
+        XCTAssertEqual(mouthRelease["maximum"] as? Int, 300)
+        XCTAssertNotNil(voiceProperties["orbMouthNoiseGate"])
+        XCTAssertNotNil(voiceProperties["orbMouthResponseCurve"])
+        XCTAssertNotNil(voiceProperties["orbMouthSmoothing"])
+        XCTAssertNotNil(voiceProperties["orbMouthFrameHoldMilliseconds"])
+        XCTAssertNotNil(voiceProperties["orbIdleMotionEnabled"])
+        XCTAssertNotNil(voiceProperties["orbIdleMotionStrength"])
+        XCTAssertNotNil(voiceProperties["orbIdleMotionPeriodSeconds"])
+        XCTAssertNotNil(voiceProperties["orbBlinkAssetID"])
+        XCTAssertNotNil(voiceProperties["orbBlinkIntervalSeconds"])
+        XCTAssertNotNil(voiceProperties["orbBlinkDurationMilliseconds"])
         XCTAssertNotNil(voiceProperties["backgroundImageFit"])
         XCTAssertNotNil(voiceProperties["backgroundPositionX"])
         XCTAssertNotNil(voiceProperties["backgroundPositionY"])

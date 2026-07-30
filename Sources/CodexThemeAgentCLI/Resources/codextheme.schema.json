@@ -527,10 +527,93 @@
           "maximum": 2,
           "description": "Native Voice pulse multiplier. 0 disables movement, 1 follows the measured sprite size, and 2 exaggerates it."
         },
+        "orbMouthFrameAssetIDs": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/uuid"
+          },
+          "description": "Additional mouth-pose images ordered from least to most open. orbBackgroundAssetID is frame 0 (closed mouth)."
+        },
+        "orbMouthSensitivity": {
+          "type": "number",
+          "minimum": 0.25,
+          "maximum": 3,
+          "description": "Multiplier applied to measured Voice output energy before selecting a mouth frame."
+        },
+        "orbMouthAttackMilliseconds": {
+          "type": "number",
+          "minimum": 8,
+          "maximum": 120,
+          "description": "Fast opening time constant for Live2D-like amplitude-driven mouth motion."
+        },
+        "orbMouthReleaseMilliseconds": {
+          "type": "number",
+          "minimum": 5,
+          "maximum": 300,
+          "description": "Closing time constant for natural mouth relaxation after speech energy falls."
+        },
+        "orbMouthNoiseGate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.2,
+          "description": "Measured Voice output below this level is treated as silence."
+        },
+        "orbMouthResponseCurve": {
+          "type": "number",
+          "minimum": 0.35,
+          "maximum": 1.5,
+          "description": "Shapes output energy into mouth openness. Values below 1 emphasize quieter syllables."
+        },
+        "orbMouthSmoothing": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.95,
+          "description": "Temporal smoothing for mouth motion. Higher values produce steadier, slower changes."
+        },
+        "orbMouthFrameHoldMilliseconds": {
+          "type": "number",
+          "minimum": 40,
+          "maximum": 400,
+          "description": "Minimum time to keep a mouth frame before switching."
+        },
+        "orbIdleMotionEnabled": {
+          "type": "boolean",
+          "description": "Gently translate and rotate the custom portrait while Voice output is silent."
+        },
+        "orbIdleMotionStrength": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "description": "Idle portrait movement multiplier."
+        },
+        "orbIdleMotionPeriodSeconds": {
+          "type": "number",
+          "minimum": 1.5,
+          "maximum": 12,
+          "description": "Duration of one complete idle sway cycle."
+        },
+        "orbBlinkAssetID": {
+          "$ref": "#/$defs/uuid",
+          "description": "Optional matching closed-eye portrait displayed during idle blinks."
+        },
+        "orbBlinkIntervalSeconds": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 15,
+          "description": "Average randomized delay between idle blinks."
+        },
+        "orbBlinkDurationMilliseconds": {
+          "type": "number",
+          "minimum": 60,
+          "maximum": 400,
+          "description": "Duration of one complete close-and-open blink."
+        },
         "orbScale": {
           "type": "number",
           "minimum": 0.5,
-          "maximum": 2
+          "maximum": 3
         },
         "orbOpacity": {
           "$ref": "#/$defs/unitNumber"

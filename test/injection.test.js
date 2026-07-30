@@ -8,12 +8,15 @@ const injectionPath =
   "../Sources/CodexThemeRuntime/Resources/runtime/lib/injection";
 const {
   BASE64_CHUNK_CHARACTERS,
+  RENDERER_RUNTIME_VERSION,
   applyTheme,
+  avatarOverlayTheme,
   beginExpression,
   beginPayload,
   broadcastTheme,
   checkedEvaluationValue,
   clearRenderers,
+  reconcileExistingSession,
   rendererInjectionSource,
 } = require(injectionPath);
 
@@ -47,6 +50,7 @@ function transactionSession(options = {}) {
   const state = {
     digest: options.digest ?? null,
     stylePresent: options.stylePresent ?? false,
+    runtimeVersion: options.runtimeVersion ?? RENDERER_RUNTIME_VERSION,
     pending: null,
   };
   const sandbox = {
@@ -88,6 +92,7 @@ function transactionSession(options = {}) {
         calls.push({ operation: "status" });
         return {
           ok: true,
+          version: state.runtimeVersion,
           digest: state.digest,
           stylePresent: state.stylePresent,
           current: state.stylePresent ? { digest: state.digest } : null,
@@ -112,6 +117,9 @@ function transactionSession(options = {}) {
       this.messages.push({ method, params });
       if (method !== "Runtime.evaluate") return {};
       if (params.expression.includes("installCodexThemeRuntime")) {
+        state.runtimeVersion = RENDERER_RUNTIME_VERSION;
+        state.digest = null;
+        state.stylePresent = false;
         return evaluation({ ok: true });
       }
       try {
@@ -395,6 +403,28 @@ test("poll status skips resending a matching digest and style", async (t) => {
     1,
   );
   assert.equal(targets.length, 1);
+});
+
+test("matching digest still upgrades a stale renderer runtime", async () => {
+  const session = transactionSession({
+    digest: "digest-one",
+    stylePresent: true,
+    runtimeVersion: RENDERER_RUNTIME_VERSION - 1,
+  });
+
+  await reconcileExistingSession(session, theme());
+
+  assert.equal(session.state.runtimeVersion, RENDERER_RUNTIME_VERSION);
+  assert.deepEqual(
+    session.calls.map(({ operation }) => operation),
+    ["status", "status", "begin", "commit"],
+  );
+  assert.equal(
+    session.messages.filter(
+      ({ method }) => method === "Page.addScriptToEvaluateOnNewDocument",
+    ).length,
+    1,
+  );
 });
 
 test("poll applies to a new target while retaining a matching target", async (t) => {

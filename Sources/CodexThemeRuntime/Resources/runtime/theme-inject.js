@@ -4,11 +4,46 @@
   const GLOBAL_KEY = "__codexThemeSwitcherRuntime";
   const STYLE_ID = "codex-theme-switcher-style";
   const STAGING_STYLE_ID = `${STYLE_ID}-staging`;
-  const VERSION = 3;
+  const VERSION = 22;
+  const PUBLISHED_AUDIO_SMOOTHING = 0.86;
   const VOICE_ORB_SELECTOR = ".codex-avatar-root";
   const VOICE_PULSE_ENABLED = "--cts-voice-orb-pulse-enabled";
   const VOICE_PULSE_STRENGTH = "--cts-voice-orb-pulse-strength";
   const VOICE_PULSE_LIVE_SCALE = "--cts-voice-orb-live-pulse";
+  const VOICE_ORB_IMAGE_ENABLED = "--cts-voice-orb-image-enabled";
+  const VOICE_MOUTH_ACTIVE_IMAGE = "--cts-voice-orb-active-image";
+  const VOICE_MOUTH_FRAME_COUNT = "--cts-voice-orb-mouth-frame-count";
+  const VOICE_MOUTH_FRAME_PREFIX = "--cts-voice-orb-mouth-frame-";
+  const VOICE_MOUTH_SENSITIVITY = "--cts-voice-orb-mouth-sensitivity";
+  const VOICE_MOUTH_ATTACK = "--cts-voice-orb-mouth-attack-ms";
+  const VOICE_MOUTH_RELEASE = "--cts-voice-orb-mouth-release-ms";
+  const VOICE_MOUTH_NOISE_GATE = "--cts-voice-orb-mouth-noise-gate";
+  const VOICE_MOUTH_RESPONSE_CURVE =
+    "--cts-voice-orb-mouth-response-curve";
+  const VOICE_MOUTH_IMAGE_A = "--cts-voice-orb-mouth-image-a";
+  const VOICE_MOUTH_IMAGE_B = "--cts-voice-orb-mouth-image-b";
+  const VOICE_MOUTH_OPACITY_A = "--cts-voice-orb-mouth-opacity-a";
+  const VOICE_MOUTH_OPACITY_B = "--cts-voice-orb-mouth-opacity-b";
+  const VOICE_IDLE_ENABLED = "--cts-voice-orb-idle-enabled";
+  const VOICE_IDLE_STRENGTH = "--cts-voice-orb-idle-strength";
+  const VOICE_IDLE_PERIOD = "--cts-voice-orb-idle-period-ms";
+  const VOICE_IDLE_X = "--cts-voice-orb-idle-x";
+  const VOICE_IDLE_Y = "--cts-voice-orb-idle-y";
+  const VOICE_IDLE_ROTATION = "--cts-voice-orb-idle-rotation";
+  const VOICE_BLINK_ENABLED = "--cts-voice-orb-blink-enabled";
+  const VOICE_BLINK_INTERVAL = "--cts-voice-orb-blink-interval-ms";
+  const VOICE_BLINK_DURATION = "--cts-voice-orb-blink-duration-ms";
+  const VOICE_BLINK_OPACITY = "--cts-voice-orb-blink-opacity";
+  const VOICE_ORB_LAYOUT_SHIFT = Object.freeze({
+    x: "--cts-voice-orb-layout-shift-x",
+    y: "--cts-voice-orb-layout-shift-y",
+  });
+  const VOICE_ORB_LIVE_GEOMETRY = Object.freeze({
+    left: "--cts-voice-orb-live-left",
+    top: "--cts-voice-orb-live-top",
+    width: "--cts-voice-orb-live-width",
+    height: "--cts-voice-orb-live-height",
+  });
   const API_KEYS = {
     begin: "__codexThemeSwitcherBegin",
     appendAsset: "__codexThemeSwitcherAppendAsset",
@@ -99,8 +134,429 @@
   function voicePulseIsConfigured() {
     return customProperty(
       document.documentElement,
-      VOICE_PULSE_ENABLED,
+      VOICE_ORB_IMAGE_ENABLED,
     ) !== "";
+  }
+
+  function voiceOrbImageIsEnabled() {
+    const value = customProperty(
+      document.documentElement,
+      VOICE_ORB_IMAGE_ENABLED,
+    ).toLowerCase();
+    return value === "1" || value === "true";
+  }
+
+  function numericCustomProperty(name, fallback) {
+    const value = Number.parseFloat(
+      customProperty(document.documentElement, name),
+    );
+    return Number.isFinite(value) ? value : fallback;
+  }
+
+  function booleanCustomProperty(name) {
+    const value = customProperty(
+      document.documentElement,
+      name,
+    ).toLowerCase();
+    return value === "1" || value === "true";
+  }
+
+  function voiceMouthFrameSources() {
+    const count = Math.round(clamp(
+      numericCustomProperty(VOICE_MOUTH_FRAME_COUNT, 0),
+      0,
+      9,
+    ));
+    const sources = [];
+    for (let index = 0; index < count; index += 1) {
+      const source = customProperty(
+        document.documentElement,
+        `${VOICE_MOUTH_FRAME_PREFIX}${index}`,
+      );
+      if (!source || source.toLowerCase() === "none") break;
+      sources.push(source);
+    }
+    return sources;
+  }
+
+  function clearVoiceMouth(root) {
+    root?.style?.removeProperty?.(VOICE_MOUTH_ACTIVE_IMAGE);
+    root?.style?.removeProperty?.(VOICE_MOUTH_IMAGE_A);
+    root?.style?.removeProperty?.(VOICE_MOUTH_IMAGE_B);
+    root?.style?.removeProperty?.(VOICE_MOUTH_OPACITY_A);
+    root?.style?.removeProperty?.(VOICE_MOUTH_OPACITY_B);
+  }
+
+  function setVoiceMouthProperty(root, cacheKey, property, value) {
+    const pulse = runtime.voicePulse;
+    if (pulse[cacheKey] === value) return;
+    root.style?.setProperty?.(property, value);
+    pulse[cacheKey] = value;
+  }
+
+  function resetVoiceMouthCache(pulse) {
+    pulse.mouthActiveSource = "";
+    pulse.mouthSourceA = "";
+    pulse.mouthSourceB = "";
+    pulse.mouthOpacityA = "";
+    pulse.mouthOpacityB = "";
+  }
+
+  function resetVoiceIdleCache(pulse) {
+    pulse.idleConfiguration = null;
+    pulse.idleLastTimestamp = 0;
+    pulse.idleAmount = 0;
+    pulse.idleX = "";
+    pulse.idleY = "";
+    pulse.idleRotation = "";
+    pulse.blinkOpacity = "";
+    pulse.blinkStartedAt = 0;
+    pulse.nextBlinkAt = 0;
+  }
+
+  function voiceIdleConfiguration() {
+    const pulse = runtime.voicePulse;
+    if (pulse.idleConfiguration) return pulse.idleConfiguration;
+    pulse.idleConfiguration = {
+      motionEnabled: booleanCustomProperty(VOICE_IDLE_ENABLED),
+      strength: clamp(
+        numericCustomProperty(VOICE_IDLE_STRENGTH, 0.35),
+        0,
+        2,
+      ),
+      period: clamp(
+        numericCustomProperty(VOICE_IDLE_PERIOD, 4800),
+        1500,
+        12000,
+      ),
+      blinkEnabled: booleanCustomProperty(VOICE_BLINK_ENABLED),
+      blinkInterval: clamp(
+        numericCustomProperty(VOICE_BLINK_INTERVAL, 4200),
+        1000,
+        15000,
+      ),
+      blinkDuration: clamp(
+        numericCustomProperty(VOICE_BLINK_DURATION, 140),
+        60,
+        400,
+      ),
+    };
+    return pulse.idleConfiguration;
+  }
+
+  function nextBlinkDelay(interval) {
+    return interval * (0.72 + Math.random() * 0.56);
+  }
+
+  function synchronizeVoiceIdle(root, rawEnergy) {
+    if (!root) return;
+    const pulse = runtime.voicePulse;
+    const config = voiceIdleConfiguration();
+    const now = typeof performance !== "undefined"
+      && typeof performance.now === "function"
+      ? performance.now()
+      : Date.now();
+    const elapsed = pulse.idleLastTimestamp > 0
+      ? clamp(now - pulse.idleLastTimestamp, 1, 100)
+      : 16.667;
+    const gate = clamp(
+      numericCustomProperty(VOICE_MOUTH_NOISE_GATE, 0.05),
+      0,
+      0.2,
+    );
+    const raw = clamp(Number(rawEnergy) || 0, 0, 1);
+    const speaking = pulse.mouthGateOpen
+      || pulse.mouthLevel > 0.02
+      || raw >= gate + 0.008;
+    const idleTarget = speaking ? 0 : 1;
+    const idleResponse = 1 - Math.exp(
+      -elapsed / (idleTarget > pulse.idleAmount ? 320 : 80),
+    );
+    pulse.idleAmount += (
+      idleTarget - pulse.idleAmount
+    ) * idleResponse;
+    if (pulse.idleAmount < 0.001) pulse.idleAmount = 0;
+
+    const motionAmount = config.motionEnabled
+      ? config.strength * pulse.idleAmount
+      : 0;
+    const phase = (now / config.period) * Math.PI * 2;
+    setVoiceMouthProperty(
+      root,
+      "idleX",
+      VOICE_IDLE_X,
+      `${(Math.sin(phase) * 3.2 * motionAmount).toFixed(3)}px`,
+    );
+    setVoiceMouthProperty(
+      root,
+      "idleY",
+      VOICE_IDLE_Y,
+      `${
+        (
+          Math.sin(phase * 0.61 + 1.2)
+          * 1.8
+          * motionAmount
+        ).toFixed(3)
+      }px`,
+    );
+    setVoiceMouthProperty(
+      root,
+      "idleRotation",
+      VOICE_IDLE_ROTATION,
+      `${
+        (
+          Math.sin(phase * 0.83 - 0.7)
+          * 1.05
+          * motionAmount
+        ).toFixed(3)
+      }deg`,
+    );
+
+    let blink = 0;
+    if (!config.blinkEnabled || speaking) {
+      pulse.blinkStartedAt = 0;
+      pulse.nextBlinkAt = now + nextBlinkDelay(config.blinkInterval);
+    } else {
+      if (pulse.nextBlinkAt <= 0) {
+        pulse.nextBlinkAt = now + nextBlinkDelay(config.blinkInterval);
+      } else if (
+        pulse.blinkStartedAt <= 0
+        && now >= pulse.nextBlinkAt
+      ) {
+        pulse.blinkStartedAt = now;
+      }
+      if (pulse.blinkStartedAt > 0) {
+        const progress = clamp(
+          (now - pulse.blinkStartedAt) / config.blinkDuration,
+          0,
+          1,
+        );
+        blink = Math.sin(progress * Math.PI) ** 2;
+        if (progress >= 1) {
+          blink = 0;
+          pulse.blinkStartedAt = 0;
+          pulse.nextBlinkAt = now + nextBlinkDelay(
+            config.blinkInterval,
+          );
+        }
+      }
+    }
+    const baseOpacity = clamp(
+      numericCustomProperty("--cts-voice-orb-background-opacity", 1),
+      0,
+      1,
+    );
+    setVoiceMouthProperty(
+      root,
+      "blinkOpacity",
+      VOICE_BLINK_OPACITY,
+      (baseOpacity * blink).toFixed(4),
+    );
+    pulse.idleLastTimestamp = now;
+  }
+
+  function synchronizeVoiceMouth(root, rawEnergy) {
+    const pulse = runtime.voicePulse;
+    let sources = pulse.mouthSources;
+    if (!pulse.mouthSourcesReady) {
+      sources = voiceMouthFrameSources();
+      pulse.mouthSources = sources;
+      pulse.mouthSourcesReady = true;
+      const sourcesKey = sources.join("\u0000");
+      if (sourcesKey !== pulse.mouthSourcesKey) {
+        pulse.mouthSourcesKey = sourcesKey;
+        pulse.mouthLevel = 0;
+        pulse.mouthFrameIndex = 0;
+        pulse.mouthLastTimestamp = 0;
+        pulse.mouthRawLevel = 0;
+        pulse.mouthNoiseFloor = 0;
+        pulse.mouthPeakLevel = 0;
+        pulse.mouthEnvelopeReady = false;
+        pulse.mouthGateOpen = false;
+        resetVoiceMouthCache(pulse);
+      }
+    }
+    if (!root || sources.length < 2) {
+      clearVoiceMouth(root);
+      pulse.mouthLevel = 0;
+      pulse.mouthFrameIndex = 0;
+      pulse.mouthLastTimestamp = 0;
+      pulse.mouthRawLevel = 0;
+      pulse.mouthNoiseFloor = 0;
+      pulse.mouthPeakLevel = 0;
+      pulse.mouthEnvelopeReady = false;
+      pulse.mouthGateOpen = false;
+      resetVoiceMouthCache(pulse);
+      return;
+    }
+    const sensitivity = clamp(
+      numericCustomProperty(VOICE_MOUTH_SENSITIVITY, 1),
+      0.25,
+      3,
+    );
+    const attack = clamp(
+      numericCustomProperty(VOICE_MOUTH_ATTACK, 18),
+      8,
+      120,
+    );
+    const release = clamp(
+      numericCustomProperty(VOICE_MOUTH_RELEASE, 72),
+      5,
+      300,
+    );
+    const gate = clamp(
+      numericCustomProperty(VOICE_MOUTH_NOISE_GATE, 0.05),
+      0,
+      0.2,
+    );
+    const curve = clamp(
+      numericCustomProperty(VOICE_MOUTH_RESPONSE_CURVE, 0.9),
+      0.35,
+      1.5,
+    );
+    const raw = clamp(Number(rawEnergy) || 0, 0, 1);
+    const now = typeof performance !== "undefined"
+      && typeof performance.now === "function"
+      ? performance.now()
+      : Date.now();
+    const elapsed = pulse.mouthLastTimestamp > 0
+      ? clamp(now - pulse.mouthLastTimestamp, 1, 100)
+      : 16.667;
+    if (!pulse.mouthEnvelopeReady) {
+      pulse.mouthNoiseFloor = gate;
+      pulse.mouthPeakLevel = Math.max(raw, gate + 0.14);
+      pulse.mouthEnvelopeReady = true;
+    } else {
+      if (raw < pulse.mouthNoiseFloor || !pulse.mouthGateOpen) {
+        const floorTimeConstant = raw > pulse.mouthNoiseFloor
+          ? 650
+          : 45;
+        const floorResponse = 1
+          - Math.exp(-elapsed / floorTimeConstant);
+        pulse.mouthNoiseFloor += (
+          Math.max(raw, gate) - pulse.mouthNoiseFloor
+        ) * floorResponse;
+      }
+
+      const peakTimeConstant = raw > pulse.mouthPeakLevel
+        ? 18
+        : 180;
+      const peakResponse = 1 - Math.exp(-elapsed / peakTimeConstant);
+      pulse.mouthPeakLevel += (
+        Math.max(raw, gate + 0.08) - pulse.mouthPeakLevel
+      ) * peakResponse;
+    }
+    pulse.mouthNoiseFloor = clamp(
+      pulse.mouthNoiseFloor,
+      gate,
+      0.44,
+    );
+    pulse.mouthPeakLevel = clamp(
+      Math.max(
+        pulse.mouthPeakLevel,
+        pulse.mouthNoiseFloor + 0.08,
+      ),
+      pulse.mouthNoiseFloor + 0.01,
+      1,
+    );
+
+    const openThreshold = clamp(
+      Math.max(gate + 0.008, pulse.mouthNoiseFloor + 0.012),
+      0.008,
+      0.24,
+    );
+    const closeThreshold = clamp(
+      Math.max(gate * 0.72, pulse.mouthNoiseFloor + 0.002),
+      0,
+      Math.max(openThreshold - 0.004, 0),
+    );
+    if (pulse.mouthGateOpen) {
+      if (raw <= closeThreshold) pulse.mouthGateOpen = false;
+    } else if (raw >= openThreshold) {
+      pulse.mouthGateOpen = true;
+    }
+
+    const absoluteLevel = clamp(
+      (raw - closeThreshold)
+        / Math.max(0.46 - closeThreshold, 0.01),
+      0,
+      1,
+    );
+    const relativeLevel = clamp(
+      (raw - pulse.mouthNoiseFloor)
+        / Math.max(
+          pulse.mouthPeakLevel - pulse.mouthNoiseFloor,
+          0.01,
+        ),
+      0,
+      1,
+    );
+    const responsiveLevel = smoothstep(
+      0.02,
+      0.94,
+      absoluteLevel * 0.82 + relativeLevel * 0.18,
+    );
+    const rising = Math.max(0, raw - pulse.mouthRawLevel);
+    const target = !pulse.mouthGateOpen
+      ? 0
+      : Math.pow(
+        clamp(
+          responsiveLevel * sensitivity + rising * 0.16,
+          0,
+          1,
+        ),
+        curve,
+      );
+    const timeConstant = target > pulse.mouthLevel ? attack : release;
+    const response = 1 - Math.exp(-elapsed / timeConstant);
+    pulse.mouthLevel += (target - pulse.mouthLevel) * response;
+    if (target === 0 && pulse.mouthLevel < 0.005) {
+      pulse.mouthLevel = 0;
+    }
+    pulse.mouthLastTimestamp = now;
+    pulse.mouthRawLevel = raw;
+
+    const scaled = pulse.mouthLevel * (sources.length - 1);
+    pulse.mouthFrameIndex = Math.min(
+      Math.round(scaled),
+      sources.length - 1,
+    );
+    const activeSource = sources[pulse.mouthFrameIndex] || sources[0];
+    const baseOpacity = clamp(
+      numericCustomProperty("--cts-voice-orb-background-opacity", 1),
+      0,
+      1,
+    );
+    setVoiceMouthProperty(
+      root,
+      "mouthActiveSource",
+      VOICE_MOUTH_ACTIVE_IMAGE,
+      activeSource,
+    );
+    setVoiceMouthProperty(
+      root,
+      "mouthSourceA",
+      VOICE_MOUTH_IMAGE_A,
+      activeSource,
+    );
+    setVoiceMouthProperty(
+      root,
+      "mouthSourceB",
+      VOICE_MOUTH_IMAGE_B,
+      activeSource,
+    );
+    setVoiceMouthProperty(
+      root,
+      "mouthOpacityA",
+      VOICE_MOUTH_OPACITY_A,
+      "0.0000",
+    );
+    setVoiceMouthProperty(
+      root,
+      "mouthOpacityB",
+      VOICE_MOUTH_OPACITY_B,
+      baseOpacity.toFixed(4),
+    );
   }
 
   function voicePulseStrength() {
@@ -182,6 +638,7 @@
           context.drawImage(image, 0, 0);
 
           const areas = [];
+          const frames = [];
           let largestArea = 0;
           for (let row = 0; row < grid.rows; row += 1) {
             for (let column = 0; column < grid.columns; column += 1) {
@@ -198,7 +655,7 @@
               for (let y = 0; y < frameHeight; y += 1) {
                 for (let x = 0; x < frameWidth; x += 1) {
                   const alpha = pixels[(y * frameWidth + x) * 4 + 3];
-                  if (alpha < 48) continue;
+                  if (alpha === 0) continue;
                   minimumX = Math.min(minimumX, x);
                   minimumY = Math.min(minimumY, y);
                   maximumX = Math.max(maximumX, x);
@@ -209,6 +666,16 @@
                 ? 0
                 : (maximumX - minimumX + 1) * (maximumY - minimumY + 1);
               areas.push(area);
+              frames.push(
+                area > 0
+                  ? {
+                    left: (minimumX / frameWidth) * 100,
+                    top: (minimumY / frameHeight) * 100,
+                    width: ((maximumX - minimumX + 1) / frameWidth) * 100,
+                    height: ((maximumY - minimumY + 1) / frameHeight) * 100,
+                  }
+                  : null,
+              );
               largestArea = Math.max(largestArea, area);
             }
           }
@@ -219,6 +686,8 @@
           }
           resolve({
             ...grid,
+            frames,
+            reference: frames.find(Boolean),
             scales: areas.map((area) => (
               area > 0 ? Math.sqrt(area / largestArea) : 1
             )),
@@ -247,6 +716,399 @@
     return runtime.voicePulseCache.get(key);
   }
 
+  function clamp(value, minimum, maximum) {
+    return Math.max(minimum, Math.min(maximum, value));
+  }
+
+  function smoothstep(minimum, maximum, value) {
+    const amount = clamp((value - minimum) / (maximum - minimum), 0, 1);
+    return amount * amount * (3 - 2 * amount);
+  }
+
+  function numericUniform(gl, program, name, fallback = 0) {
+    try {
+      const location = gl.getUniformLocation?.(program, name);
+      if (location == null) return fallback;
+      const value = gl.getUniform?.(program, location);
+      return Number.isFinite(value) ? Number(value) : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  function vectorUniform(gl, program, name) {
+    try {
+      const location = gl.getUniformLocation?.(program, name);
+      if (location == null) return null;
+      const value = gl.getUniform?.(program, location);
+      if (!value || typeof value.length !== "number") return null;
+      const numbers = Array.from(value, Number);
+      return numbers.every(Number.isFinite) ? numbers : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function voiceCanvas(root) {
+    return root?.querySelector?.(
+      "canvas[data-avatar-overlay-placement]",
+    ) || null;
+  }
+
+  function isVoiceRendererInstance(value, canvas) {
+    try {
+      return Boolean(
+        value
+        && typeof value === "object"
+        && value.canvas === canvas
+        && "publishedAudioLevels" in value
+        && typeof value.setPublishedAudioLevels === "function"
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  function reactVoiceRenderer(canvas) {
+    if (!canvas) return null;
+    let fiber;
+    try {
+      const key = Reflect.ownKeys(canvas).find((candidate) => (
+        typeof candidate === "string"
+        && candidate.startsWith("__reactFiber$")
+      ));
+      fiber = key ? canvas[key] : null;
+    } catch {
+      return null;
+    }
+
+    for (let depth = 0; fiber && depth < 40; depth += 1) {
+      let hook = fiber.memoizedState;
+      for (let index = 0; hook && index < 80; index += 1) {
+        const state = hook.memoizedState;
+        for (const candidate of [state, state?.current]) {
+          if (isVoiceRendererInstance(candidate, canvas)) {
+            return candidate;
+          }
+        }
+        hook = hook.next;
+      }
+      fiber = fiber.return;
+    }
+    return null;
+  }
+
+  function publishedVoiceLevel(canvas) {
+    const pulse = runtime.voicePulse;
+    let renderer = pulse.publishedAudioRenderer;
+    if (!isVoiceRendererInstance(renderer, canvas)) {
+      renderer = null;
+      pulse.publishedAudioRenderer = null;
+      pulse.publishedAudioSnapshot = null;
+      pulse.publishedAudioLevel = null;
+      pulse.publishedAudioEstimate = 0;
+      if (pulse.publishedAudioSearchCountdown > 0) {
+        pulse.publishedAudioSearchCountdown -= 1;
+      } else {
+        renderer = reactVoiceRenderer(canvas);
+        pulse.publishedAudioRenderer = renderer;
+        pulse.publishedAudioSearchCountdown = 60;
+      }
+    }
+
+    const levels = renderer?.publishedAudioLevels;
+    const overall = Number(levels?.overall);
+    if (!Number.isFinite(overall)) {
+      pulse.publishedAudioSnapshot = null;
+      pulse.publishedAudioLevel = null;
+      pulse.publishedAudioEstimate = 0;
+      pulse.mouthEnergySource = "webgl-output-level";
+      return null;
+    }
+    const current = clamp(overall, 0, 1);
+    if (
+      levels !== pulse.publishedAudioSnapshot
+      || current !== pulse.publishedAudioLevel
+    ) {
+      const previous = pulse.publishedAudioLevel;
+      pulse.publishedAudioEstimate = previous == null
+        ? current
+        : clamp(
+          (
+            current - PUBLISHED_AUDIO_SMOOTHING * previous
+          ) / (1 - PUBLISHED_AUDIO_SMOOTHING),
+          0,
+          1,
+        );
+      pulse.publishedAudioSnapshot = levels;
+      pulse.publishedAudioLevel = current;
+    }
+    pulse.mouthEnergySource = "published-audio-levels-desmoothed";
+    return pulse.publishedAudioEstimate;
+  }
+
+  function voiceCanvasContext(canvas) {
+    if (!canvas?.getContext) return null;
+    try {
+      return canvas.getContext("webgl")
+        || canvas.getContext("experimental-webgl");
+    } catch {
+      return null;
+    }
+  }
+
+  function layoutRectWithin(element, ancestor) {
+    const width = Number(element?.offsetWidth);
+    const height = Number(element?.offsetHeight);
+    if (
+      !element
+      || !ancestor
+      || !Number.isFinite(width)
+      || !Number.isFinite(height)
+      || width <= 0
+      || height <= 0
+    ) {
+      return null;
+    }
+
+    let left = 0;
+    let top = 0;
+    let current = element;
+    for (let depth = 0; current && depth < 20; depth += 1) {
+      if (current === ancestor) {
+        return { left, top, width, height };
+      }
+      left += Number(current.offsetLeft) || 0;
+      top += Number(current.offsetTop) || 0;
+      current = current.offsetParent;
+    }
+    return null;
+  }
+
+  function voiceCanvasGeometry(root) {
+    const canvas = voiceCanvas(root);
+    const gl = voiceCanvasContext(canvas);
+    if (!canvas || !gl) return null;
+
+    let program;
+    try {
+      program = gl.getParameter?.(gl.CURRENT_PROGRAM);
+    } catch {
+      return null;
+    }
+    if (!program) return null;
+
+    const resolution = vectorUniform(gl, program, "u_resolution");
+    if (
+      !resolution
+      || resolution.length < 2
+      || resolution[0] <= 0
+      || resolution[1] <= 0
+    ) {
+      return null;
+    }
+
+    const rootRect = root.getBoundingClientRect?.();
+    const canvasRect = canvas.getBoundingClientRect?.();
+    if (
+      !rootRect
+      || !canvasRect
+      || rootRect.width <= 0
+      || rootRect.height <= 0
+      || canvasRect.width <= 0
+      || canvasRect.height <= 0
+    ) {
+      return null;
+    }
+    const layoutRect = layoutRectWithin(canvas, root) || {
+      left: canvasRect.left - rootRect.left,
+      top: canvasRect.top - rootRect.top,
+      width: canvasRect.width,
+      height: canvasRect.height,
+    };
+
+    const time = numericUniform(gl, program, "u_time");
+    const outputLevel = numericUniform(
+      gl,
+      program,
+      "u_outputLevel",
+    );
+    const rawOutputLevel = publishedVoiceLevel(canvas);
+    const stateListen = numericUniform(
+      gl,
+      program,
+      "u_stateListen",
+    );
+    const stateThink = numericUniform(
+      gl,
+      program,
+      "u_stateThink",
+    );
+    const stateSpeak = numericUniform(
+      gl,
+      program,
+      "u_stateSpeak",
+    );
+    const stateAmount = Math.max(stateListen, stateThink, stateSpeak);
+    const outputEnergy = smoothstep(0.04, 0.46, outputLevel);
+    const breath = Math.sin(time * Math.PI * 0.34) * 0.5 + 0.5;
+    const entry = smoothstep(0, 0.9, stateAmount);
+    const aspect = resolution[0] / resolution[1];
+    const maximumRadius = Math.min(
+      0.36,
+      Math.min(0.5, 0.5 * aspect) - 0.16,
+    );
+    if (!Number.isFinite(maximumRadius) || maximumRadius <= 0) {
+      return null;
+    }
+
+    const thinking = clamp(stateThink, 0, 1);
+    const baseRadius = maximumRadius
+      * (0.88 + (0.94 - 0.88) * thinking);
+    const enteredRadius = baseRadius * (0.82 + (1 - 0.82) * entry);
+    const restingBreath = (1 - thinking)
+      * (1 - outputEnergy)
+      * breath
+      * maximumRadius
+      * 0.01;
+    const nativeRadius = Math.min(
+      maximumRadius,
+      enteredRadius
+        + outputEnergy * maximumRadius * 0.12
+        + restingBreath,
+    );
+    const referenceRadius = Math.min(
+      maximumRadius,
+      enteredRadius + (1 - thinking) * breath * maximumRadius * 0.01,
+    );
+    const strength = voicePulseIsEnabled() ? voicePulseStrength() : 0;
+    const radius = clamp(
+      referenceRadius + (nativeRadius - referenceRadius) * strength,
+      maximumRadius * 0.25,
+      maximumRadius * 1.35,
+    );
+
+    const horizontalDrift = Math.sin(time * 0.43) * 0.0028;
+    const verticalDrift = Math.sin(time * 0.36 + 1.7) * 0.0035;
+    const diameter = radius * 2 * layoutRect.height;
+    const centerX = layoutRect.left
+      + layoutRect.width * (0.5 + horizontalDrift / aspect);
+    const centerY = layoutRect.top
+      + layoutRect.height * (0.5 - verticalDrift);
+
+    return {
+      left: ((centerX - diameter / 2) / rootRect.width) * 100,
+      top: ((centerY - diameter / 2) / rootRect.height) * 100,
+      width: (diameter / rootRect.width) * 100,
+      height: (diameter / rootRect.height) * 100,
+      pulse: referenceRadius > 0 ? radius / referenceRadius : 1,
+      speechEnergy: rawOutputLevel ?? outputLevel,
+    };
+  }
+
+  function setVoiceOrbLayoutShift(root, geometry) {
+    const layoutTarget = root?.closest?.(
+      '[data-avatar-overlay-hit-region="mascot"]',
+    ) || root;
+    const rootRect = root?.getBoundingClientRect?.();
+    const targetRect = layoutTarget?.getBoundingClientRect?.();
+    if (
+      !rootRect
+      || !targetRect
+      || rootRect.width <= 0
+      || rootRect.height <= 0
+    ) {
+      return;
+    }
+    const localCenterX = rootRect.left - targetRect.left + (
+      geometry.left + geometry.width / 2
+    ) / 100 * rootRect.width;
+    const localCenterY = rootRect.top - targetRect.top + (
+      geometry.top + geometry.height / 2
+    ) / 100 * rootRect.height;
+    const values = {
+      [VOICE_ORB_LAYOUT_SHIFT.x]: -localCenterX,
+      [VOICE_ORB_LAYOUT_SHIFT.y]: -localCenterY,
+    };
+    for (const [property, value] of Object.entries(values)) {
+      const quantized = Math.round(value * 4) / 4;
+      const formatted = `${quantized.toFixed(2)}px`;
+      if (
+        layoutTarget.style?.getPropertyValue?.(property)
+        !== formatted
+      ) {
+        layoutTarget.style?.setProperty?.(property, formatted);
+      }
+    }
+  }
+
+  function setVoiceOrbLiveGeometry(root, geometry) {
+    if (!root || !geometry) return false;
+    for (const [name, property] of Object.entries(
+      VOICE_ORB_LIVE_GEOMETRY,
+    )) {
+      const minimum = name === "width" || name === "height" ? 1 : -100;
+      const maximum = name === "width" || name === "height" ? 250 : 200;
+      const value = Number(geometry[name]);
+      if (!Number.isFinite(value)) return false;
+      const formatted = `${clamp(value, minimum, maximum).toFixed(4)}%`;
+      if (root.style?.getPropertyValue?.(property) !== formatted) {
+        root.style?.setProperty?.(property, formatted);
+      }
+    }
+    setVoiceOrbLayoutShift(root, geometry);
+    const pulse = Number(geometry.pulse);
+    if (Number.isFinite(pulse)) {
+      const formatted = clamp(pulse, 0.25, 2.5).toFixed(4);
+      if (
+        root.style?.getPropertyValue?.(VOICE_PULSE_LIVE_SCALE)
+        !== formatted
+      ) {
+        root.style?.setProperty?.(
+          VOICE_PULSE_LIVE_SCALE,
+          formatted,
+        );
+      }
+    }
+    const speechEnergy = Number(geometry.speechEnergy) || 0;
+    synchronizeVoiceMouth(root, speechEnergy);
+    synchronizeVoiceIdle(root, speechEnergy);
+    return true;
+  }
+
+  function synchronizeVoiceCanvas() {
+    const pulse = runtime.voicePulse;
+    if (!pulse.root) return false;
+    return setVoiceOrbLiveGeometry(
+      pulse.root,
+      voiceCanvasGeometry(pulse.root),
+    );
+  }
+
+  function scheduleVoiceCanvasFrame(generation) {
+    const pulse = runtime.voicePulse;
+    if (
+      generation !== pulse.generation
+      || !pulse.root
+      || !voiceCanvas(pulse.root)
+      || typeof requestAnimationFrame !== "function"
+      || pulse.canvasFrameID != null
+    ) {
+      return;
+    }
+    pulse.canvasFrameID = requestAnimationFrame(() => {
+      pulse.canvasFrameID = null;
+      if (
+        generation !== runtime.voicePulse.generation
+        || !runtime.voicePulse.root
+      ) {
+        return;
+      }
+      synchronizeVoiceCanvas();
+      scheduleVoiceCanvasFrame(generation);
+    });
+  }
+
   function percentPosition(value, frameCount) {
     const match = String(value).match(/(-?[0-9]+(?:\.[0-9]+)?)%/);
     if (!match || frameCount <= 1) return 0;
@@ -268,30 +1130,62 @@
     const position = root.style?.backgroundPosition
       || computedStyle(root)?.backgroundPosition
       || "";
-    if (
-      position === pulse.lastPosition
-      && root.style?.getPropertyValue?.(VOICE_PULSE_LIVE_SCALE)
-        === pulse.lastScale
-    ) {
+    const liveGeometryIsPresent = Object.values(
+      VOICE_ORB_LIVE_GEOMETRY,
+    ).every((property) => (
+      Boolean(root.style?.getPropertyValue?.(property))
+    ));
+    if (position === pulse.lastPosition && liveGeometryIsPresent) {
       return;
     }
     pulse.lastPosition = position;
     const values = String(position).trim().split(/\s+/);
     const column = percentPosition(values[0], analysis.columns);
     const row = percentPosition(values[1], analysis.rows);
-    const measured = analysis.scales[
+    const frame = analysis.frames[
       row * analysis.columns + column
-    ] ?? 1;
-    const scale = Math.max(
-      0.5,
-      Math.min(1.25, 1 + (measured - 1) * voicePulseStrength()),
-    );
-    const formatted = scale.toFixed(4);
-    pulse.lastScale = formatted;
-    if (
-      root.style?.getPropertyValue?.(VOICE_PULSE_LIVE_SCALE) !== formatted
-    ) {
-      root.style?.setProperty?.(VOICE_PULSE_LIVE_SCALE, formatted);
+    ] || analysis.reference;
+    if (!frame || !analysis.reference) return;
+
+    const strength = voicePulseIsEnabled() ? voicePulseStrength() : 0;
+    const width = analysis.reference.width
+      + (frame.width - analysis.reference.width) * strength;
+    const height = analysis.reference.height
+      + (frame.height - analysis.reference.height) * strength;
+    const geometry = {
+      left: frame.left + frame.width / 2 - width / 2,
+      top: frame.top + frame.height / 2 - height / 2,
+      width,
+      height,
+      speechEnergy: clamp(
+        (
+          Math.max(
+            frame.width / analysis.reference.width,
+            frame.height / analysis.reference.height,
+          ) - 1
+        ) / 0.25,
+        0,
+        1,
+      ) * 0.46,
+    };
+    setVoiceOrbLiveGeometry(root, geometry);
+  }
+
+  function removeVoiceOrbLiveGeometry(root) {
+    root?.style?.removeProperty?.(VOICE_PULSE_LIVE_SCALE);
+    clearVoiceMouth(root);
+    root?.style?.removeProperty?.(VOICE_IDLE_X);
+    root?.style?.removeProperty?.(VOICE_IDLE_Y);
+    root?.style?.removeProperty?.(VOICE_IDLE_ROTATION);
+    root?.style?.removeProperty?.(VOICE_BLINK_OPACITY);
+    const layoutTarget = root?.closest?.(
+      '[data-avatar-overlay-hit-region="mascot"]',
+    ) || root;
+    for (const property of Object.values(VOICE_ORB_LAYOUT_SHIFT)) {
+      layoutTarget?.style?.removeProperty?.(property);
+    }
+    for (const property of Object.values(VOICE_ORB_LIVE_GEOMETRY)) {
+      root?.style?.removeProperty?.(property);
     }
   }
 
@@ -323,13 +1217,38 @@
   function detachVoicePulseRoot() {
     const pulse = runtime.voicePulse;
     pulse.rootObserver?.disconnect?.();
-    pulse.root?.style?.removeProperty?.(VOICE_PULSE_LIVE_SCALE);
+    if (
+      pulse.canvasFrameID != null
+      && typeof cancelAnimationFrame === "function"
+    ) {
+      cancelAnimationFrame(pulse.canvasFrameID);
+    }
+    removeVoiceOrbLiveGeometry(pulse.root);
     pulse.root = null;
     pulse.rootObserver = null;
+    pulse.canvasFrameID = null;
     pulse.analysis = null;
     pulse.analysisLoading = false;
     pulse.lastPosition = null;
-    pulse.lastScale = null;
+    pulse.mouthLevel = 0;
+    pulse.mouthFrameIndex = 0;
+    pulse.mouthLastTimestamp = 0;
+    pulse.mouthRawLevel = 0;
+    pulse.mouthNoiseFloor = 0;
+    pulse.mouthPeakLevel = 0;
+    pulse.mouthEnvelopeReady = false;
+    pulse.mouthGateOpen = false;
+    pulse.mouthSourcesKey = "";
+    pulse.mouthSources = [];
+    pulse.mouthSourcesReady = false;
+    pulse.publishedAudioRenderer = null;
+    pulse.publishedAudioSearchCountdown = 0;
+    pulse.publishedAudioSnapshot = null;
+    pulse.publishedAudioLevel = null;
+    pulse.publishedAudioEstimate = 0;
+    pulse.mouthEnergySource = "webgl-output-level";
+    resetVoiceMouthCache(pulse);
+    resetVoiceIdleCache(pulse);
     pulse.active = false;
   }
 
@@ -340,8 +1259,14 @@
     pulse.active = true;
 
     if (typeof MutationObserver === "function") {
-      pulse.rootObserver = new MutationObserver(() => {
-        if (runtime.voicePulse.analysis) {
+      pulse.rootObserver = new MutationObserver((records = []) => {
+        if (voiceCanvas(root)) {
+          const hasStructuralChange = records.length === 0
+            || records.some(({ type }) => type === "childList");
+          if (!hasStructuralChange) return;
+          synchronizeVoiceCanvas();
+          scheduleVoiceCanvasFrame(generation);
+        } else if (runtime.voicePulse.analysis) {
           synchronizeVoicePulse();
         } else {
           loadVoicePulseAnalysis(root, generation);
@@ -350,10 +1275,17 @@
       pulse.rootObserver.observe(root, {
         attributes: true,
         attributeFilter: ["style"],
+        childList: true,
+        subtree: true,
       });
     }
 
-    loadVoicePulseAnalysis(root, generation);
+    if (voiceCanvas(root)) {
+      synchronizeVoiceCanvas();
+      scheduleVoiceCanvasFrame(generation);
+    } else {
+      loadVoicePulseAnalysis(root, generation);
+    }
   }
 
   function stopVoicePulseSync() {
@@ -376,7 +1308,9 @@
 
   function refreshVoicePulseSync() {
     stopVoicePulseSync();
-    if (!voicePulseIsConfigured()) return;
+    if (!voicePulseIsConfigured()) {
+      return;
+    }
 
     const generation = runtime.voicePulse.generation;
     if (
@@ -401,7 +1335,9 @@
       runtime.voicePulse.colorSchemeQuery = query;
       runtime.voicePulse.colorSchemeListener = listener;
     }
-    if (!voicePulseIsEnabled()) return;
+    if (!voiceOrbImageIsEnabled()) {
+      return;
+    }
 
     const findRoot = () => (
       typeof document.querySelector === "function"
@@ -840,7 +1776,38 @@
       analysis: null,
       analysisLoading: false,
       lastPosition: null,
-      lastScale: null,
+      canvasFrameID: null,
+      mouthLevel: 0,
+      mouthFrameIndex: 0,
+      mouthLastTimestamp: 0,
+      mouthRawLevel: 0,
+      mouthNoiseFloor: 0,
+      mouthPeakLevel: 0,
+      mouthEnvelopeReady: false,
+      mouthGateOpen: false,
+      mouthSourcesKey: "",
+      mouthSources: [],
+      mouthSourcesReady: false,
+      publishedAudioRenderer: null,
+      publishedAudioSearchCountdown: 0,
+      publishedAudioSnapshot: null,
+      publishedAudioLevel: null,
+      publishedAudioEstimate: 0,
+      mouthEnergySource: "webgl-output-level",
+      mouthActiveSource: "",
+      mouthSourceA: "",
+      mouthSourceB: "",
+      mouthOpacityA: "",
+      mouthOpacityB: "",
+      idleConfiguration: null,
+      idleLastTimestamp: 0,
+      idleAmount: 0,
+      idleX: "",
+      idleY: "",
+      idleRotation: "",
+      blinkOpacity: "",
+      blinkStartedAt: 0,
+      nextBlinkAt: 0,
       active: false,
     },
     voicePulseCache: new Map(),

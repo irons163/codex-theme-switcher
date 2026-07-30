@@ -374,7 +374,19 @@ final class ThemeValidatorTests: XCTestCase {
         voice.dark.orbBackgroundImageBlur = 40.01
         voice.dark.orbBackgroundInset = 24.01
         voice.dark.orbBackgroundPulseStrength = 2.01
-        voice.light.orbScale = 2.01
+        voice.light.orbMouthSensitivity = 0.24
+        voice.light.orbMouthAttackMilliseconds = 7
+        voice.light.orbMouthReleaseMilliseconds = 301
+        voice.dark.orbMouthReleaseMilliseconds = 4
+        voice.dark.orbMouthNoiseGate = 0.201
+        voice.dark.orbMouthResponseCurve = 1.51
+        voice.dark.orbMouthSmoothing = 0.96
+        voice.dark.orbMouthFrameHoldMilliseconds = 401
+        voice.light.orbIdleMotionStrength = 2.01
+        voice.light.orbIdleMotionPeriodSeconds = 1.49
+        voice.dark.orbBlinkIntervalSeconds = 15.01
+        voice.dark.orbBlinkDurationMilliseconds = 59
+        voice.light.orbScale = 3.01
         voice.light.glowOpacity = -0.01
         voice.dark.hueRotation = 181
         voice.dark.glowColor = "red; display: none"
@@ -410,6 +422,44 @@ final class ThemeValidatorTests: XCTestCase {
         XCTAssertTrue(
             paths.contains("voiceStyle.dark.orbBackgroundPulseStrength")
         )
+        XCTAssertTrue(
+            paths.contains("voiceStyle.light.orbMouthSensitivity")
+        )
+        XCTAssertTrue(
+            paths.contains("voiceStyle.light.orbMouthAttackMilliseconds")
+        )
+        XCTAssertTrue(
+            paths.contains("voiceStyle.light.orbMouthReleaseMilliseconds")
+        )
+        XCTAssertTrue(
+            paths.contains("voiceStyle.dark.orbMouthReleaseMilliseconds")
+        )
+        XCTAssertTrue(
+            paths.contains("voiceStyle.dark.orbMouthNoiseGate")
+        )
+        XCTAssertTrue(
+            paths.contains("voiceStyle.dark.orbMouthResponseCurve")
+        )
+        XCTAssertTrue(
+            paths.contains("voiceStyle.dark.orbMouthSmoothing")
+        )
+        XCTAssertTrue(
+            paths.contains(
+                "voiceStyle.dark.orbMouthFrameHoldMilliseconds"
+            )
+        )
+        XCTAssertTrue(
+            paths.contains("voiceStyle.light.orbIdleMotionStrength")
+        )
+        XCTAssertTrue(
+            paths.contains("voiceStyle.light.orbIdleMotionPeriodSeconds")
+        )
+        XCTAssertTrue(
+            paths.contains("voiceStyle.dark.orbBlinkIntervalSeconds")
+        )
+        XCTAssertTrue(
+            paths.contains("voiceStyle.dark.orbBlinkDurationMilliseconds")
+        )
         XCTAssertTrue(paths.contains("voiceStyle.light.orbScale"))
         XCTAssertTrue(paths.contains("voiceStyle.light.glowOpacity"))
         XCTAssertTrue(paths.contains("voiceStyle.dark.hueRotation"))
@@ -418,6 +468,37 @@ final class ThemeValidatorTests: XCTestCase {
             result.issues.contains {
                 $0.code == .unsafeURL
                     && $0.path == "voiceStyle.rawCSS"
+            }
+        )
+    }
+
+    func testVoiceStyleAllowsThreeTimesOrbScale() {
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.orbScale = 3
+        var theme = TestFixtures.theme()
+        theme.voiceStyle = voice
+
+        let result = validator.validate(theme)
+
+        XCTAssertFalse(
+            result.issues.contains {
+                $0.path == "voiceStyle.light.orbScale"
+            }
+        )
+    }
+
+    func testVoiceStyleAllowsFiveMillisecondMouthRelease() {
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.orbMouthReleaseMilliseconds = 5
+        var theme = TestFixtures.theme()
+        theme.voiceStyle = voice
+
+        let result = validator.validate(theme)
+
+        XCTAssertFalse(
+            result.issues.contains {
+                $0.path
+                    == "voiceStyle.light.orbMouthReleaseMilliseconds"
             }
         )
     }
@@ -433,6 +514,7 @@ final class ThemeValidatorTests: XCTestCase {
         voice.dark.backgroundAssetID = UUID()
         voice.dark.orbBackgroundAssetID = font.id
         voice.light.orbBackgroundAssetID = UUID()
+        voice.dark.orbBlinkAssetID = UUID()
         var theme = TestFixtures.theme(assets: [font])
         theme.voiceStyle = voice
 
@@ -464,6 +546,99 @@ final class ThemeValidatorTests: XCTestCase {
                 $0.code == .missingSkinAsset
                     && $0.path
                         == "voiceStyle.dark.backgroundAssetID"
+            }
+        )
+        XCTAssertTrue(
+            result.issues.contains {
+                $0.code == .missingSkinAsset
+                    && $0.path
+                        == "voiceStyle.dark.orbBlinkAssetID"
+            }
+        )
+    }
+
+    func testVoiceMouthFramesRequireBaseUniqueSupportedAssets() {
+        let image = ThemeAsset(
+            name: "mouth.png",
+            mediaType: "image/png",
+            data: Data([1, 2, 3])
+        )
+        let font = ThemeAsset(
+            name: "mouth.ttf",
+            mediaType: "font/ttf",
+            data: Data([4, 5, 6])
+        )
+        let missing = UUID()
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.orbMouthFrameAssetIDs = [image.id]
+        voice.dark.orbBackgroundAssetID = image.id
+        voice.dark.orbMouthFrameAssetIDs = [
+            font.id,
+            missing,
+            font.id
+        ]
+        var theme = TestFixtures.theme(assets: [image, font])
+        theme.voiceStyle = voice
+
+        let result = validator.validate(theme)
+
+        XCTAssertTrue(
+            result.issues.contains {
+                $0.code == .missingSkinAsset
+                    && $0.path
+                        == "voiceStyle.light.orbBackgroundAssetID"
+            }
+        )
+        XCTAssertTrue(
+            result.issues.contains {
+                $0.code == .invalidSkinAssetType
+                    && $0.path
+                        == "voiceStyle.dark.orbMouthFrameAssetIDs[0]"
+            }
+        )
+        XCTAssertTrue(
+            result.issues.contains {
+                $0.code == .missingSkinAsset
+                    && $0.path
+                        == "voiceStyle.dark.orbMouthFrameAssetIDs[1]"
+            }
+        )
+        XCTAssertTrue(
+            result.issues.contains {
+                $0.code == .duplicateIdentifier
+                    && $0.path
+                        == "voiceStyle.dark.orbMouthFrameAssetIDs"
+            }
+        )
+    }
+
+    func testVoiceMouthFramesAllowNineAndRejectTenImages() {
+        let assets = (0..<10).map { index in
+            ThemeAsset(
+                name: "mouth-\(index).png",
+                mediaType: "image/png",
+                data: Data([UInt8(index)])
+            )
+        }
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.orbBackgroundAssetID = assets[0].id
+        voice.light.orbMouthFrameAssetIDs = assets[1...8].map(\.id)
+        var theme = TestFixtures.theme(assets: assets)
+        theme.voiceStyle = voice
+
+        XCTAssertFalse(
+            validator.validate(theme).issues.contains {
+                $0.path == "voiceStyle.light.orbMouthFrameAssetIDs"
+                    && $0.code == .invalidSkinNumber
+            }
+        )
+
+        voice.light.orbMouthFrameAssetIDs = assets[1...9].map(\.id)
+        theme.voiceStyle = voice
+        XCTAssertTrue(
+            validator.validate(theme).issues.contains {
+                $0.path == "voiceStyle.light.orbMouthFrameAssetIDs"
+                    && $0.code == .invalidSkinNumber
             }
         )
     }

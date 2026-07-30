@@ -1136,6 +1136,302 @@ final class ThemeAppModel: ObservableObject {
         }
     }
 
+    func chooseVoiceBlinkImage(for appearance: ThemeSkinAppearance) {
+        let panel = NSOpenPanel()
+        panel.title = L10n.text(
+            "選擇閉眼圖片",
+            "Choose closed-eye image"
+        )
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        var contentTypes: [UTType] = [
+            .png,
+            .jpeg,
+            .gif,
+            .webP
+        ]
+        if let avif = UTType(filenameExtension: "avif") {
+            contentTypes.append(avif)
+        }
+        panel.allowedContentTypes = contentTypes
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            let asset = try makeBackgroundAsset(from: url)
+            guard var candidate = draft else { return }
+            var voice = candidate.voiceStyle
+                ?? ThemeVoiceStyle(isEnabled: true)
+            voice.isEnabled = true
+            var variant = voice.variant(for: appearance)
+            let replacedAssetID = variant.orbBlinkAssetID
+            variant.orbBlinkAssetID = asset.id
+            voice.setVariant(variant, for: appearance)
+            candidate.voiceStyle = voice
+            candidate.assets.append(asset)
+            if let replacedAssetID {
+                pruneAssetIfUnreferenced(
+                    replacedAssetID,
+                    from: &candidate
+                )
+            }
+            let totalBytes = candidate.assets.reduce(0) {
+                $0 + ($1.decodedData?.count ?? 0)
+            }
+            guard totalBytes <= 32 * 1024 * 1024 else {
+                throw ThemeAppError.totalAssetsTooLarge(totalBytes)
+            }
+            mutateDraft(
+                actionName: L10n.text(
+                    "設定閉眼圖片",
+                    "Set closed-eye image"
+                )
+            ) { document in
+                document = candidate
+            }
+        } catch {
+            show(
+                AppErrorLocalization.message(for: error),
+                style: .error
+            )
+        }
+    }
+
+    func chooseVoiceMouthFrames(for appearance: ThemeSkinAppearance) {
+        let panel = NSOpenPanel()
+        panel.title = L10n.text(
+            "選擇嘴型圖片（由小到大）",
+            "Choose mouth images (least to most open)"
+        )
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        var contentTypes: [UTType] = [
+            .png,
+            .jpeg,
+            .gif,
+            .webP
+        ]
+        if let avif = UTType(filenameExtension: "avif") {
+            contentTypes.append(avif)
+        }
+        panel.allowedContentTypes = contentTypes
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
+
+        do {
+            guard var candidate = draft else { return }
+            var voice = candidate.voiceStyle
+                ?? ThemeVoiceStyle(isEnabled: true)
+            voice.isEnabled = true
+            var variant = voice.variant(for: appearance)
+            let availableSlots = 8 - variant.orbMouthFrameAssetIDs.count
+                + (variant.orbBackgroundAssetID == nil ? 1 : 0)
+            guard panel.urls.count <= availableSlots else {
+                throw ThemeAppError.tooManyVoiceMouthFrames
+            }
+
+            let assets = try panel.urls.map(makeBackgroundAsset)
+            if variant.orbBackgroundAssetID == nil,
+               let first = assets.first {
+                variant.orbBackgroundAssetID = first.id
+                variant.orbMouthFrameAssetIDs.append(
+                    contentsOf: assets.dropFirst().map(\.id)
+                )
+            } else {
+                variant.orbMouthFrameAssetIDs.append(
+                    contentsOf: assets.map(\.id)
+                )
+            }
+            voice.setVariant(variant, for: appearance)
+            candidate.voiceStyle = voice
+            candidate.assets.append(contentsOf: assets)
+
+            let totalBytes = candidate.assets.reduce(0) {
+                $0 + ($1.decodedData?.count ?? 0)
+            }
+            guard totalBytes <= 32 * 1024 * 1024 else {
+                throw ThemeAppError.totalAssetsTooLarge(totalBytes)
+            }
+            mutateDraft(
+                actionName: L10n.text(
+                    "加入嘴型圖片",
+                    "Add mouth images"
+                )
+            ) { document in
+                document = candidate
+            }
+        } catch {
+            show(
+                AppErrorLocalization.message(for: error),
+                style: .error
+            )
+        }
+    }
+
+    func chooseVoiceMouthSpriteSheet(
+        for appearance: ThemeSkinAppearance,
+        gridSize: Int
+    ) {
+        guard gridSize == 2 || gridSize == 3 else { return }
+        let gridLabel = "\(gridSize)×\(gridSize)"
+        let panel = NSOpenPanel()
+        panel.title = L10n.format(
+            "選擇 {0} 嘴型圖",
+            "Choose a {0} mouth sprite sheet",
+            gridLabel
+        )
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        var contentTypes: [UTType] = [
+            .png,
+            .jpeg,
+            .gif,
+            .webP
+        ]
+        if let avif = UTType(filenameExtension: "avif") {
+            contentTypes.append(avif)
+        }
+        panel.allowedContentTypes = contentTypes
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            let frames = try makeMouthSpriteFrameAssets(
+                from: url,
+                gridSize: gridSize
+            )
+            guard var candidate = draft else { return }
+            var voice = candidate.voiceStyle
+                ?? ThemeVoiceStyle(isEnabled: true)
+            voice.isEnabled = true
+            var variant = voice.variant(for: appearance)
+            let replacedAssetIDs =
+                [variant.orbBackgroundAssetID].compactMap { $0 }
+                + variant.orbMouthFrameAssetIDs
+            variant.orbBackgroundAssetID = frames[0].id
+            variant.orbMouthFrameAssetIDs = Array(
+                frames.dropFirst().map(\.id)
+            )
+            voice.setVariant(variant, for: appearance)
+            candidate.voiceStyle = voice
+            candidate.assets.append(contentsOf: frames)
+            for id in Set(replacedAssetIDs) {
+                pruneAssetIfUnreferenced(id, from: &candidate)
+            }
+            let totalBytes = candidate.assets.reduce(0) {
+                $0 + ($1.decodedData?.count ?? 0)
+            }
+            guard totalBytes <= 32 * 1024 * 1024 else {
+                throw ThemeAppError.totalAssetsTooLarge(totalBytes)
+            }
+            mutateDraft(
+                actionName: L10n.format(
+                    "匯入 {0} 嘴型圖",
+                    "Import {0} mouth sprite sheet",
+                    gridLabel
+                )
+            ) { document in
+                document = candidate
+            }
+            show(
+                L10n.format(
+                    "已依由左到右、由上到下匯入 {0} 個嘴型。",
+                    "Imported {0} mouth frames from left to right, top to bottom.",
+                    "\(frames.count)"
+                ),
+                style: .success
+            )
+        } catch {
+            show(
+                AppErrorLocalization.message(for: error),
+                style: .error
+            )
+        }
+    }
+
+    func addVoiceMouthFrame(
+        _ assetID: UUID,
+        for appearance: ThemeSkinAppearance
+    ) {
+        guard availableSkinImageAssets.contains(where: {
+            $0.id == assetID
+        }) else {
+            return
+        }
+        mutateDraft(
+            actionName: L10n.text(
+                "加入嘴型圖片",
+                "Add mouth image"
+            )
+        ) { document in
+            var voice = document.voiceStyle
+                ?? ThemeVoiceStyle(isEnabled: true)
+            voice.isEnabled = true
+            var variant = voice.variant(for: appearance)
+            guard variant.orbBackgroundAssetID != assetID,
+                  !variant.orbMouthFrameAssetIDs.contains(assetID),
+                  variant.orbMouthFrameAssetIDs.count < 8 else {
+                return
+            }
+            if variant.orbBackgroundAssetID == nil {
+                variant.orbBackgroundAssetID = assetID
+            } else {
+                variant.orbMouthFrameAssetIDs.append(assetID)
+            }
+            voice.setVariant(variant, for: appearance)
+            document.voiceStyle = voice
+        }
+    }
+
+    func removeVoiceMouthFrame(
+        at index: Int,
+        for appearance: ThemeSkinAppearance
+    ) {
+        mutateDraft(
+            actionName: L10n.text(
+                "移除嘴型圖片",
+                "Remove mouth image"
+            )
+        ) { document in
+            guard var voice = document.voiceStyle else { return }
+            var variant = voice.variant(for: appearance)
+            guard variant.orbMouthFrameAssetIDs.indices.contains(index) else {
+                return
+            }
+            let removedAssetID = variant.orbMouthFrameAssetIDs.remove(
+                at: index
+            )
+            voice.setVariant(variant, for: appearance)
+            document.voiceStyle = voice
+            pruneAssetIfUnreferenced(removedAssetID, from: &document)
+        }
+    }
+
+    func moveVoiceMouthFrame(
+        from source: Int,
+        to destination: Int,
+        for appearance: ThemeSkinAppearance
+    ) {
+        mutateDraft(
+            actionName: L10n.text(
+                "調整嘴型順序",
+                "Reorder mouth images"
+            )
+        ) { document in
+            guard var voice = document.voiceStyle else { return }
+            var variant = voice.variant(for: appearance)
+            guard variant.orbMouthFrameAssetIDs.indices.contains(source),
+                  variant.orbMouthFrameAssetIDs.indices.contains(destination)
+            else {
+                return
+            }
+            let id = variant.orbMouthFrameAssetIDs.remove(at: source)
+            variant.orbMouthFrameAssetIDs.insert(id, at: destination)
+            voice.setVariant(variant, for: appearance)
+            document.voiceStyle = voice
+        }
+    }
+
     func clearSkinBackground(for appearance: ThemeSkinAppearance) {
         mutateDraft { document in
             guard var skin = document.imageSkin else { return }
@@ -1221,12 +1517,15 @@ final class ThemeAppModel: ObservableObject {
         mutateDraft { document in
             guard var voice = document.voiceStyle else { return }
             var variant = voice.variant(for: appearance)
-            let removedAssetID = variant.orbBackgroundAssetID
+            let removedAssetIDs =
+                [variant.orbBackgroundAssetID].compactMap { $0 }
+                + variant.orbMouthFrameAssetIDs
             variant.orbBackgroundAssetID = nil
+            variant.orbMouthFrameAssetIDs = []
             voice.setVariant(variant, for: appearance)
             document.voiceStyle = voice
-            if let removedAssetID {
-                pruneAssetIfUnreferenced(removedAssetID, from: &document)
+            for id in Set(removedAssetIDs) {
+                pruneAssetIfUnreferenced(id, from: &document)
             }
         }
     }
@@ -1247,6 +1546,58 @@ final class ThemeAppModel: ObservableObject {
             var variant = voice.variant(for: appearance)
             let replacedAssetID = variant.orbBackgroundAssetID
             variant.orbBackgroundAssetID = assetID
+            variant.orbMouthFrameAssetIDs.removeAll { $0 == assetID }
+            voice.setVariant(variant, for: appearance)
+            document.voiceStyle = voice
+            if let replacedAssetID, replacedAssetID != assetID {
+                pruneAssetIfUnreferenced(
+                    replacedAssetID,
+                    from: &document
+                )
+            }
+        }
+    }
+
+    func clearVoiceBlinkImage(for appearance: ThemeSkinAppearance) {
+        mutateDraft(
+            actionName: L10n.text(
+                "清除閉眼圖片",
+                "Clear closed-eye image"
+            )
+        ) { document in
+            guard var voice = document.voiceStyle else { return }
+            var variant = voice.variant(for: appearance)
+            let removedAssetID = variant.orbBlinkAssetID
+            variant.orbBlinkAssetID = nil
+            voice.setVariant(variant, for: appearance)
+            document.voiceStyle = voice
+            if let removedAssetID {
+                pruneAssetIfUnreferenced(removedAssetID, from: &document)
+            }
+        }
+    }
+
+    func setVoiceBlinkImage(
+        _ assetID: UUID,
+        for appearance: ThemeSkinAppearance
+    ) {
+        guard availableSkinImageAssets.contains(where: {
+            $0.id == assetID
+        }) else {
+            return
+        }
+        mutateDraft(
+            actionName: L10n.text(
+                "設定閉眼圖片",
+                "Set closed-eye image"
+            )
+        ) { document in
+            var voice = document.voiceStyle
+                ?? ThemeVoiceStyle(isEnabled: true)
+            voice.isEnabled = true
+            var variant = voice.variant(for: appearance)
+            let replacedAssetID = variant.orbBlinkAssetID
+            variant.orbBlinkAssetID = assetID
             voice.setVariant(variant, for: appearance)
             document.voiceStyle = voice
             if let replacedAssetID, replacedAssetID != assetID {
@@ -1269,8 +1620,12 @@ final class ThemeAppModel: ObservableObject {
                 document.voiceStyle?.light.backgroundAssetID,
                 document.voiceStyle?.dark.backgroundAssetID,
                 document.voiceStyle?.light.orbBackgroundAssetID,
-                document.voiceStyle?.dark.orbBackgroundAssetID
+                document.voiceStyle?.dark.orbBackgroundAssetID,
+                document.voiceStyle?.light.orbBlinkAssetID,
+                document.voiceStyle?.dark.orbBlinkAssetID
             ].compactMap { $0 }
+                + (document.voiceStyle?.light.orbMouthFrameAssetIDs ?? [])
+                + (document.voiceStyle?.dark.orbMouthFrameAssetIDs ?? [])
             document.voiceStyle = nil
             for id in Set(assetIDs) {
                 pruneAssetIfUnreferenced(id, from: &document)
@@ -1290,8 +1645,9 @@ final class ThemeAppModel: ObservableObject {
             let removedVariant = voice.variant(for: appearance)
             let removedAssetIDs = [
                 removedVariant.backgroundAssetID,
-                removedVariant.orbBackgroundAssetID
-            ].compactMap { $0 }
+                removedVariant.orbBackgroundAssetID,
+                removedVariant.orbBlinkAssetID
+            ].compactMap { $0 } + removedVariant.orbMouthFrameAssetIDs
             voice.setVariant(
                 appearance == .light ? .lightDefault : .darkDefault,
                 for: appearance
@@ -1368,6 +1724,14 @@ final class ThemeAppModel: ObservableObject {
                 if voice.dark.orbBackgroundAssetID == id {
                     voice.dark.orbBackgroundAssetID = nil
                 }
+                if voice.light.orbBlinkAssetID == id {
+                    voice.light.orbBlinkAssetID = nil
+                }
+                if voice.dark.orbBlinkAssetID == id {
+                    voice.dark.orbBlinkAssetID = nil
+                }
+                voice.light.orbMouthFrameAssetIDs.removeAll { $0 == id }
+                voice.dark.orbMouthFrameAssetIDs.removeAll { $0 == id }
                 document.voiceStyle = voice
             }
             document.assets.removeAll { $0.id == id }
@@ -1555,7 +1919,13 @@ final class ThemeAppModel: ObservableObject {
         if document.voiceStyle?.light.backgroundAssetID == id
             || document.voiceStyle?.dark.backgroundAssetID == id
             || document.voiceStyle?.light.orbBackgroundAssetID == id
-            || document.voiceStyle?.dark.orbBackgroundAssetID == id {
+            || document.voiceStyle?.dark.orbBackgroundAssetID == id
+            || document.voiceStyle?.light.orbBlinkAssetID == id
+            || document.voiceStyle?.dark.orbBlinkAssetID == id
+            || document.voiceStyle?.light.orbMouthFrameAssetIDs.contains(id)
+                == true
+            || document.voiceStyle?.dark.orbMouthFrameAssetIDs.contains(id)
+                == true {
             return true
         }
 
@@ -1623,12 +1993,102 @@ final class ThemeAppModel: ObservableObject {
             data: data
         )
     }
+
+    func makeMouthSpriteFrameAssets(
+        from url: URL,
+        gridSize: Int
+    ) throws -> [ThemeAsset] {
+        guard gridSize == 2 || gridSize == 3 else {
+            throw ThemeAppError.invalidMouthSpriteSheet(
+                url.lastPathComponent
+            )
+        }
+        let data = try Data(contentsOf: url)
+        guard data.count <= 16 * 1024 * 1024 else {
+            throw ThemeAppError.assetTooLarge(url.lastPathComponent)
+        }
+        guard let source = CGImageSourceCreateWithData(
+            data as CFData,
+            nil
+        ),
+        let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
+        image.width >= gridSize * 2,
+        image.height >= gridSize * 2,
+        image.width.isMultiple(of: gridSize),
+        image.height.isMultiple(of: gridSize) else {
+            throw ThemeAppError.invalidMouthSpriteSheet(
+                url.lastPathComponent
+            )
+        }
+
+        let frameWidth = image.width / gridSize
+        let frameHeight = image.height / gridSize
+        guard frameWidth > 0, frameHeight > 0 else {
+            throw ThemeAppError.invalidMouthSpriteSheet(
+                url.lastPathComponent
+            )
+        }
+        let baseName = url.deletingPathExtension().lastPathComponent
+        let poseNames = (0..<(gridSize * gridSize)).map { index in
+            index == 0
+                ? L10n.text("閉嘴", "closed")
+                : L10n.text("張嘴", "open") + "-\(index)"
+        }
+        let coordinates = (0..<gridSize).flatMap { row in
+            (0..<gridSize).map { column in
+                (column: column, row: row)
+            }
+        }
+
+        return try coordinates.enumerated().map { index, coordinate in
+            let rect = CGRect(
+                x: coordinate.column * frameWidth,
+                y: coordinate.row * frameHeight,
+                width: frameWidth,
+                height: frameHeight
+            )
+            guard let frame = image.cropping(to: rect) else {
+                throw ThemeAppError.invalidMouthSpriteSheet(
+                    url.lastPathComponent
+                )
+            }
+            let encoded = NSMutableData()
+            guard let destination = CGImageDestinationCreateWithData(
+                encoded,
+                UTType.png.identifier as CFString,
+                1,
+                nil
+            ) else {
+                throw ThemeAppError.invalidMouthSpriteSheet(
+                    url.lastPathComponent
+                )
+            }
+            CGImageDestinationAddImage(destination, frame, nil)
+            guard CGImageDestinationFinalize(destination) else {
+                throw ThemeAppError.invalidMouthSpriteSheet(
+                    url.lastPathComponent
+                )
+            }
+            let frameData = encoded as Data
+            let name = "\(baseName) · \(index + 1)-\(poseNames[index]).png"
+            guard frameData.count <= 16 * 1024 * 1024 else {
+                throw ThemeAppError.assetTooLarge(name)
+            }
+            return ThemeAsset(
+                name: name,
+                mediaType: "image/png",
+                data: frameData
+            )
+        }
+    }
 }
 
 enum ThemeAppError: LocalizedError {
     case codexNotAttached
     case assetTooLarge(String)
     case totalAssetsTooLarge(Int)
+    case tooManyVoiceMouthFrames
+    case invalidMouthSpriteSheet(String)
     case invalidSkinImage(String)
     case invalidCodexApplication(String)
 
@@ -1654,6 +2114,17 @@ enum ThemeAppError: LocalizedError {
                 "加入後素材合計為 {0}，超過 32 MB 上限。",
                 "Assets would total {0}, above the 32 MB limit.",
                 size
+            )
+        case .tooManyVoiceMouthFrames:
+            return L10n.text(
+                "嘴型圖片最多 9 張（包含閉嘴基準圖）。",
+                "You can use up to nine mouth images, including the closed-mouth base image."
+            )
+        case .invalidMouthSpriteSheet(let name):
+            return L10n.format(
+                "「{0}」無法解碼或切割成 2×2／3×3 嘴型圖。",
+                "“{0}” could not be decoded or split into a 2×2 or 3×3 mouth sprite sheet.",
+                name
             )
         case .invalidSkinImage(let name):
             return L10n.format(

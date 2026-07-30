@@ -12,8 +12,12 @@ enum ThemeVoiceStyleCompiler {
                 style.light.backgroundAssetID,
                 style.dark.backgroundAssetID,
                 style.light.orbBackgroundAssetID,
-                style.dark.orbBackgroundAssetID
+                style.dark.orbBackgroundAssetID,
+                style.light.orbBlinkAssetID,
+                style.dark.orbBlinkAssetID
             ].compactMap { $0 }
+                + style.light.orbMouthFrameAssetIDs
+                + style.dark.orbMouthFrameAssetIDs
         ).sorted { $0.uuidString < $1.uuidString }
 
         var output = ["/* Codex Theme Voice Overlay */"]
@@ -67,6 +71,18 @@ enum ThemeVoiceStyleCompiler {
         let orbImage = variant.orbBackgroundAssetID
             .map { "var(\(assetVariable($0)))" }
             ?? "none"
+        let blinkImage = variant.orbBlinkAssetID
+            .map { "var(\(assetVariable($0)))" }
+            ?? "none"
+        let mouthFrameIDs =
+            (variant.orbBackgroundAssetID.map { [$0] } ?? [])
+            + variant.orbMouthFrameAssetIDs
+        let mouthFrameVariables = (0..<9).map { index -> String in
+            let value = mouthFrameIDs.indices.contains(index)
+                ? "var(\(assetVariable(mouthFrameIDs[index])))"
+                : "none"
+            return "  --cts-voice-orb-mouth-frame-\(index): \(value);"
+        }.joined(separator: "\n")
         let usesBlurOverscan =
             variant.backgroundImageBlur > 0
             && (
@@ -98,8 +114,25 @@ enum ThemeVoiceStyleCompiler {
           --cts-voice-orb-background-opacity: \(number(variant.orbBackgroundImageOpacity));
           --cts-voice-orb-background-blur: \(number(variant.orbBackgroundImageBlur))px;
           --cts-voice-orb-background-inset: \(number(variant.orbBackgroundInset))px;
+          --cts-voice-orb-image-enabled: \(variant.orbBackgroundAssetID != nil ? "1" : "0");
           --cts-voice-orb-pulse-enabled: \(variant.orbBackgroundAssetID != nil && variant.orbBackgroundFollowsVoicePulse ? "1" : "0");
           --cts-voice-orb-pulse-strength: \(number(variant.orbBackgroundPulseStrength));
+          --cts-voice-orb-mouth-frame-count: \(mouthFrameIDs.count);
+          --cts-voice-orb-mouth-sensitivity: \(number(variant.orbMouthSensitivity));
+          --cts-voice-orb-mouth-attack-ms: \(number(variant.orbMouthAttackMilliseconds));
+          --cts-voice-orb-mouth-release-ms: \(number(variant.orbMouthReleaseMilliseconds));
+          --cts-voice-orb-mouth-noise-gate: \(number(variant.orbMouthNoiseGate));
+          --cts-voice-orb-mouth-response-curve: \(number(variant.orbMouthResponseCurve));
+          --cts-voice-orb-mouth-smoothing: \(number(variant.orbMouthSmoothing));
+          --cts-voice-orb-mouth-hold-ms: \(number(variant.orbMouthFrameHoldMilliseconds));
+          --cts-voice-orb-idle-enabled: \(variant.orbIdleMotionEnabled ? "1" : "0");
+          --cts-voice-orb-idle-strength: \(number(variant.orbIdleMotionStrength));
+          --cts-voice-orb-idle-period-ms: \(number(variant.orbIdleMotionPeriodSeconds * 1_000));
+          --cts-voice-orb-blink-enabled: \(variant.orbBlinkAssetID != nil ? "1" : "0");
+          --cts-voice-orb-blink-image: \(blinkImage);
+          --cts-voice-orb-blink-interval-ms: \(number(variant.orbBlinkIntervalSeconds * 1_000));
+          --cts-voice-orb-blink-duration-ms: \(number(variant.orbBlinkDurationMilliseconds));
+        \(mouthFrameVariables)
           --cts-voice-scale: \(number(variant.orbScale));
           --cts-voice-opacity: \(number(variant.orbOpacity));
           --cts-voice-brightness: \(number(variant.brightness));
@@ -157,16 +190,12 @@ enum ThemeVoiceStyleCompiler {
         }
 
         \(root) :is(
-          canvas,
           .codex-avatar-root,
           [data-voice-orb],
           [data-codex-voice-orb],
           [class*="voice-orb" i],
           [class*="voiceorb" i]
         ) {
-          opacity: var(--cts-voice-opacity) !important;
-          scale: var(--cts-voice-scale) !important;
-          transform-origin: center !important;
           filter:
             brightness(var(--cts-voice-brightness))
             contrast(var(--cts-voice-contrast))
@@ -177,6 +206,25 @@ enum ThemeVoiceStyleCompiler {
               0 0 var(--cts-voice-glow-blur)
               var(--cts-voice-glow-color)
             ) !important;
+          will-change: filter;
+        }
+
+        \(root) [data-avatar-overlay-hit-region="mascot"] {
+          bottom: auto !important;
+          left: 50vw !important;
+          margin: 0 !important;
+          right: auto !important;
+          top: 50vh !important;
+          translate:
+            var(--cts-voice-orb-layout-shift-x, 0px)
+            var(--cts-voice-orb-layout-shift-y, 0px) !important;
+          will-change: left, top, translate;
+        }
+
+        \(root) canvas {
+          opacity: var(--cts-voice-opacity) !important;
+          scale: var(--cts-voice-scale) !important;
+          transform-origin: center !important;
           will-change: filter, opacity, scale;
         }
 
@@ -196,9 +244,14 @@ enum ThemeVoiceStyleCompiler {
           [data-codex-voice-orb],
           [class*="voice-orb" i],
           [class*="voiceorb" i]
+        )::before,
+        \(root) :is(
+          .codex-avatar-root,
+          [data-voice-orb],
+          [data-codex-voice-orb],
+          [class*="voice-orb" i],
+          [class*="voiceorb" i]
         )::after {
-          aspect-ratio: 1;
-          background-image: var(--cts-voice-orb-background-image);
           background-position: var(--cts-voice-orb-background-position);
           background-repeat: var(--cts-voice-orb-background-repeat);
           background-size: var(--cts-voice-orb-background-size);
@@ -206,18 +259,91 @@ enum ThemeVoiceStyleCompiler {
           clip-path: circle(50%);
           content: "";
           filter: blur(var(--cts-voice-orb-background-blur));
-          inset:
-            var(--cts-voice-orb-background-inset)
-            var(--cts-voice-orb-background-inset)
-            auto;
-          opacity: var(--cts-voice-orb-background-opacity);
+          height: calc(
+            var(--cts-voice-orb-live-height, 68.2692%)
+            - var(--cts-voice-orb-background-inset)
+            - var(--cts-voice-orb-background-inset)
+          );
+          left: calc(
+            var(--cts-voice-orb-live-left, 15.625%)
+            + var(--cts-voice-orb-background-inset)
+          );
           overflow: hidden;
           pointer-events: none;
           position: absolute;
-          scale: var(--cts-voice-orb-live-pulse, 1);
+          top: calc(
+            var(--cts-voice-orb-live-top, 14.9038%)
+            + var(--cts-voice-orb-background-inset)
+          );
+          width: calc(
+            var(--cts-voice-orb-live-width, 69.2708%)
+            - var(--cts-voice-orb-background-inset)
+            - var(--cts-voice-orb-background-inset)
+          );
+          transform:
+            translate(
+              var(--cts-voice-orb-idle-x, 0px),
+              var(--cts-voice-orb-idle-y, 0px)
+            )
+            rotate(var(--cts-voice-orb-idle-rotation, 0deg))
+            scale(var(--cts-voice-scale));
           transform-origin: center;
-          will-change: scale;
+          will-change: left, top, width, height, opacity, transform;
           z-index: 2;
+        }
+
+        \(root) :is(
+          .codex-avatar-root,
+          [data-voice-orb],
+          [data-codex-voice-orb],
+          [class*="voice-orb" i],
+          [class*="voiceorb" i]
+        )::before {
+          background-image: var(--cts-voice-orb-blink-image, none);
+          opacity: var(--cts-voice-orb-blink-opacity, 0);
+          z-index: 3;
+        }
+
+        \(root) :is(
+          .codex-avatar-root,
+          [data-voice-orb],
+          [data-codex-voice-orb],
+          [class*="voice-orb" i],
+          [class*="voiceorb" i]
+        )::after {
+          background-image: var(
+            --cts-voice-orb-mouth-image-b,
+            var(
+              --cts-voice-orb-active-image,
+              var(--cts-voice-orb-background-image)
+            )
+          );
+          opacity: var(
+            --cts-voice-orb-mouth-opacity-b,
+            var(--cts-voice-orb-background-opacity)
+          );
+        }
+
+        \(root) .codex-avatar-root[data-realtime-voice-orb]::before,
+        \(root) .codex-avatar-root[data-realtime-voice-orb]::after {
+          height: calc(
+            var(--cts-voice-orb-live-height, 73%)
+            - var(--cts-voice-orb-background-inset)
+            - var(--cts-voice-orb-background-inset)
+          );
+          left: calc(
+            var(--cts-voice-orb-live-left, -7.5%)
+            + var(--cts-voice-orb-background-inset)
+          );
+          top: calc(
+            var(--cts-voice-orb-live-top, 30%)
+            + var(--cts-voice-orb-background-inset)
+          );
+          width: calc(
+            var(--cts-voice-orb-live-width, 79%)
+            - var(--cts-voice-orb-background-inset)
+            - var(--cts-voice-orb-background-inset)
+          );
         }
         """
     }

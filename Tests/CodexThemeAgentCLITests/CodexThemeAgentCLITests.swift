@@ -32,6 +32,17 @@ final class CodexThemeAgentCLITests: XCTestCase {
             runtime["voiceStyleIsolation"] as? Bool,
             true
         )
+        XCTAssertEqual(runtime["voiceMouthFrameLimit"] as? Int, 9)
+        XCTAssertEqual(
+            runtime["voiceMouthSpriteSheets"] as? [String],
+            ["2x2", "3x3"]
+        )
+        XCTAssertEqual(
+            runtime["voiceMouthSynchronization"] as? String,
+            "amplitude-envelope-discrete"
+        )
+        XCTAssertEqual(runtime["voiceIdleAnimation"] as? Bool, true)
+        XCTAssertEqual(runtime["voiceBlinkImage"] as? Bool, true)
         XCTAssertEqual(
             runtime["rendererTargets"] as? [String],
             ["main", "avatar-overlay"]

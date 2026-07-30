@@ -374,6 +374,7 @@ enum L10nCatalogWestern {
         ),
         Entry(key: "Preview surface", french: "Surface d’aperçu", spanish: "Superficie de vista previa"),
         Entry(key: "Primary text", french: "Texte principal", spanish: "Texto principal"),
+        Entry(key: "Image focal point", french: "Point focal de l’image", spanish: "Punto focal de la imagen"),
         Entry(key: "Quick focal point", french: "Point focal rapide", spanish: "Punto focal rápido"),
         Entry(key: "Quick styles", french: "Styles rapides", spanish: "Estilos rápidos"),
         Entry(
@@ -1222,6 +1223,11 @@ enum L10nCatalogWestern {
             spanish: "Superficie de la esfera"
         ),
         Entry(
+            key: "Native orb opacity",
+            french: "Opacité de l’orbe natif",
+            spanish: "Opacidad de la esfera nativa"
+        ),
+        Entry(
             key: "Applied to Canvas and recognizable orb containers inside the Voice overlay.",
             french: "Appliqué aux Canvas et aux conteneurs d’orbe reconnaissables dans la superposition Voice.",
             spanish: "Se aplica a Canvas y contenedores de esfera reconocibles dentro de la superposición de Voice."
@@ -1393,6 +1399,233 @@ enum L10nCatalogWestern {
             french: "Marge intérieure de l’image de l’orbe",
             spanish: "Margen interior de la imagen de la esfera"
         ),
+        Entry(
+            key: "Test speech intensity",
+            french: "Tester l’intensité de la parole",
+            spanish: "Probar intensidad del habla"
+        ),
+        Entry(
+            key: "Talking mouth frames",
+            french: "Images de bouche parlante",
+            spanish: "Fotogramas de boca al hablar"
+        ),
+        Entry(
+            key: "Frame 1 is the closed mouth. Order the rest from least to most open; Voice selects them from speech intensity.",
+            french: "L’image 1 montre la bouche fermée. Classez les autres de la moins ouverte à la plus ouverte ; Voice les choisit selon l’intensité de la parole.",
+            spanish: "La imagen 1 es la boca cerrada. Ordena las demás de menos a más abierta; Voice las elige según la intensidad del habla."
+        ),
+        Entry(
+            key: "Add images",
+            french: "Ajouter des images",
+            spanish: "Añadir imágenes"
+        ),
+        Entry(
+            key: "1 · Closed",
+            french: "1 · Fermée",
+            spanish: "1 · Cerrada"
+        ),
+        Entry(
+            key: "Mouth sensitivity",
+            french: "Sensibilité de la bouche",
+            spanish: "Sensibilidad de la boca"
+        ),
+        Entry(
+            key: "Mouth smoothing",
+            french: "Lissage de la bouche",
+            spanish: "Suavizado de la boca"
+        ),
+        Entry(
+            key: "Minimum frame hold",
+            french: "Durée minimale d’une image",
+            spanish: "Duración mínima del fotograma"
+        ),
+        Entry(
+            key: "Choose mouth images (least to most open)",
+            french: "Choisir les images de bouche (de la moins à la plus ouverte)",
+            spanish: "Elegir imágenes de boca (de menos a más abierta)"
+        ),
+        Entry(
+            key: "Add mouth images",
+            french: "Ajouter des images de bouche",
+            spanish: "Añadir imágenes de boca"
+        ),
+        Entry(
+            key: "Add mouth image",
+            french: "Ajouter une image de bouche",
+            spanish: "Añadir imagen de boca"
+        ),
+        Entry(
+            key: "Remove mouth image",
+            french: "Supprimer l’image de bouche",
+            spanish: "Eliminar imagen de boca"
+        ),
+        Entry(
+            key: "Reorder mouth images",
+            french: "Réorganiser les images de bouche",
+            spanish: "Reordenar imágenes de boca"
+        ),
+        Entry(
+            key: "Choose a 2×2 mouth sprite sheet",
+            french: "Choisir une planche 2×2 de bouches",
+            spanish: "Elegir una hoja 2×2 de bocas"
+        ),
+        Entry(
+            key: "Import 2×2 mouth sprite sheet",
+            french: "Importer une planche 2×2 de bouches",
+            spanish: "Importar hoja 2×2 de bocas"
+        ),
+        Entry(
+            key: "Import 2×2 sheet",
+            french: "Importer une planche 2×2",
+            spanish: "Importar hoja 2×2"
+        ),
+        Entry(
+            key: "Imported four mouth frames in top-left, top-right, bottom-left, bottom-right order.",
+            french: "Quatre images de bouche ont été importées dans l’ordre haut gauche, haut droite, bas gauche, bas droite.",
+            spanish: "Se importaron cuatro bocas en orden: arriba izquierda, arriba derecha, abajo izquierda y abajo derecha."
+        ),
+        Entry(
+            key: "“{0}” could not be decoded or split into a 2×2 mouth sprite sheet.",
+            french: "Impossible de décoder « {0} » ou de le diviser en une planche 2×2 de bouches.",
+            spanish: "No se pudo decodificar «{0}» ni dividirla en una hoja 2×2 de bocas."
+        ),
+        Entry(key: "closed", french: "fermée", spanish: "cerrada"),
+        Entry(
+            key: "slightly-open",
+            french: "légèrement-ouverte",
+            spanish: "ligeramente-abierta"
+        ),
+        Entry(
+            key: "medium-open",
+            french: "moyennement-ouverte",
+            spanish: "medio-abierta"
+        ),
+        Entry(
+            key: "wide-open",
+            french: "grande-ouverte",
+            spanish: "muy-abierta"
+        ),
+        Entry(
+            key: "Frame 1 is closed. Order the rest from least to most open; Voice opens quickly, closes smoothly, and directly selects the nearest pose.",
+            french: "L’image 1 montre la bouche fermée. Classez les autres de la moins à la plus ouverte ; Voice ouvre rapidement, referme en douceur et sélectionne directement la pose la plus proche.",
+            spanish: "La imagen 1 es la boca cerrada. Ordena las demás de menos a más abierta; Voice abre rápido, cierra suavemente y selecciona directamente la pose más cercana."
+        ),
+        Entry(
+            key: "Set speech intensity to 0 to preview idle sway and blinking.",
+            french: "Réglez l’intensité de parole sur 0 pour prévisualiser le balancement au repos et les clignements.",
+            spanish: "Ajusta la intensidad de voz a 0 para previsualizar el balanceo en reposo y los parpadeos."
+        ),
+        Entry(
+            key: "Idle animation",
+            french: "Animation au repos",
+            spanish: "Animación en reposo"
+        ),
+        Entry(
+            key: "Gently sways the portrait during silence and smoothly stops when speech begins.",
+            french: "Balance légèrement le portrait pendant le silence et s’arrête en douceur quand la parole commence.",
+            spanish: "Balancea suavemente el retrato durante el silencio y se detiene gradualmente al comenzar a hablar."
+        ),
+        Entry(
+            key: "Enable idle sway",
+            french: "Activer le balancement au repos",
+            spanish: "Activar balanceo en reposo"
+        ),
+        Entry(
+            key: "Sway strength",
+            french: "Intensité du balancement",
+            spanish: "Intensidad del balanceo"
+        ),
+        Entry(
+            key: "Sway period",
+            french: "Période du balancement",
+            spanish: "Periodo del balanceo"
+        ),
+        Entry(
+            key: "Closed-eye image",
+            french: "Image avec les yeux fermés",
+            spanish: "Imagen con ojos cerrados"
+        ),
+        Entry(
+            key: "Choose a matching closed-eye portrait with the same framing as the closed-mouth image.",
+            french: "Choisissez un portrait aux yeux fermés avec le même cadrage que l’image bouche fermée.",
+            spanish: "Elige un retrato con los ojos cerrados y el mismo encuadre que la imagen con la boca cerrada."
+        ),
+        Entry(
+            key: "Average blink interval",
+            french: "Intervalle moyen des clignements",
+            spanish: "Intervalo medio de parpadeo"
+        ),
+        Entry(
+            key: "Blink duration",
+            french: "Durée du clignement",
+            spanish: "Duración del parpadeo"
+        ),
+        Entry(
+            key: "Choose closed-eye image",
+            french: "Choisir l’image aux yeux fermés",
+            spanish: "Elegir imagen con ojos cerrados"
+        ),
+        Entry(
+            key: "Set closed-eye image",
+            french: "Définir l’image aux yeux fermés",
+            spanish: "Definir imagen con ojos cerrados"
+        ),
+        Entry(
+            key: "Clear closed-eye image",
+            french: "Effacer l’image aux yeux fermés",
+            spanish: "Quitar imagen con ojos cerrados"
+        ),
+        Entry(
+            key: "Import 3×3 sheet",
+            french: "Importer une planche 3×3",
+            spanish: "Importar hoja 3×3"
+        ),
+        Entry(
+            key: "Choose a {0} mouth sprite sheet",
+            french: "Choisir une planche {0} de bouches",
+            spanish: "Elegir una hoja {0} de bocas"
+        ),
+        Entry(
+            key: "Import {0} mouth sprite sheet",
+            french: "Importer une planche {0} de bouches",
+            spanish: "Importar hoja {0} de bocas"
+        ),
+        Entry(
+            key: "Imported {0} mouth frames from left to right, top to bottom.",
+            french: "{0} images de bouche ont été importées de gauche à droite et de haut en bas.",
+            spanish: "Se importaron {0} bocas de izquierda a derecha y de arriba abajo."
+        ),
+        Entry(
+            key: "You can use up to nine mouth images, including the closed-mouth base image.",
+            french: "Vous pouvez utiliser jusqu’à neuf images de bouche, y compris l’image de base avec la bouche fermée.",
+            spanish: "Puedes usar hasta nueve imágenes de boca, incluida la imagen base con la boca cerrada."
+        ),
+        Entry(
+            key: "“{0}” could not be decoded or split into a 2×2 or 3×3 mouth sprite sheet.",
+            french: "Impossible de décoder « {0} » ou de le diviser en une planche 2×2 ou 3×3 de bouches.",
+            spanish: "No se pudo decodificar «{0}» ni dividirla en una hoja 2×2 o 3×3 de bocas."
+        ),
+        Entry(
+            key: "Mouth attack",
+            french: "Vitesse d’ouverture",
+            spanish: "Velocidad de apertura"
+        ),
+        Entry(
+            key: "Mouth release",
+            french: "Vitesse de fermeture",
+            spanish: "Velocidad de cierre"
+        ),
+        Entry(
+            key: "Noise gate",
+            french: "Seuil de silence",
+            spanish: "Umbral de silencio"
+        ),
+        Entry(
+            key: "Mouth response curve",
+            french: "Courbe de réponse de la bouche",
+            spanish: "Curva de respuesta de la boca"
+        ),
+        Entry(key: "open", french: "ouverte", spanish: "abierta"),
     ]
 
     static let french: [String: String] = Dictionary(
