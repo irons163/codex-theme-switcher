@@ -10,8 +10,8 @@ enum AppUpdateConfiguration {
     static let latestReleaseAPIURL = URL(
         string: "https://api.github.com/repos/\(repositorySlug)/releases/latest"
     )!
-    static let fallbackVersion = "0.3.0-beta.5"
-    static let fallbackBuild = "19"
+    static let fallbackVersion = "0.3.0"
+    static let fallbackBuild = "20"
 
     static func feedURL(
         channel: AppUpdateChannel,
