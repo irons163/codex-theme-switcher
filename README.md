@@ -2,7 +2,7 @@
 
 **English** | [繁體中文](README.zh-Hant.md) | [简体中文](README.zh-Hans.md) | [Français](README.fr.md) | [Español](README.es.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-![Codex with a Codex Theme Switcher image background, glass effects, and customized components](docs/images/codex-theme-showcase.jpg)
+[![Codex Theme Switcher video demo](docs/media/codex-theme-switcher-demo.gif)](https://github.com/irons163/codex-theme-switcher/raw/refs/heads/main/docs/media/codex-theme-switcher-demo.mp4)
 
 A native macOS menu bar app for designing, previewing, applying, and sharing themes for the Codex / ChatGPT desktop app.
 

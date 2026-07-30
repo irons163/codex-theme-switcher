@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-Hant.md) | [简体中文](README.zh-Hans.md) | [Français](README.fr.md) | [Español](README.es.md) | **日本語** | [한국어](README.ko.md)
 
-![Codex Theme Switcherで画像背景、ガラス効果、カスタムコンポーネントを適用したCodex](docs/images/codex-theme-showcase.jpg)
+[![Codex Theme Switcherのデモ動画](docs/media/codex-theme-switcher-demo.gif)](https://github.com/irons163/codex-theme-switcher/raw/refs/heads/main/docs/media/codex-theme-switcher-demo.mp4)
 
 Codex / ChatGPTデスクトップAppのテーマを作成、プレビュー、適用、共有できる、macOSネイティブのメニューバーAppです。
 

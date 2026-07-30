@@ -2,7 +2,7 @@
 
 [English](README.md) | **繁體中文** | [简体中文](README.zh-Hans.md) | [Français](README.fr.md) | [Español](README.es.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-![Codex Theme Switcher 套用圖片背景、玻璃效果與自訂元件的 Codex 畫面](docs/images/codex-theme-showcase.jpg)
+[![Codex Theme Switcher 示範影片](docs/media/codex-theme-switcher-demo.gif)](https://github.com/irons163/codex-theme-switcher/raw/refs/heads/main/docs/media/codex-theme-switcher-demo.mp4)
 
 原生 macOS menu bar app，可為 Codex／ChatGPT 桌面版設計、預覽、套用與分享主題。
 
