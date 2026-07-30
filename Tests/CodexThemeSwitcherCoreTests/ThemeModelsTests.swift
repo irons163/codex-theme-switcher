@@ -369,6 +369,7 @@ final class ThemeModelsTests: XCTestCase {
                 "backgroundZoom": 1.4,
                 "backgroundImageOpacity": 0.75,
                 "backgroundImageBlur": 3,
+                "orbLocksToOverlayCenter": false,
                 "orbBackgroundAssetID": "48f4ae9a-d231-4c56-9a76-e43d61ec7929",
                 "orbBackgroundImageFit": "fitWidth",
                 "orbBackgroundPositionX": 0.3,
@@ -414,6 +415,7 @@ final class ThemeModelsTests: XCTestCase {
         XCTAssertEqual(decoded.light.backgroundZoom, 1.4)
         XCTAssertEqual(decoded.light.backgroundImageOpacity, 0.75)
         XCTAssertEqual(decoded.light.backgroundImageBlur, 3)
+        XCTAssertFalse(decoded.light.orbLocksToOverlayCenter)
         XCTAssertEqual(
             decoded.light.orbBackgroundAssetID?.uuidString.lowercased(),
             "48f4ae9a-d231-4c56-9a76-e43d61ec7929"
@@ -462,6 +464,7 @@ final class ThemeModelsTests: XCTestCase {
             ThemeVoiceVariant.darkDefault.glowColor
         )
         XCTAssertNil(decoded.dark.backgroundAssetID)
+        XCTAssertTrue(decoded.dark.orbLocksToOverlayCenter)
         XCTAssertNil(decoded.dark.orbBackgroundAssetID)
         XCTAssertEqual(decoded.dark.backgroundImageFit, .cover)
         XCTAssertEqual(decoded.dark.orbBackgroundImageFit, .cover)
@@ -507,6 +510,7 @@ final class ThemeModelsTests: XCTestCase {
         XCTAssertEqual(variant.backgroundImageFit, .contain)
         XCTAssertEqual(variant.backgroundZoom, 1.72)
         XCTAssertEqual(variant.backgroundImageOpacity, 0.44)
+        XCTAssertTrue(variant.orbLocksToOverlayCenter)
         XCTAssertEqual(variant.orbBackgroundImageFit, .cover)
         XCTAssertEqual(variant.orbBackgroundInset, 0)
         XCTAssertTrue(variant.orbBackgroundFollowsVoicePulse)

@@ -1212,6 +1212,18 @@ enum L10nCatalogCJK {
             "Voice 배경 이미지"
         ),
         .init(
+            "Keep orb centered in Voice overlay",
+            "将圆球固定在 Voice 画面中央",
+            "オーブをVoice画面の中央に固定",
+            "오브를 Voice 화면 중앙에 고정"
+        ),
+        .init(
+            "Turn this off to use ChatGPT's native dragging and move the orb to screen edges.",
+            "关闭后可使用 ChatGPT 原生拖动，将圆球移到屏幕边缘。",
+            "オフにするとChatGPT標準のドラッグ操作でオーブを画面端まで移動できます。",
+            "끄면 ChatGPT 기본 드래그를 사용하여 오브를 화면 가장자리로 이동할 수 있습니다."
+        ),
+        .init(
             "Light and Dark can use different images. The image is embedded in the .codextheme and sent only to the Voice overlay.",
             "浅色与深色可使用不同图像。图像会嵌入 .codextheme，并且只发送到 Voice overlay。",
             "LightとDarkで別々の画像を使用できます。画像は.codexthemeに埋め込まれ、Voice overlayのみに送信されます。",

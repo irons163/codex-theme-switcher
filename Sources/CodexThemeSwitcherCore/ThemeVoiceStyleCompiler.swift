@@ -10,6 +10,7 @@ enum ThemeVoiceStyleCompiler {
         var output = ["/* Codex Theme Voice Overlay */"]
         output.append(contentsOf: sharedRules(style))
         output.append(overlayFoundationRules)
+        output.append(contentsOf: overlayPositioningRules(style))
         output.append(orbFoundationRules)
         let advanced = style.rawCSS.trimmingCharacters(
             in: .whitespacesAndNewlines
@@ -88,6 +89,61 @@ enum ThemeVoiceStyleCompiler {
             )
         ])
         return output
+    }
+
+    private static func overlayPositioningRules(
+        _ style: ThemeVoiceStyle
+    ) -> [String] {
+        var output: [String] = []
+        if style.light.orbLocksToOverlayCenter {
+            output.append(
+                """
+                @media (prefers-color-scheme: light) {
+                \(indent(centeredOverlayRule(
+                    selector: ":root:where(:not(.electron-light):not(.electron-dark))"
+                )))
+                }
+                """
+            )
+            output.append(
+                centeredOverlayRule(
+                    selector: ":root:where(.electron-light)"
+                )
+            )
+        }
+        if style.dark.orbLocksToOverlayCenter {
+            output.append(
+                """
+                @media (prefers-color-scheme: dark) {
+                \(indent(centeredOverlayRule(
+                    selector: ":root:where(:not(.electron-light):not(.electron-dark))"
+                )))
+                }
+                """
+            )
+            output.append(
+                centeredOverlayRule(
+                    selector: ":root:where(.electron-dark:not(.electron-light))"
+                )
+            )
+        }
+        return output
+    }
+
+    private static func centeredOverlayRule(selector: String) -> String {
+        """
+        \(selector)[data-codex-theme-switcher-theme] [data-avatar-overlay-hit-region="mascot"] {
+          bottom: auto !important;
+          left: 50vw !important;
+          margin: 0 !important;
+          right: auto !important;
+          top: 50vh !important;
+          translate:
+            var(--cts-voice-orb-layout-shift-x, 0px)
+            var(--cts-voice-orb-layout-shift-y, 0px) !important;
+          will-change: left, top, translate;
+        }
+        """
     }
 
     private static func appearanceRule(
@@ -285,17 +341,6 @@ enum ThemeVoiceStyleCompiler {
           z-index: 1;
         }
 
-        \(root) [data-avatar-overlay-hit-region="mascot"] {
-          bottom: auto !important;
-          left: 50vw !important;
-          margin: 0 !important;
-          right: auto !important;
-          top: 50vh !important;
-          translate:
-            var(--cts-voice-orb-layout-shift-x, 0px)
-            var(--cts-voice-orb-layout-shift-y, 0px) !important;
-          will-change: left, top, translate;
-        }
         """
     }
 

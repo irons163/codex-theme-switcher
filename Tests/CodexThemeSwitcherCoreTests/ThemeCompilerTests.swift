@@ -751,7 +751,9 @@ final class ThemeCompilerTests: XCTestCase {
     func testVoiceStyleCompilesFullOverlayAndSafeEmbeddedOrbCSS() throws {
         var voice = ThemeVoiceStyle(isEnabled: true)
         voice.light.orbScale = 1.25
+        voice.light.orbLocksToOverlayCenter = false
         voice.dark.hueRotation = -45
+        voice.dark.orbLocksToOverlayCenter = false
         voice.rawCSS = ".voice-extra { border-radius: 50%; }"
         var theme = TestFixtures.theme()
         theme.voiceStyle = voice
@@ -800,27 +802,27 @@ final class ThemeCompilerTests: XCTestCase {
                 "scale(var(--cts-voice-scale));"
             )
         )
-        XCTAssertTrue(
+        XCTAssertFalse(
             compiled.avatarOverlayCSS.contains(
                 "--cts-voice-orb-layout-shift-x"
             )
         )
-        XCTAssertTrue(
+        XCTAssertFalse(
             compiled.avatarOverlayCSS.contains(
                 "--cts-voice-orb-layout-shift-y"
             )
         )
-        XCTAssertTrue(
+        XCTAssertFalse(
             compiled.avatarOverlayCSS.contains(
                 "left: 50vw !important;"
             )
         )
-        XCTAssertTrue(
+        XCTAssertFalse(
             compiled.avatarOverlayCSS.contains(
                 "top: 50vh !important;"
             )
         )
-        XCTAssertTrue(
+        XCTAssertFalse(
             compiled.avatarOverlayCSS.contains(
                 "[data-avatar-overlay-hit-region=\"mascot\"]"
             )
@@ -839,6 +841,46 @@ final class ThemeCompilerTests: XCTestCase {
                 """
             )
         )
+    }
+
+    func testVoiceOverlayCenteringFollowsExplicitAppearanceSetting() throws {
+        let background = TestFixtures.imageAsset(
+            name: "voice-background.png",
+            bytes: [1, 2, 3]
+        )
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.backgroundAssetID = nil
+        voice.light.orbLocksToOverlayCenter = true
+        voice.dark.backgroundAssetID = background.id
+        voice.dark.orbLocksToOverlayCenter = false
+        var theme = TestFixtures.theme(assets: [background])
+        theme.voiceStyle = voice
+
+        let compiled = try ThemeCompiler().compile(theme)
+        let centeringRule = "left: 50vw !important;"
+
+        XCTAssertEqual(
+            compiled.avatarOverlayCSS.components(
+                separatedBy: centeringRule
+            ).count - 1,
+            2
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "@media (prefers-color-scheme: light)"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                ":root:where(.electron-light)[data-codex-theme-switcher-theme]"
+            )
+        )
+        XCTAssertFalse(
+            compiled.avatarOverlayCSS.contains(
+                ":root:where(.electron-dark:not(.electron-light))[data-codex-theme-switcher-theme] [data-avatar-overlay-hit-region=\"mascot\"]"
+            )
+        )
+        XCTAssertFalse(compiled.css.contains(centeringRule))
     }
 
     func testDisabledVoiceStyleProducesNoAvatarOverlayCSS() throws {

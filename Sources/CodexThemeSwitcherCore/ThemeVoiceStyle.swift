@@ -85,6 +85,11 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
     public var backgroundZoom: Double
     public var backgroundImageOpacity: Double
     public var backgroundImageBlur: Double
+    /// Keeps the draggable Voice mascot anchored to the overlay center.
+    ///
+    /// When disabled, ChatGPT's native positioning can move the orb to screen
+    /// edges regardless of whether an overlay background image is configured.
+    public var orbLocksToOverlayCenter: Bool
     public var orbBackgroundAssetID: UUID?
     public var orbBackgroundImageFit: ThemeSkinImageFit
     public var orbBackgroundPositionX: Double
@@ -144,6 +149,7 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         backgroundZoom: Double = 1,
         backgroundImageOpacity: Double = 1,
         backgroundImageBlur: Double = 0,
+        orbLocksToOverlayCenter: Bool = true,
         orbBackgroundAssetID: UUID? = nil,
         orbBackgroundImageFit: ThemeSkinImageFit = .cover,
         orbBackgroundPositionX: Double = 0.5,
@@ -187,6 +193,7 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         self.backgroundZoom = backgroundZoom
         self.backgroundImageOpacity = backgroundImageOpacity
         self.backgroundImageBlur = backgroundImageBlur
+        self.orbLocksToOverlayCenter = orbLocksToOverlayCenter
         self.orbBackgroundAssetID = orbBackgroundAssetID
         self.orbBackgroundImageFit = orbBackgroundImageFit
         self.orbBackgroundPositionX = orbBackgroundPositionX
@@ -284,6 +291,7 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         case backgroundZoom
         case backgroundImageOpacity
         case backgroundImageBlur
+        case orbLocksToOverlayCenter
         case orbBackgroundAssetID
         case orbBackgroundImageFit
         case orbBackgroundPositionX
@@ -363,6 +371,10 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
             Double.self,
             forKey: .backgroundImageBlur
         ) ?? defaults.backgroundImageBlur
+        orbLocksToOverlayCenter = try values.decodeIfPresent(
+            Bool.self,
+            forKey: .orbLocksToOverlayCenter
+        ) ?? defaults.orbLocksToOverlayCenter
         orbBackgroundAssetID = try values.decodeIfPresent(
             UUID.self,
             forKey: .orbBackgroundAssetID

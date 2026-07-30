@@ -484,6 +484,11 @@
           "minimum": 0,
           "maximum": 40
         },
+        "orbLocksToOverlayCenter": {
+          "type": "boolean",
+          "default": true,
+          "description": "Keep the Voice orb anchored to the overlay center. Disable this to use ChatGPT's native free dragging and move the orb to screen edges."
+        },
         "orbBackgroundAssetID": {
           "$ref": "#/$defs/uuid"
         },

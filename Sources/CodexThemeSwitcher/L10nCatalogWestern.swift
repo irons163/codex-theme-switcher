@@ -1323,6 +1323,16 @@ enum L10nCatalogWestern {
             spanish: "Imagen de fondo de Voice"
         ),
         Entry(
+            key: "Keep orb centered in Voice overlay",
+            french: "Garder l’orbe centré dans la fenêtre Voice",
+            spanish: "Mantener la esfera centrada en Voice"
+        ),
+        Entry(
+            key: "Turn this off to use ChatGPT's native dragging and move the orb to screen edges.",
+            french: "Désactivez cette option pour utiliser le déplacement natif de ChatGPT et placer l’orbe au bord de l’écran.",
+            spanish: "Desactiva esta opción para usar el arrastre nativo de ChatGPT y mover la esfera hasta los bordes de la pantalla."
+        ),
+        Entry(
             key: "Light and Dark can use different images. The image is embedded in the .codextheme and sent only to the Voice overlay.",
             french: "Light et Dark peuvent utiliser des images différentes. L’image est intégrée au fichier .codextheme et envoyée uniquement à la superposition Voice.",
             spanish: "Light y Dark pueden usar imágenes distintas. La imagen se integra en el archivo .codextheme y se envía únicamente a la superposición de Voice."

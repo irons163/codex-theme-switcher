@@ -655,6 +655,39 @@ struct ThemeVoiceEditorView: View {
             .disabled(orbBackgroundAsset == nil)
             .opacity(orbBackgroundAsset == nil ? 0.55 : 1)
 
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(
+                        L10n.text(
+                            "將圓球固定在 Voice 畫面中央",
+                            "Keep orb centered in Voice overlay"
+                        )
+                    )
+                    .font(.caption.weight(.semibold))
+                    Text(
+                        L10n.text(
+                            "關閉後可使用 ChatGPT 原生拖曳，將圓球移到螢幕邊緣。",
+                            "Turn this off to use ChatGPT's native dragging and move the orb to screen edges."
+                        )
+                    )
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Toggle(
+                    L10n.text(
+                        "將圓球固定在 Voice 畫面中央",
+                        "Keep orb centered in Voice overlay"
+                    ),
+                    isOn: variantBinding(\.orbLocksToOverlayCenter)
+                )
+                .labelsHidden()
+                .toggleStyle(.switch)
+            }
+            .padding(10)
+            .background(.quaternary.opacity(0.28))
+            .clipShape(RoundedRectangle(cornerRadius: 9))
+
             settingsGrid {
                 VoiceValueSlider(
                     title: L10n.text(
