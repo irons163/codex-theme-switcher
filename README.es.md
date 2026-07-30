@@ -4,14 +4,9 @@
 
 ![Codex con un fondo de imagen, efectos de cristal y componentes personalizados mediante Codex Theme Switcher](docs/images/codex-theme-showcase.jpg)
 
-Un estudio de temas nativo para la barra de menús de macOS. No crea una ventana principal
-convencional, no aparece en el Dock y no modifica, vuelve a firmar ni sobrescribe
-`Codex.app` / `ChatGPT.app`.
+Una app nativa para la barra de menús de macOS que permite diseñar, previsualizar, aplicar y compartir temas para la app de escritorio Codex / ChatGPT.
 
-Theme Switcher se conecta al proceso de renderizado de Codex mediante Chromium DevTools Protocol
-(CDP) y escribe el CSS compilado en un elemento `<style>` con un espacio de nombres. Los cambios de
-tema se sincronizan en tiempo real con todas las ventanas de Codex; el runtime también restaura
-automáticamente el tema después de recargar Codex o al abrir una ventana nueva.
+Theme Switcher inyecta estilos temporales al iniciar Codex. No modifica, sustituye ni vuelve a firmar la app original.
 
 ## Descargar
 
@@ -21,359 +16,119 @@ automáticamente el tema después de recargar Codex o al abrir una ventana nueva
 ·
 [DMG para Intel](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-intel.dmg)
 ·
-[Notas de la versión, sumas de comprobación y todos los archivos](https://github.com/irons163/codex-theme-switcher/releases/tag/v0.3.0)
+[Notas de la versión y sumas de comprobación](https://github.com/irons163/codex-theme-switcher/releases/tag/v0.3.0)
 
-Requiere macOS 13 o posterior. Ambos instaladores están firmados y notarizados por Apple, e
-incluyen Sparkle para recibir futuras actualizaciones Stable o Beta.
+Requiere macOS 13 o posterior. Ambos instaladores están firmados y notarizados por Apple.
+
+## Funciones principales
+
+- Biblioteca de temas, editor, vista previa en tiempo real y estado de conexión en la barra de menús.
+- Colores, fuentes, espaciado, radios, sombras, desenfoque, escala y movimiento.
+- Imágenes claras y oscuras con Fit, Fill, punto focal, filtros, capas y cristal.
+- Personalización experimental de ChatGPT Voice: fondo, orbe, retrato animado, formas de boca, parpadeo y movimiento en reposo.
+- Controles avanzados de componentes, reglas de selectores, variables personalizadas y CSS sin procesar.
+- Importación y exportación en un único archivo `.codextheme` con imágenes y fuentes integradas.
+- Inglés, chino tradicional, chino simplificado, francés, español, japonés y coreano.
+
+## Inicio rápido
+
+1. Instala y abre Codex Theme Switcher; después, haz clic en su icono de la barra de menús de macOS.
+2. Haz clic en **Iniciar y conectar Codex**. La primera conexión puede reiniciar Codex.
+3. Elige un tema integrado, crea una copia editable o crea un tema nuevo.
+4. Ajusta el diseño y revisa las vistas previas Claro / Oscuro e Inicio / Chat.
+5. Guarda el tema y haz clic en **Aplicar** para enviarlo a Codex.
+6. Usa **Exportar** para compartir un `.codextheme` e **Importar** para instalar uno recibido.
+
+La primera conexión no aplica automáticamente el tema seleccionado. Las conexiones posteriores restauran el último tema aplicado correctamente, no los cambios de borradores sin aplicar.
 
 ## Capturas de pantalla
 
-### Estudio de temas de la barra de menús
+### Estudio de temas
 
-![Estudio de temas de Codex Theme Switcher mostrando la biblioteca, la vista previa en directo y todas las pestañas de edición](docs/images/theme-studio.png)
+![Estudio de Codex Theme Switcher con biblioteca, vista previa y pestañas de edición](docs/images/theme-studio.png)
 
-### Vista previa del proceso de renderizado para agentes
+### Vistas previas del renderizador
 
 | Paper · Claro / Inicio | Midnight · Oscuro / Chat |
 | --- | --- |
 | ![Vista previa de Paper claro en Inicio](docs/images/paper-light-home.png) | ![Vista previa de Midnight oscuro en Chat](docs/images/midnight-dark-chat.png) |
 
-El Agent CLI puede generar PNG Light/Dark × Home/Chat en un entorno sin ventanas para que los
-agentes de IA los inspeccionen de forma iterativa. Son aproximaciones estructuradas; el resultado
-final de las selector rules, el raw CSS y el proceso de renderizado real de Codex debe comprobarse
-después de aplicar el tema.
+Las vistas previas generadas por un agente son aproximaciones cercanas. Verifica siempre el CSS avanzado y las reglas de selectores en la app Codex antes de compartir un tema.
 
-## Funciones
+## Guía de personalización
 
-- App exclusivamente para la barra de menús; toda la biblioteca de temas, la edición, la vista
-  previa y el estado del runtime se encuentran en el panel de la barra de menús.
-- Tres plantillas integradas: Midnight, Paper y High Contrast.
-- Aplicación con un clic, restauración del estilo original de Codex y reconexión del proceso
-  de renderizado.
-- Encuentra Codex mediante una ubicación guardada, la app en ejecución, Launch Services y los
-  directorios habituales; Ajustes también permite elegir Codex en un disco externo o cualquier
-  otra carpeta.
-- Sistema visual de colores:
-  - Colores semánticos básicos.
-  - Tokens de interfaz, interacción, diff y terminal de Codex `--color-token-*`.
-- Controles de tipo y tamaño de letra, altura de línea, ancho del contenido, espaciado, radio de
-  las esquinas, sombra, desenfoque, escala y animaciones.
-- Fondo y cristal (Image Skin): fondos claro/oscuro separados, siete modos de tamaño, incluidos
-  Fit / Fill, recorte por punto focal, lienzo de fondo opcional que ocupa toda la ventana o evita
-  la barra lateral, filtros, overlay, glass por sección y panel de contenido central.
-- Estilo experimental de ChatGPT Voice: imágenes Light/Dark independientes con Fit / Fill, punto
-  focal, zoom, opacidad y desenfoque, además de controles de esfera, filtros, resplandor, fondo y
-  CSS avanzado exclusivo de Voice, enviados únicamente al renderer `avatar-overlay`.
-- Retratos Voice animados: una imagen base con la boca cerrada y hasta ocho poses ordenadas,
-  importación directa de hojas 2×2 / 3×3, parpadeo aleatorio, movimiento en reposo, sincronización
-  con el pulso nativo y opacidades independientes para el retrato y la esfera nativa.
-- Los temas nuevos incluyen un avatar Voice animado listo para usar. Sus imágenes se integran en
-  el tema, por lo que exportar e importar conserva toda la animación sin depender de rutas locales.
-- Declaraciones de componentes arbitrarias.
-- CSS selector rules arbitrarias.
-- Escape hatch de raw CSS completo.
-- Múltiples layers con light / dark / custom media query.
-- Se pueden integrar recursos PNG, JPEG, WebP, GIF, fuentes y otros archivos en las plantillas; el
-  runtime los transfiere por fragmentos y crea Blob URL locales al proceso de renderizado, por lo
-  que las imágenes 4K grandes no superan el límite de longitud de las declaraciones CSS.
-- Importación y exportación en un único archivo `.codextheme` para facilitar el intercambio.
-- Sigue de forma predeterminada el idioma preferido de macOS, o permite elegir manualmente en
-  Ajustes entre inglés, chino tradicional, chino simplificado, francés, español, japonés y
-  coreano; en modo automático, los demás idiomas usan inglés.
-- Actualizaciones automáticas con Sparkle 2: permite elegir el canal Stable o Beta, obtener el
-  instalador correcto para Apple Silicon o Intel y consultar las notas de la versión en los mismos
-  siete idiomas.
-- Busca actualizaciones al iniciarse y cada 30 minutos; también se puede comprobar manualmente
-  desde Ajustes o desde el menú superior derecho, omitir versiones concretas o usar la descarga
-  manual.
-- Incluye el Agent CLI `codex-theme`, diseñado JSON-first: los agentes de IA pueden obtener el
-  esquema y los ejemplos, validar, normalizar, compilar, instalar, exportar y generar vistas previas
-  PNG Light/Dark × Home/Chat; Codex solo cambia mediante una llamada explícita a `attach`, `apply`
-  o `clear`.
+### Fondo y cristal
 
-## Fondo y cristal / Image Skin
+- Usa imágenes diferentes en Claro y Oscuro, o reutiliza una imagen con efectos distintos.
+- Elige Fit, Fill, Stretch, Fit Width, Fit Height, Original o Tile y ajusta el punto focal y el zoom.
+- Controla la opacidad y los filtros de la imagen de forma independiente al cristal de la barra lateral, contenido, cuadro de entrada, tarjetas, menús y bloques de código.
+- Extiende el fondo por toda la ventana o excluye la barra lateral.
+- Añade un panel de contenido central con fondo, borde, sombra, desenfoque, radio, ancho y relleno propios.
 
-Image Skin permite convertir Codex en un tema gráfico completo, no solo sustituir una paleta de
-colores:
+### ChatGPT Voice (experimental)
 
-- Light y Dark pueden utilizar imágenes de fondo distintas o compartir la misma imagen con efectos
-  diferentes.
-- Los fondos admiten Fit (mostrar la imagen completa), Fill (rellenar recortando
-  proporcionalmente), Stretch, Fit Width, Fit Height, Original y Tile; cada modo puede combinarse
-  con un punto focal u origen, zoom, opacidad y filtros de brillo, contraste, saturación y
-  desenfoque.
-- «El fondo evita la barra lateral» reorganiza como un conjunto la imagen, Fit / Fill, el punto
-  focal, el overlay, el scrim y la vignette dentro del área de contenido principal; la barra
-  lateral conserva su propio color de fondo y glass. Cuando cambia de ancho o se contrae, el límite
-  del fondo sigue automáticamente el layout real de Codex.
-- El Overlay puede usar un scrim de color sólido, un degradado lineal o una vignette para que la
-  barra lateral, los títulos y el área de entrada sigan siendo legibles sobre imágenes complejas.
-- Sidebar, main content, composer, card, menu, popover y code block se pueden configurar por
-  separado con su propio glass fill, opacidad, backdrop blur, borde, radio de las esquinas y sombra;
-  cambiar la opacidad de un panel no atenúa el texto.
-- El «panel de contenido central» envuelve de forma independiente el Home Hero o el historial de
-  conversaciones de Chat, sin incluir las Cards de sugerencias ni el Composer. Su color de fondo,
-  borde, color de sombra y opacidad se pueden configurar por separado para Light y Dark; los
-  controles de material incluyen blur, saturation, ancho del borde, radio de las esquinas,
-  desplazamiento y expansión de la sombra, ancho máximo y relleno horizontal/vertical.
-- La vista previa puede alternar entre Light / Dark y Home / Chat, lo que facilita comprobar a la
-  vez el recorte del fondo, el contraste del texto y las superficies de los componentes.
-- Los fondos usados por Image Skin se integran en el archivo `.codextheme`, por lo que los temas
-  exportados no dependen de las rutas de los archivos originales y sus destinatarios pueden
-  importarlos directamente.
+- Configura un fondo de Voice y otra imagen dentro del orbe animado.
+- Añade un retrato con la boca cerrada y hasta ocho formas de boca, o importa una cuadrícula 2×2 / 3×3.
+- Ajusta la sensibilidad, el umbral de silencio, la velocidad de apertura y cierre, el parpadeo, el movimiento en reposo, el pulso y la visibilidad del orbe original.
+- La boca sigue la intensidad del audio; no es una sincronización labial por fonemas.
 
-Los controles visuales generan theme variables y component overrides portátiles. Cuando se
-necesitan selectors más precisos, varios degradados, blend modes o animaciones, Raw CSS aún puede
-sobrescribirlo todo al final; Raw CSS conserva el mayor grado de libertad en la theme cascade.
+El estilo de Voice depende del renderizador interno de ChatGPT y puede necesitar cambios después de una actualización de Codex / ChatGPT.
 
-Los campos de imagen de Image Skin solo aceptan raster assets (PNG, JPEG, WebP, GIF, AVIF), con un
-límite de 16 MB por asset. El límite combinado de todos los recursos es de 32 MB y cada archivo
-`.codextheme` está limitado a 48 MB. Las fuentes se pueden seguir integrando mediante las funciones
-avanzadas de recursos, pero no se pueden asignar como fondos de Image Skin.
+## Importar y exportar
 
-## Estilo de ChatGPT Voice
+- Exportar crea un único `.codextheme` con la configuración y los recursos integrados.
+- Los temas importados no se aplican automáticamente; revísalos y haz clic en **Aplicar**.
+- Image Skin admite PNG, JPEG, WebP, GIF y AVIF.
+- Límites: 16 MB por recurso, 32 MB en total y 48 MB por `.codextheme`.
 
-La pestaña Voice usa una hoja de estilo independiente para las superficies de ChatGPT Voice que
-CSS puede localizar. El fondo y las reglas de componentes de la ventana principal nunca se envían
-a `avatar-overlay`. Si Voice no está activado, Theme Switcher no se conecta a ese renderer;
-desactivarlo borra el estilo y cierra la sesión.
+Ejemplos: [`minimal.codextheme`](Examples/minimal.codextheme) y [`full.codextheme`](Examples/full.codextheme).
 
-Las imágenes se integran en `.codextheme` y admiten los siete modos de tamaño de Image Skin.
-También se puede recortar una imagen independiente dentro de la esfera DOM, con tamaño, punto
-focal, opacidad, desenfoque y margen interior propios. Esta imagen puede seguir el pulso del sprite
-nativo de Voice, con una intensidad ajustable de 0 a 2×. Los demás controles de la esfera siguen
-siendo independientes. Un retrato parlante puede usar hasta nueve imágenes de boca ordenadas. El
-runtime usa la intensidad de salida de Voice con sensibilidad, umbral de silencio, curva de respuesta,
-apertura rápida y cierre suave, y selecciona directamente la pose de boca más cercana. Es animación
-por amplitud, no sincronización fonética. También se puede importar una hoja
-2×2 o 3×3, que se divide de izquierda a derecha y de arriba abajo. Consulta los ejemplos de retrato animado
-[2×2](Examples/voice-mouth-sprites/anime-girl-mouth-2x2.png) y
-[3×3](Examples/voice-mouth-sprites/anime-girl-mouth-3x3.png).
-Durante el silencio, un modo de reposo opcional balancea suavemente el retrato y se detiene
-gradualmente cuando empieza el habla. Se puede integrar un retrato equivalente con los ojos cerrados
-para parpadeos aleatorios, con intervalo medio y duración ajustables. Ambos efectos se pausan mientras
-Voice está hablando.
-Antes de iniciar la animación por audio, el runtime carga y decodifica todas las imágenes de boca y
-parpadeo mientras mantiene visible la imagen con la boca cerrada. La animación solo comienza cuando
-todo está listo; si una imagen no se puede decodificar, el retrato cerrado permanece visible en vez
-de mostrar un fotograma vacío, anterior o parpadeante durante el primer segundo de habla.
-Se admiten el renderer
-WebGL actual y la implementación `.codex-avatar-root` anterior; una futura esfera solo nativa podría
-no ser controlable. La vista previa sigue
-la geometría observada `408:400`, aunque una esfera arrastrada puede ocupar otra posición en runtime.
+## Diseñar con un agente de IA
 
-## Flujo de trabajo
+Después de instalar la app, entrega esta instrucción a un agente de IA:
 
-1. Abra la app y acceda al estudio de temas desde el icono de la paleta en la barra de menús de
-   macOS.
-2. Haga clic en «Iniciar y conectar Codex»; la primera conexión puede reiniciar Codex.
-   La primera conexión no aplica automáticamente la plantilla preseleccionada. Las reconexiones
-   posteriores restauran el último snapshot aplicado correctamente y guardado por el runtime, sin
-   incluir los cambios que solo se hayan guardado posteriormente ni los que sigan en un borrador.
-3. Aplique directamente una plantilla integrada o elija primero «Crear una copia editable»;
-   también puede crear un tema vacío desde la esquina inferior izquierda.
-4. Edite las pestañas Fondo y cristal, Voice, Colores, Tipografía y disposición, Componentes, Reglas, CSS
-   avanzado, Recursos e Información. Un punto naranja indica que el tema aún tiene cambios sin
-   guardar; el borrador no se pierde al cambiar a otro tema y volver.
-5. Guarde y después aplique. Para compartir el tema, haga clic en Exportar y obtendrá un único
-   archivo `.codextheme` con todos los recursos integrados. Los destinatarios pueden importarlo
-   desde el mismo lugar.
-6. La pestaña Ajustes permite activar o desactivar las actualizaciones automáticas, elegir
-   Stable/Beta, buscar una versión nueva y volver a mostrar las «Novedades» de la versión actual.
+```text
+Usa este Agent CLI para diseñar un tema de Codex:
+/Applications/CodexThemeSwitcher.app/Contents/Helpers/codex-theme
 
-## Modelo de seguridad
+Ejecuta primero capabilities y schema. Completa validate, compile y las cuatro vistas previas.
+No apliques el tema sin mi confirmación.
+```
 
-- No modifica `app.asar`, por lo que conserva la firma, la notarización y la integridad de ASAR de
-  la app de OpenAI.
-- El bridge de Theme Switcher solo escucha en `127.0.0.1` y utiliza un bearer token privado de
-  256 bits.
-- `.codextheme` no permite JavaScript.
-- La importación y la compilación rechazan `@import`, URL `http:`, `https:`, protocol-relative y
-  `file:`.
-- Los recursos están integrados en la plantilla; la importación no extrae ningún ZIP, por lo que no
-  existe riesgo de path traversal / zip-slip.
-- Los fondos de Image Skin solo aceptan imágenes rasterizadas; al importar se validan el formato,
-  los datos base64 y el límite de tamaño de 16 MB de cada asset integrado.
-- El Runtime y los identificadores de estilo usan el espacio de nombres `codex-theme-switcher` y no
-  eliminan otras herramientas de inyección.
-- La barra de menús siempre ofrece «Restaurar el estilo de Codex», de modo que es posible recuperar
-  la interfaz incluso si un CSS personalizado la daña.
-- El Agent CLI prohíbe explícitamente ejecutar `attach`, `apply` o `clear` con un `--root` que no
-  sea el predeterminado; una raíz personalizada solo sirve para aislar el repositorio y el trabajo
-  sin conexión, y no puede utilizarse como entorno aislado del runtime real de Codex.
-- El endpoint de depuración CDP de Chromium también está vinculado explícitamente a `127.0.0.1`,
-  pero CDP no proporciona autenticación mediante bearer token; otros procesos locales del mismo
-  Mac aún podrían conectarse. Si deja de usar la función de temas, cierre Codex y vuelva a abrirlo
-  normalmente para que ya no se inicie con los argumentos de depuración remota.
+El CLI puede crear, validar, compilar, importar, exportar y generar vistas previas Claro / Oscuro × Inicio / Chat. Solo las órdenes explícitas `attach`, `apply` o `clear` cambian Codex.
 
-## Compilación
+Consulta [`docs/AGENT_API.md`](docs/AGENT_API.md) para ver la referencia de comandos.
 
-Requisitos:
+## Idiomas y actualizaciones
 
-- macOS 13+
-- Swift 6 toolchain
-- Codex desktop app (la app unificada actual también puede estar en
-  `/Applications/ChatGPT.app`)
-- Node.js 22+; el programa usa primero
-  `Contents/Resources/cua_node/bin/node` incluido en la app de Codex y después busca Node en
-  PATH / Homebrew
+- La app usa automáticamente el idioma de macOS; los idiomas no admitidos utilizan el inglés.
+- Elige un idioma manualmente en **Ajustes → Idioma de la interfaz**.
+- Elige el canal Stable o Beta en Ajustes.
+- Las actualizaciones usan Sparkle y ofrecen la versión correcta para Apple Silicon o Intel.
+
+## Seguridad y recuperación
+
+- Theme Switcher no modifica `app.asar` ni sustituye archivos de Codex / ChatGPT.
+- Los datos de los temas y el puente de conexión permanecen en el Mac local.
+- Los temas importados no pueden ejecutar JavaScript ni cargar URL remotas o de archivos locales.
+- Si el CSS personalizado hace que Codex sea ilegible, elige **Restaurar estilos originales de Codex** en la app de la barra de menús.
+- Cerrar Codex y volver a abrirlo normalmente elimina los estilos temporales inyectados.
+
+Este es un proyecto independiente, sin afiliación ni respaldo de OpenAI.
+
+## Compilar desde el código fuente
+
+Requisitos: macOS 13+, Swift 6, Node.js 22+ y la app de escritorio Codex / ChatGPT.
 
 ```sh
 swift build
 swift test
 npm test
-npm run check
-swift run CodexThemeSwitcher
-swift run codex-theme capabilities
-```
-
-Crear una `.app` de barra de menús que se pueda abrir con doble clic:
-
-```sh
 scripts/package-app.sh
 open dist/CodexThemeSwitcher.app
 ```
 
-El archivo `Info.plist` generado incluye `LSUIElement=true`, por lo que la app no aparece en el Dock
-ni en el selector de apps convencional. El Agent CLI se empaqueta en
-`CodexThemeSwitcher.app/Contents/Helpers/codex-theme`, mientras que el JSON Schema se encuentra en
-`Contents/Resources/Schemas/`. Consulte
-[`docs/AGENT_API.md`](docs/AGENT_API.md) para ver el protocolo completo y los ejemplos. Si no se
-proporciona ninguna identidad de firma, el script usa una firma ad hoc; para una distribución de
-producción, defina:
+Documentación para desarrolladores:
 
-```sh
-CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
-SPARKLE_PUBLIC_ED_KEY="<base64 Ed25519 public key>" \
-  scripts/package-app.sh
-```
-
-Un paquete de producción debe proporcionar la clave pública Sparkle EdDSA. El script la escribe en
-`SUPublicEDKey` y rechaza cualquier ajuste `SUAllowsInsecureUpdates`. Solo los paquetes locales de
-desarrollo firmados ad hoc incluyen una excepción limitada al entorno local para permitir
-actualizaciones no seguras y no deben utilizarse para versiones de producción.
-
-## Actualizaciones y publicaciones de la app
-
-- Canal Stable:
-  `appcast-arm64.xml`, `appcast-x86_64.xml`
-- Canal Beta:
-  `appcast-beta-arm64.xml`, `appcast-beta-x86_64.xml`
-- Los canales de actualización siempre se encuentran en la última versión Stable de GitHub; una
-  versión Beta solo sustituye allí los archivos `appcast-beta-*`, por lo que la URL fija no deja de
-  funcionar cuando GitHub excluye las versiones preliminares.
-- Cada enclosure de appcast debe incluir una `sparkle:edSignature`, y las apps de producción también
-  deben contener la `SUPublicEDKey` correspondiente.
-- Los siete archivos de notas de la versión se encuentran en
-  `docs/release-notes/v<version>/release-notes.<language>.md`.
-
-Consulte [`docs/UPDATES.md`](docs/UPDATES.md) para obtener todos los detalles sobre secretos, firma,
-notarización y el proceso de publicación.
-
-## Primera conexión
-
-Codex no abre ningún puerto CDP cuando se inicia normalmente. La primera vez que haga clic en
-«Iniciar y conectar Codex», si no hay disponible ningún Codex debug target que se pueda compartir,
-Theme Switcher primero pide a Codex que se cierre con normalidad y después lo reinicia con los
-siguientes argumentos:
-
-```text
---remote-debugging-address=127.0.0.1
---remote-debugging-port=57340
---remote-allow-origins=http://127.0.0.1:57340
-```
-
-Si `codex-desktop-switcher` ya ha creado un Codex target en alguno de los puertos 57330–57341, el
-programa lo comparte en lugar de reiniciar Codex.
-
-## Formato `.codextheme`
-
-`.codextheme` es un envoltorio JSON único y versionado:
-
-```json
-{
-  "format": "com.codex-theme-switcher.theme",
-  "archiveVersion": 1,
-  "exportedAt": "2026-07-25T00:00:00Z",
-  "theme": {
-    "schemaVersion": 1,
-    "id": "9d9028d5-f76a-4e99-a5e5-da3533fe646d",
-    "metadata": {
-      "name": "My Theme",
-      "author": "Author",
-      "description": "",
-      "version": "1.0.0",
-      "tags": ["dark", "glass"],
-      "createdAt": "2026-07-25T00:00:00Z",
-      "updatedAt": "2026-07-25T00:00:00Z"
-    },
-    "layers": [],
-    "assets": []
-  }
-}
-```
-
-Hay archivos listos para importar en
-[`Examples/minimal.codextheme`](Examples/minimal.codextheme) y
-[`Examples/full.codextheme`](Examples/full.codextheme). Los agentes pueden usar
-[`codextheme.schema.json`](Sources/CodexThemeAgentCLI/Resources/codextheme.schema.json) para
-generar y validar JSON; las fechas siempre se emiten en formato ISO-8601, mientras que la
-importación sigue siendo compatible con las fechas numéricas de versiones anteriores de
-Foundation. El JSON Schema también acepta ambas formas de fecha y permite comprobar rápidamente la
-estructura, las enumeraciones y los intervalos numéricos; el validador Core sigue siendo la
-autoridad final para el análisis de seguridad del CSS y los límites de tamaño totales.
-
-El orden de la theme cascade es fijo:
-
-1. semantic variables y aliases de los Codex stable tokens
-2. advanced/custom variables
-3. component overrides
-4. selector rules
-5. reglas de fondo, paleta y glass generadas por Image Skin
-6. raw CSS
-
-Los elementos 1–4 se compilan según el orden de los layers; después Image Skin sobrescribe los
-ajustes estructurados de la interfaz y el raw CSS se emite al final según el orden de los layers,
-lo que convierte Raw CSS en el verdadero escape hatch final. De forma predeterminada, los
-conflictos de ID durante la importación se resuelven clonando el tema con un UUID nuevo y el tema
-importado no se aplica automáticamente.
-
-Los recursos integrados se referencian en el CSS de esta forma:
-
-```css
-body {
-  background-image: theme-asset("ASSET-UUID");
-}
-```
-
-Durante la compilación, la referencia se reescribe de forma segura como un placeholder corto
-`codex-theme-asset://`. El runtime envía los recursos a cada proceso de renderizado en fragmentos de
-256 KiB y crea Blob URL dentro del proceso de renderizado antes de cambiar el estilo de forma
-atómica; los recursos idénticos reutilizan el mismo Blob y las URL que ya no se utilizan se revocan
-al cambiar o borrar temas.
-
-## Datos locales
-
-```text
-~/Library/Application Support/CodexThemeSwitcher/
-  Themes/                 # user theme JSON
-  active-theme.json       # repository active pointer
-  Runtime/
-    active-theme.json     # runtime CSS template、asset manifest 與資料
-    bridge-token          # mode 0600
-  Logs/runtime.log
-```
-
-## Arquitectura
-
-- `CodexThemeSwitcherCore`: esquema de tema, validador, compilador, repositorio y archivo.
-- `CodexThemeRuntime`: runner Swift asíncrono y runtime Node/CDP autenticado.
-- `CodexThemeSwitcher`: estudio AppKit/SwiftUI en la barra de menús.
-- `codex-theme`: CLI JSON estructurada y proceso de renderizado PNG sin ventanas para agentes de IA
-  y automatización.
-- `Tests/`: suites de pruebas Swift.
-- `test/`: suites de pruebas del runtime Node.
-
-Las selector rules son una capa experta y pueden requerir ajustes después de las actualizaciones de
-Codex. Los layers básicos y `--color-token-*` utilizan principalmente el contrato CSS actual de
-Codex y dependen menos de los nombres de clases de React.
+- [Agent CLI](docs/AGENT_API.md)
+- [Actualizaciones, firma, notarización y publicación](docs/UPDATES.md)

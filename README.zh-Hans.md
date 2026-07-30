@@ -2,14 +2,11 @@
 
 [English](README.md) | [繁體中文](README.zh-Hant.md) | **简体中文** | [Français](README.fr.md) | [Español](README.es.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-![Codex Theme Switcher 应用图片背景、玻璃效果与自定义组件后的真实 Codex 界面](docs/images/codex-theme-showcase.jpg)
+![Codex Theme Switcher 应用图片背景、玻璃效果与自定义组件后的 Codex 界面](docs/images/codex-theme-showcase.jpg)
 
-原生 macOS 菜单栏主题工作室。它不创建常规主窗口、不出现在 Dock，也不修改、
-重新签名或覆盖 `Codex.app` / `ChatGPT.app`。
+原生 macOS 菜单栏 App，可为 Codex／ChatGPT 桌面版设计、预览、应用和分享主题。
 
-Theme Switcher 通过 Chromium DevTools Protocol（CDP）连接 Codex renderer，将编译后
-的 CSS 写入一个 namespaced `<style>`。主题切换会实时同步到所有 Codex 窗口；
-Codex reload 或打开新窗口后，runtime 也会自动补上主题。
+Theme Switcher 会在启动 Codex 时临时注入样式，不会修改、替换或重新签名原始 App。
 
 ## 下载
 
@@ -19,307 +16,119 @@ Codex reload 或打开新窗口后，runtime 也会自动补上主题。
 ·
 [Intel DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-intel.dmg)
 ·
-[版本说明、校验和与全部文件](https://github.com/irons163/codex-theme-switcher/releases/tag/v0.3.0)
+[版本说明与校验和](https://github.com/irons163/codex-theme-switcher/releases/tag/v0.3.0)
 
-需要 macOS 13 或更高版本。两种安装文件均已签名并通过 Apple 公证，也内置 Sparkle，
-之后可接收 Stable 或 Beta 更新。
+需要 macOS 13 或更高版本。两种安装包均已签名并通过 Apple 公证。
+
+## 主要功能
+
+- 菜单栏主题库、编辑器、实时预览和连接状态。
+- 颜色、字体、间距、圆角、阴影、模糊、缩放和动画。
+- Light／Dark 背景图片、Fit／Fill、焦点、滤镜、遮罩和玻璃效果。
+- 实验性 ChatGPT Voice 背景、圆球样式、动态人物、嘴型、眨眼和待机动作。
+- 高级组件设置、selector 规则、自定义变量和 raw CSS。
+- 单个 `.codextheme` 文件导入／导出，并嵌入图片和字体。
+- 英文、繁体中文、简体中文、法文、西班牙文、日文和韩文。
+
+## 快速开始
+
+1. 安装并打开 Codex Theme Switcher，然后点击 macOS 菜单栏中的图标。
+2. 点击 **启动并连接 Codex**。第一次连接可能会重新启动 Codex。
+3. 选择内置主题、创建可编辑副本，或新建主题。
+4. 调整设计，并使用 Light／Dark 与 Home／Chat 预览检查效果。
+5. 保存主题，然后点击 **应用** 发送到 Codex。
+6. 使用 **导出** 分享 `.codextheme`；使用 **导入** 安装他人分享的主题。
+
+第一次连接不会自动应用当前选中的主题。之后重新连接会恢复上次成功应用的主题，不包括尚未应用的草稿更改。
 
 ## 截图
 
-### 菜单栏主题工作室
+### 主题工作室
 
-![Codex Theme Switcher 主题工作室，显示主题库、实时预览与完整编辑标签页](docs/images/theme-studio.png)
+![Codex Theme Switcher 主题工作室，显示主题库、实时预览与编辑分页](docs/images/theme-studio.png)
 
-### Agent renderer 预览
+### Renderer 预览
 
 | Paper · Light / Home | Midnight · Dark / Chat |
 | --- | --- |
 | ![Paper 浅色 Home 预览](docs/images/paper-light-home.png) | ![Midnight 深色 Chat 预览](docs/images/midnight-dark-chat.png) |
 
-Agent CLI 可在无窗口环境中生成 Light／Dark × Home／Chat PNG，供 AI agent 反复检查。
-这些是结构化的近似预览；selector rules、raw CSS 与真实 Codex renderer 的最终结果，
-仍应在应用后确认。
+Agent 生成的预览是接近真实画面的近似结果。分享主题前，请在实际 Codex App 中确认高级 CSS 和 selector 规则。
 
-## 功能
+## 自定义指南
 
-- 纯菜单栏 app；所有主题库、编辑、预览与 runtime 状态都在菜单栏面板中。
-- 三个内置模板：Midnight、Paper、High Contrast。
-- 一键应用、恢复 Codex 原始样式、重新连接 renderer。
-- 自动从已保存位置、正在运行的 App、Launch Services 与常用目录查找 Codex；
-  也可在设置中指定外置磁盘或其他文件夹内的 Codex App。
-- 可视化色彩系统：
-  - 基础 semantic colors。
-  - Codex `--color-token-*` 界面、interaction、diff 与 terminal tokens。
-- 字体、字号、行高、内容宽度、间距、圆角、阴影、模糊、缩放与动画。
-- 背景与玻璃（Image Skin）：明暗双背景、Fit / Fill 等七种尺寸模式、焦点裁切、
-  可选全窗口或避开左侧栏的壁纸画布、滤镜、overlay、分区 glass 与中央内容面板。
-- 实验性 ChatGPT Voice 样式：Light／Dark 可分别设置背景图片、Fit／Fill、焦点、缩放、
-  透明度与模糊，也可调整圆球、色彩滤镜、光晕、背景色及 Voice 专用高级 CSS；
-  只会发送到独立的 `avatar-overlay` renderer。
-- Voice 动态人物：使用闭嘴基准图加最多 8 张按顺序排列的嘴型图，也可直接导入 2×2／3×3
-  嘴型图，并支持随机眨眼、待机摇晃、跟随原生脉动，以及分别调整人物与原生圆球的不透明度。
-- 新主题会附带可直接使用的 Voice 动态人物预设；图像会嵌入主题，导出再导入后仍保留
-  完整动画，不依赖原来的本地路径。
-- 任意 component declarations。
-- 任意 CSS selector rules。
-- 完整 raw CSS escape hatch。
-- 多 layer 与 light / dark / custom media query。
-- PNG、JPEG、WebP、GIF 与字体等素材可嵌入模板；runtime 会分段传输并创建
-  renderer-local Blob URL，因此大型 4K 图片不会遇到 CSS declaration 长度限制。
-- 单文件 `.codextheme` 导入／导出，便于分享。
-- 默认根据 macOS 首选语言自动切换，也可在设置中手动选择英文、繁体中文、简体中文、
-  法文、西班牙文、日文或韩文；自动模式遇到其他语言时回退到英文。
-- Sparkle 2 自动更新：可选 Stable／Beta 频道，根据 Apple Silicon／Intel 获取对应
-  安装文件，并提供同样七种语言的版本说明。
-- 启动时检查更新，之后每 30 分钟检查一次；也可从设置或右上角菜单手动检查、
-  跳过特定版本，或改用手动下载。
-- 内置 JSON-first `codex-theme` agent CLI：AI agent 可获取 schema／示例、验证、
-  规范化、编译、安装、导出及生成 Light／Dark × Home／Chat PNG 预览；只有明确
-  调用 `attach`、`apply` 或 `clear` 才会更改 Codex。
+### 背景与玻璃
 
-## 背景与玻璃 / Image Skin
+- Light 和 Dark 可使用不同图片，也可共用图片并设置不同效果。
+- 支持 Fit、Fill、Stretch、Fit Width、Fit Height、Original 和 Tile，并可搭配焦点与缩放。
+- 图片透明度和滤镜可与侧栏、内容区、输入框、卡片、菜单及代码块的玻璃效果分开控制。
+- 壁纸可铺满整个窗口，或排除左侧栏。
+- 可加入独立的中央内容面板，调整底色、边框、阴影、模糊、圆角、宽度和内边距。
 
-Image Skin 可将 Codex 变成完整的图片主题，而不只是替换色板：
+### ChatGPT Voice（实验性）
 
-- Light / Dark 可分别选择背景图，也可共用同一张图片并应用不同效果。
-- 背景支持 Fit（完整显示）、Fill（等比例填满裁切）、Stretch、Fit Width、
-  Fit Height、Original 与 Tile；每种模式都可配合焦点／起点、缩放、不透明度，
-  以及亮度、对比度、饱和度与模糊滤镜。
-- “壁纸避开左侧栏”会将图片、Fit / Fill、焦点、overlay、scrim 与 vignette
-  整组改为按主内容区重新布局；侧栏保留自己的背景底色与 glass。拖动改变侧栏宽度或
-  收起侧栏时，壁纸边界会跟随实际 Codex layout 自动调整。
-- Overlay 可使用纯色 scrim、线性渐变或 vignette，使侧栏、标题与输入区在复杂
-  图片上仍保持清晰。
-- Sidebar、main content、composer、card、menu、popover 与 code block 可分区设置
-  glass fill、透明度、backdrop blur、边框、圆角与阴影；调整 panel 透明度不会连带
-  淡化文字。
-- “中央内容面板”独立包住 Home Hero 或 Chat 对话记录，不包含建议 Cards 与
-  Composer。Light / Dark 可分别设置底色、边框、阴影色与透明度；材质可调整 blur、
-  saturation、边框宽度、圆角、阴影位移／扩散、最大宽度及水平／垂直内边距。
-- 预览可切换 Light / Dark 与 Home / Chat，便于同时检查背景裁切、文字对比度和
-  组件表面。
-- Image Skin 使用的背景会嵌入 `.codextheme`，导出后不依赖原始文件路径，
-  收到模板的人可直接导入使用。
+- 设置 Voice 背景，以及动画圆球内部的独立图片。
+- 添加闭嘴人物和最多八张嘴型图，或直接导入 2×2／3×3 嘴型图。
+- 调整灵敏度、静音阈值、张嘴／闭嘴速度、眨眼、待机动作、脉动和原生圆球显示程度。
+- 嘴型会跟随音量强度，并非音素级口型同步。
 
-视觉控制会生成可移植的 theme variables 与 component overrides。需要更精细的 selector、
-多重渐变、blend mode 或动画时，仍可在 Raw CSS 中最后覆盖；Raw CSS 保持 theme
-cascade 中的最高自由度。
+Voice 样式依赖 ChatGPT 内部 renderer，Codex／ChatGPT 更新后可能需要相应调整。
 
-Image Skin 图片字段只接受 raster asset（PNG、JPEG、WebP、GIF、AVIF），每个 asset 上限
-16 MB。所有素材合计上限 32 MB，单个 `.codextheme` 上限 48 MB。字体仍可从高级
-素材功能中嵌入，但不能指定为 Image Skin 背景。
+## 导入与导出
 
-## ChatGPT Voice 样式
+- 导出会创建一个包含主题设置和嵌入素材的 `.codextheme`。
+- 导入主题后不会自动应用；请先检查，再点击 **应用**。
+- Image Skin 支持 PNG、JPEG、WebP、GIF 和 AVIF。
+- 限制：每个素材 16 MB、全部素材合计 32 MB、每个 `.codextheme` 48 MB。
 
-Voice 标签页使用独立样式表控制 ChatGPT Voice 中可由 CSS 定位的表面。主窗口的壁纸与
-组件规则不会发送到 `avatar-overlay`；未启用 Voice 样式时也不会连接该 renderer。
-关闭已应用的 Voice 样式会清除样式并断开对应 session。
+示例：[`minimal.codextheme`](Examples/minimal.codextheme) 和 [`full.codextheme`](Examples/full.codextheme)。
 
-背景图片会嵌入 `.codextheme`，并支持 Image Skin 相同的七种尺寸模式。内置控制还包括
-独立的“圆球内部图像”，可设置尺寸模式、焦点、不透明度、模糊与内缩；图像也可跟随
-原生 Voice 精灵图同步脉动，强度可在 0–2 倍间调整。圆球缩放、不透明度、亮度、
-对比度、饱和度、色相旋转、模糊、光晕与背景色也可分别调整。说话人物最多可加入 9 张
-按嘴巴开合排序的图像；runtime 会读取 Voice 输出强度，应用灵敏度、静音阈值、响应曲线、
-快速张嘴与平滑闭嘴，并直接切换到最接近的嘴型。这是音量驱动动画，
-并非音素级口型同步。也可直接导入单张 2×2 或 3×3 图，程序会从左到右、从上到下自动切割；
-[2×2](Examples/voice-mouth-sprites/anime-girl-mouth-2x2.png) 与
-[3×3 动画女角色示例](Examples/voice-mouth-sprites/anime-girl-mouth-3x3.png)。
-静音时可启用轻微的待机摇晃，开始说话后会平滑停止。还可嵌入一张构图一致的闭眼图片，
-按可调的平均间隔与持续时间随机眨眼；说话期间两种待机效果都会暂停。
-音量驱动动画开始前，runtime 会先加载并解码全部嘴型与闭眼图像，期间固定显示闭嘴
-基准图。所有图像准备完成后才开始切换；若有图像无法解码，也会保持闭嘴图，避免开始
-说话的第一秒出现空白、上一帧或闪烁。
-目前 WebGL renderer 与旧版 `.codex-avatar-root`
-实现均受支持；如果未来改成纯原生圆球，其内部可能无法控制。预览依照实测的 `408:400` overlay 比例显示，但用户拖动圆球后，
-runtime 位置仍可能不同。
+## 使用 AI Agent 设计
 
-## 使用流程
+安装 App 后，将以下提示发送给 AI agent：
 
-1. 打开 app，从 macOS 菜单栏的调色板图标进入主题工作室。
-2. 点击“启动并连接 Codex”；第一次连接可能会重新启动 Codex。
-   首次连接不会自动应用预选模板；之后重新连接则会恢复 runtime 保存的最近一次
-   成功应用快照。之后仅保存到 repository 或仍留在草稿中的更改不会包含在内。
-3. 直接应用内置模板，或先“制作可编辑副本”；也可从左下角新建空白主题。
-4. 在背景与玻璃、Voice、色彩、字体与布局、组件、规则、高级 CSS、素材及信息标签页中编辑。
-   橙色圆点表示该主题仍有未保存更改；切换到其他主题后再返回也不会丢失草稿。
-5. 保存后点击应用；需要分享时点击导出，会得到包含所有嵌入素材的单个
-   `.codextheme`。收到模板的人可从同一位置导入。
-6. “设置”标签页可开关自动更新、选择 Stable／Beta、检查新版本，以及重新显示
-   当前版本的“新功能”。
+```text
+请使用以下 Agent CLI 帮我设计 Codex theme：
+/Applications/CodexThemeSwitcher.app/Contents/Helpers/codex-theme
 
-## 安全模型
+先运行 capabilities 和 schema，完成 validate、compile 以及四张预览。
+未经我确认不要应用。
+```
 
-- 不 patch `app.asar`，保留 OpenAI app 的签名、notarization 与 ASAR integrity。
-- Theme Switcher bridge 仅监听 `127.0.0.1`，并使用私有的 256-bit bearer token。
-- `.codextheme` 不允许 JavaScript。
-- 导入与编译会拒绝 `@import`、`http:`、`https:`、protocol-relative 与 `file:` URL。
-- 素材嵌入在模板中；导入时不会解压 ZIP，因此不存在 path traversal / zip-slip。
-- Image Skin 背景只接受 raster image；每个嵌入 asset 都会在导入时验证格式、base64
-  数据与 16 MB 容量上限。
-- Runtime 与 style ID 都使用 `codex-theme-switcher` namespace，不会清除其他注入工具。
-- 菜单栏始终提供“恢复 Codex 原始样式”，即使自定义 CSS 损坏界面仍可恢复。
-- Agent CLI 明确禁止使用非默认 `--root` 执行 `attach`、`apply` 或 `clear`；custom
-  root 仅用于隔离 repository 与离线工作，不能作为真实 Codex runtime 的 sandbox。
-- Chromium 的 CDP debug endpoint 也明确绑定在 `127.0.0.1`，但 CDP 本身不提供
-  bearer-token 验证；同一台 Mac 上的其他本地进程仍可能连接。如果不再使用主题功能，
-  请退出 Codex 并以常规方式重新打开，使其不再带有 remote-debugging 参数。
+CLI 可创建、验证、编译、导入、导出，并生成 Light／Dark × Home／Chat 预览。只有明确执行 `attach`、`apply` 或 `clear` 才会更改 Codex。
 
-## 构建
+完整命令请参阅 [`docs/AGENT_API.md`](docs/AGENT_API.md)。
 
-要求：
+## 语言与更新
 
-- macOS 13+
-- Swift 6 toolchain
-- Codex desktop app（当前 unified app 也可能位于 `/Applications/ChatGPT.app`）
-- Node.js 22+；程序会优先使用 Codex app 内置的
-  `Contents/Resources/cua_node/bin/node`，再查找 PATH / Homebrew Node
+- App 默认跟随 macOS 语言；不支持的语言会回退到英文。
+- 可在 **设置 → 界面语言** 手动选择语言。
+- 可在设置中选择 Stable 或 Beta 更新频道。
+- 更新使用 Sparkle，会自动提供 Apple Silicon 或 Intel 对应版本。
+
+## 安全与恢复
+
+- Theme Switcher 不会修改 `app.asar`，也不会替换 Codex／ChatGPT 文件。
+- 主题数据和连接 bridge 都保留在本机 Mac。
+- 导入的主题不能运行 JavaScript，也不能加载远程或本地文件 URL。
+- 如果自定义 CSS 导致 Codex 无法阅读，请从菜单栏 App 选择 **恢复 Codex 原始样式**。
+- 退出 Codex 并以正常方式重新打开，即可移除临时注入的样式。
+
+这是一个独立项目，与 OpenAI 没有合作或背书关系。
+
+## 从源代码构建
+
+要求：macOS 13+、Swift 6、Node.js 22+，以及 Codex／ChatGPT 桌面版。
 
 ```sh
 swift build
 swift test
 npm test
-npm run check
-swift run CodexThemeSwitcher
-swift run codex-theme capabilities
-```
-
-创建可双击的菜单栏 `.app`：
-
-```sh
 scripts/package-app.sh
 open dist/CodexThemeSwitcher.app
 ```
 
-输出的 `Info.plist` 包含 `LSUIElement=true`，因此 app 不会出现在 Dock 或常规 app
-switcher 中。Agent CLI 会打包在
-`CodexThemeSwitcher.app/Contents/Helpers/codex-theme`，JSON Schema 则位于
-`Contents/Resources/Schemas/`。完整协议与示例见
-[`docs/AGENT_API.md`](docs/AGENT_API.md)。未提供 signing identity 时，script
-会使用 ad-hoc signing；正式分发可设置：
+开发文档：
 
-```sh
-CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
-SPARKLE_PUBLIC_ED_KEY="<base64 Ed25519 public key>" \
-  scripts/package-app.sh
-```
-
-正式打包必须提供 Sparkle EdDSA 公钥，script 会将其写入 `SUPublicEDKey`，并拒绝
-任何 `SUAllowsInsecureUpdates` 设置。只有本地 ad-hoc 开发包会加入 local-only 的
-insecure allowance，不能用于正式发布。
-
-## App 更新与发布
-
-- Stable feed：
-  `appcast-arm64.xml`、`appcast-x86_64.xml`
-- Beta feed：
-  `appcast-beta-arm64.xml`、`appcast-beta-x86_64.xml`
-- 更新 feed 固定放在 GitHub 最新 Stable Release；Beta release 只覆盖其中的
-  `appcast-beta-*`，因此固定 URL 不会因 GitHub 忽略 prerelease 而失效。
-- 每个 appcast enclosure 都必须带有 `sparkle:edSignature`，正式 App 也必须内置
-  对应的 `SUPublicEDKey`。
-- 七份版本说明放在
-  `docs/release-notes/v<version>/release-notes.<language>.md`。
-
-完整 secrets、签名、notarization 与 release 操作请参阅
-[`docs/UPDATES.md`](docs/UPDATES.md)。
-
-## 第一次连接
-
-常规启动的 Codex 不会开放 CDP port。第一次点击“启动并连接 Codex”时，如果没有可
-共用的 Codex debug target，Theme Switcher 会先正常请求 Codex 退出，再使用以下参数
-重新启动：
-
-```text
---remote-debugging-address=127.0.0.1
---remote-debugging-port=57340
---remote-allow-origins=http://127.0.0.1:57340
-```
-
-如果 `codex-desktop-switcher` 已在 57330–57341 之间创建 Codex target，本程序会优先
-共用它，而不重新启动 Codex。
-
-## `.codextheme` 格式
-
-`.codextheme` 是 versioned、单一 JSON envelope：
-
-```json
-{
-  "format": "com.codex-theme-switcher.theme",
-  "archiveVersion": 1,
-  "exportedAt": "2026-07-25T00:00:00Z",
-  "theme": {
-    "schemaVersion": 1,
-    "id": "9d9028d5-f76a-4e99-a5e5-da3533fe646d",
-    "metadata": {
-      "name": "My Theme",
-      "author": "Author",
-      "description": "",
-      "version": "1.0.0",
-      "tags": ["dark", "glass"],
-      "createdAt": "2026-07-25T00:00:00Z",
-      "updatedAt": "2026-07-25T00:00:00Z"
-    },
-    "layers": [],
-    "assets": []
-  }
-}
-```
-
-可直接导入的文件见
-[`Examples/minimal.codextheme`](Examples/minimal.codextheme) 与
-[`Examples/full.codextheme`](Examples/full.codextheme)。Agent 可使用
-[`codextheme.schema.json`](Sources/CodexThemeAgentCLI/Resources/codextheme.schema.json)
-生成与检查
-JSON；日期统一输出 ISO-8601，导入时仍兼容旧版 Foundation 的 numeric dates。JSON
-Schema 同样接受两种日期输入，并提供结构、enum 与数值范围的快速检查；Core
-validator 仍是 CSS 安全扫描与总容量限制的最终依据。
-
-Theme cascade 顺序固定为：
-
-1. semantic variables 与 Codex stable-token aliases
-2. advanced/custom variables
-3. component overrides
-4. selector rules
-5. Image Skin 生成的背景、色板与 glass 规则
-6. raw CSS
-
-第 1–4 项会按 layer 顺序编译；Image Skin 随后覆盖结构化界面设置，最后再按 layer
-顺序输出 raw CSS，因此 Raw CSS 是真正的最终 escape hatch。导入时 ID 冲突默认会
-clone 为新 UUID，并且不会自动应用。
-
-嵌入素材在 CSS 中使用：
-
-```css
-body {
-  background-image: theme-asset("ASSET-UUID");
-}
-```
-
-编译时会安全改写为较短的 `codex-theme-asset://` placeholder。Runtime 以 256 KiB
-区块将素材发送到每个 renderer，在 renderer 内创建 Blob URL 后才原子切换 style；
-相同素材会复用 Blob，切换或清除主题时也会撤销不再使用的 URL。
-
-## 本地数据
-
-```text
-~/Library/Application Support/CodexThemeSwitcher/
-  Themes/                 # user theme JSON
-  active-theme.json       # repository active pointer
-  Runtime/
-    active-theme.json     # runtime CSS template、asset manifest 與資料
-    bridge-token          # mode 0600
-  Logs/runtime.log
-```
-
-## 架构
-
-- `CodexThemeSwitcherCore`: theme schema、validator、compiler、repository、archive。
-- `CodexThemeRuntime`: async Swift runner 与 authenticated Node/CDP runtime。
-- `CodexThemeSwitcher`: AppKit/SwiftUI 菜单栏工作室。
-- `codex-theme`: 面向 AI agent 与自动化的结构化 JSON CLI 和无窗口 PNG renderer。
-- `Tests/`：Swift test suites。
-- `test/`：Node runtime test suites。
-
-Selector rules 属于 expert layer，Codex 更新后可能需要调整；基础与
-`--color-token-*` layers 优先使用当前 Codex 自己的 CSS contract，较少依赖 React
-class names。
+- [Agent CLI](docs/AGENT_API.md)
+- [更新、签名、公证和发布](docs/UPDATES.md)

@@ -28,6 +28,46 @@ const readmeByLanguage = {
   ko: "README.ko.md",
 };
 
+function markdownStructure(contents) {
+  const headingLevels = contents
+    .split("\n")
+    .filter((line) => /^#{1,6}\s/.test(line))
+    .map((line) => line.match(/^#+/)[0].length);
+  const imageTargets = [
+    ...contents.matchAll(/!\[[^\]]*\]\(([^)\s]+)[^)]*\)/g),
+  ].map((match) => match[1]);
+  const linkTargets = [
+    ...contents.matchAll(/(?<!!)\[[^\]]+\]\(([^)\s]+)[^)]*\)/g),
+  ]
+    .map((match) => match[1])
+    .filter((target) => !/^README(?:\.[^)]+)?\.md$/.test(target));
+  const codeFenceLanguages = [
+    ...contents.matchAll(/^```([^\s`]*)/gm),
+  ].map((match) => match[1]);
+  const bulletCount = contents
+    .split("\n")
+    .filter((line) => /^-\s/.test(line))
+    .length;
+  const orderedStepCount = contents
+    .split("\n")
+    .filter((line) => /^\d+\.\s/.test(line))
+    .length;
+
+  return {
+    headingLevels,
+    imageTargets,
+    linkTargets,
+    codeFenceLanguages,
+    bulletCount,
+    orderedStepCount,
+  };
+}
+
+function sameSequence(left, right) {
+  return left.length === right.length
+    && left.every((value, index) => value === right[index]);
+}
+
 function fail(message) {
   console.error(`check-localization: ${message}`);
   process.exitCode = 1;
@@ -313,6 +353,7 @@ for (const key of cjkCatalog.keys()) {
   }
 }
 
+const readmeStructures = new Map();
 for (const language of supportedLanguages) {
   const readme = path.join(root, readmeByLanguage[language]);
   if (!fs.existsSync(readme) || fs.statSync(readme).size === 0) {
@@ -320,12 +361,39 @@ for (const language of supportedLanguages) {
     continue;
   }
   const contents = fs.readFileSync(readme, "utf8");
+  readmeStructures.set(language, markdownStructure(contents));
   for (const otherLanguage of supportedLanguages) {
     if (otherLanguage === language) continue;
     const otherReadme = readmeByLanguage[otherLanguage];
     if (!contents.includes(otherReadme)) {
       fail(
         `${readmeByLanguage[language]} does not link to ${otherReadme}`,
+      );
+    }
+  }
+}
+
+const englishReadmeStructure = readmeStructures.get("en");
+for (const language of supportedLanguages.filter((value) => value !== "en")) {
+  const structure = readmeStructures.get(language);
+  for (const field of [
+    "headingLevels",
+    "imageTargets",
+    "linkTargets",
+    "codeFenceLanguages",
+  ]) {
+    if (!sameSequence(englishReadmeStructure[field], structure[field])) {
+      fail(
+        `${readmeByLanguage[language]} does not match README.md `
+        + `${field}`,
+      );
+    }
+  }
+  for (const field of ["bulletCount", "orderedStepCount"]) {
+    if (englishReadmeStructure[field] !== structure[field]) {
+      fail(
+        `${readmeByLanguage[language]} does not match README.md `
+        + `${field}`,
       );
     }
   }
