@@ -1097,10 +1097,10 @@ enum L10nCatalogCJK {
         ),
         .init("Voice", "Voice", "Voice", "Voice"),
         .init(
-            "Customize CSS-addressable ChatGPT Voice orb surfaces and surrounding effects. Voice uses an isolated renderer and never receives the main window wallpaper or component rules.",
-            "自定义 ChatGPT Voice 圆球中可由 CSS 控制的表面与周边效果。Voice 使用独立 renderer，不会接收主窗口的壁纸或组件规则。",
-            "CSSで操作できるChatGPT Voiceオーブの表面と周辺効果をカスタマイズします。Voiceは独立したrendererを使用し、メインウインドウの壁紙やコンポーネントルールは適用されません。",
-            "CSS로 제어할 수 있는 ChatGPT Voice 오브 표면과 주변 효과를 사용자 지정합니다. Voice는 독립 renderer를 사용하며 기본 창의 배경화면이나 구성 요소 규칙을 받지 않습니다."
+            "Customize the ChatGPT Voice orb and surrounding effects. The custom orb appears both in the main window and the isolated Voice overlay; full-page backgrounds remain isolated.",
+            "自定义 ChatGPT Voice 圆球与周边效果。自定义圆球会同时显示在主窗口和独立 Voice 浮层中；全页背景仍只用于独立浮层。",
+            "ChatGPT Voiceのオーブと周辺効果をカスタマイズします。カスタムオーブはメインウインドウと独立したVoiceオーバーレイの両方に表示され、全画面背景はオーバーレイ内だけに適用されます。",
+            "ChatGPT Voice 오브와 주변 효과를 사용자 지정합니다. 사용자 지정 오브는 기본 창과 독립 Voice 오버레이 모두에 표시되며, 전체 화면 배경은 오버레이에만 적용됩니다."
         ),
         .init(
             "Enable Voice styling",

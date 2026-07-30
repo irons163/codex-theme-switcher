@@ -7,10 +7,36 @@ enum ThemeVoiceStyleCompiler {
     static func compile(_ style: ThemeVoiceStyle) -> String {
         guard style.isEnabled else { return "" }
 
+        var output = ["/* Codex Theme Voice Overlay */"]
+        output.append(contentsOf: sharedRules(style))
+        output.append(overlayFoundationRules)
+        output.append(orbFoundationRules)
+        let advanced = style.rawCSS.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        if !advanced.isEmpty {
+            output.append("/* Voice Overlay Advanced CSS */\n\(advanced)")
+        }
+        return output.joined(separator: "\n\n") + "\n"
+    }
+
+    static func compileEmbeddedOrb(_ style: ThemeVoiceStyle) -> String {
+        guard style.isEnabled else { return "" }
+
+        var output = ["/* Codex Theme Voice Embedded Orb */"]
+        output.append(contentsOf: sharedRules(style, embeddedOrbOnly: true))
+        output.append(orbFoundationRules)
+        return output.joined(separator: "\n\n") + "\n"
+    }
+
+    private static func sharedRules(
+        _ style: ThemeVoiceStyle,
+        embeddedOrbOnly: Bool = false
+    ) -> [String] {
         let assetIDs = Set(
             [
-                style.light.backgroundAssetID,
-                style.dark.backgroundAssetID,
+                embeddedOrbOnly ? nil : style.light.backgroundAssetID,
+                embeddedOrbOnly ? nil : style.dark.backgroundAssetID,
                 style.light.orbBackgroundAssetID,
                 style.dark.orbBackgroundAssetID,
                 style.light.orbBlinkAssetID,
@@ -20,43 +46,48 @@ enum ThemeVoiceStyleCompiler {
                 + style.dark.orbMouthFrameAssetIDs
         ).sorted { $0.uuidString < $1.uuidString }
 
-        var output = ["/* Codex Theme Voice Overlay */"]
+        var output: [String] = []
         if !assetIDs.isEmpty {
-            output.append(":root {")
-            for id in assetIDs {
-                output.append(
-                    "  \(assetVariable(id)): theme-asset(\"\(id.uuidString)\");"
+            output.append(
+                """
+                :root {
+                \(assetIDs.map {
+                    "  \(assetVariable($0)): theme-asset(\"\($0.uuidString)\");"
+                }.joined(separator: "\n"))
+                }
+                """
+            )
+        }
+        let rule: (String, ThemeVoiceVariant) -> String = {
+            selector,
+            variant in
+            embeddedOrbOnly
+                ? embeddedOrbAppearanceRule(
+                    selector: selector,
+                    variant: variant
                 )
-            }
-            output.append("}")
+                : appearanceRule(selector: selector, variant: variant)
         }
         output.append(contentsOf: [
-            appearanceRule(selector: ":root", variant: style.light),
+            rule(":root", style.light),
             """
             @media (prefers-color-scheme: dark) {
-            \(indent(appearanceRule(
-                selector: ":root:where(:not(.electron-light):not(.electron-dark))",
-                variant: style.dark
+            \(indent(rule(
+                ":root:where(:not(.electron-light):not(.electron-dark))",
+                style.dark
             )))
             }
             """,
-            appearanceRule(
-                selector: ":root:where(.electron-dark:not(.electron-light))",
-                variant: style.dark
+            rule(
+                ":root:where(.electron-dark:not(.electron-light))",
+                style.dark
             ),
-            appearanceRule(
-                selector: ":root:where(.electron-light)",
-                variant: style.light
-            ),
-            foundationRules
+            rule(
+                ":root:where(.electron-light)",
+                style.light
+            )
         ])
-        let advanced = style.rawCSS.trimmingCharacters(
-            in: .whitespacesAndNewlines
-        )
-        if !advanced.isEmpty {
-            output.append("/* Voice Overlay Advanced CSS */\n\(advanced)")
-        }
-        return output.joined(separator: "\n\n") + "\n"
+        return output
     }
 
     private static func appearanceRule(
@@ -153,7 +184,72 @@ enum ThemeVoiceStyleCompiler {
         """
     }
 
-    private static var foundationRules: String {
+    private static func embeddedOrbAppearanceRule(
+        selector: String,
+        variant: ThemeVoiceVariant
+    ) -> String {
+        let orbSizing = imageSizing(for: variant.orbBackgroundImageFit)
+        let orbImage = variant.orbBackgroundAssetID
+            .map { "var(\(assetVariable($0)))" }
+            ?? "none"
+        let blinkImage = variant.orbBlinkAssetID
+            .map { "var(\(assetVariable($0)))" }
+            ?? "none"
+        let mouthFrameIDs =
+            (variant.orbBackgroundAssetID.map { [$0] } ?? [])
+            + variant.orbMouthFrameAssetIDs
+        let mouthFrameVariables = (0..<9).map { index -> String in
+            let value = mouthFrameIDs.indices.contains(index)
+                ? "var(\(assetVariable(mouthFrameIDs[index])))"
+                : "none"
+            return "  --cts-voice-orb-mouth-frame-\(index): \(value);"
+        }.joined(separator: "\n")
+
+        return """
+        \(selector) {
+          --cts-voice-orb-background-image: \(orbImage);
+          --cts-voice-orb-background-size: \(orbSizing.size);
+          --cts-voice-orb-background-repeat: \(orbSizing.repeatMode);
+          --cts-voice-orb-background-position: \(percent(variant.orbBackgroundPositionX)) \(percent(variant.orbBackgroundPositionY));
+          --cts-voice-orb-background-opacity: \(number(variant.orbBackgroundImageOpacity));
+          --cts-voice-orb-background-blur: \(number(variant.orbBackgroundImageBlur))px;
+          --cts-voice-orb-background-inset: \(number(variant.orbBackgroundInset))px;
+          --cts-voice-orb-image-enabled: \(variant.orbBackgroundAssetID != nil ? "1" : "0");
+          --cts-voice-orb-pulse-enabled: \(variant.orbBackgroundAssetID != nil && variant.orbBackgroundFollowsVoicePulse ? "1" : "0");
+          --cts-voice-orb-pulse-strength: \(number(variant.orbBackgroundPulseStrength));
+          --cts-voice-orb-mouth-frame-count: \(mouthFrameIDs.count);
+          --cts-voice-orb-mouth-sensitivity: \(number(variant.orbMouthSensitivity));
+          --cts-voice-orb-mouth-attack-ms: \(number(variant.orbMouthAttackMilliseconds));
+          --cts-voice-orb-mouth-release-ms: \(number(variant.orbMouthReleaseMilliseconds));
+          --cts-voice-orb-mouth-noise-gate: \(number(variant.orbMouthNoiseGate));
+          --cts-voice-orb-mouth-response-curve: \(number(variant.orbMouthResponseCurve));
+          --cts-voice-orb-mouth-smoothing: \(number(variant.orbMouthSmoothing));
+          --cts-voice-orb-mouth-hold-ms: \(number(variant.orbMouthFrameHoldMilliseconds));
+          --cts-voice-orb-idle-enabled: \(variant.orbIdleMotionEnabled ? "1" : "0");
+          --cts-voice-orb-idle-strength: \(number(variant.orbIdleMotionStrength));
+          --cts-voice-orb-idle-period-ms: \(number(variant.orbIdleMotionPeriodSeconds * 1_000));
+          --cts-voice-orb-blink-enabled: \(variant.orbBlinkAssetID != nil ? "1" : "0");
+          --cts-voice-orb-blink-image: \(blinkImage);
+          --cts-voice-orb-blink-interval-ms: \(number(variant.orbBlinkIntervalSeconds * 1_000));
+          --cts-voice-orb-blink-duration-ms: \(number(variant.orbBlinkDurationMilliseconds));
+        \(mouthFrameVariables)
+          --cts-voice-scale: \(number(variant.orbScale));
+          --cts-voice-opacity: \(number(variant.orbOpacity));
+          --cts-voice-brightness: \(number(variant.brightness));
+          --cts-voice-contrast: \(number(variant.contrast));
+          --cts-voice-saturation: \(number(variant.saturation));
+          --cts-voice-hue: \(number(variant.hueRotation))deg;
+          --cts-voice-blur: \(number(variant.blur))px;
+          --cts-voice-glow-color: \(alphaColor(
+              variant.glowColor,
+              variant.glowOpacity
+          ));
+          --cts-voice-glow-blur: \(number(variant.glowBlur))px;
+        }
+        """
+    }
+
+    private static var overlayFoundationRules: String {
         """
         \(root),
         \(root) body {
@@ -189,6 +285,22 @@ enum ThemeVoiceStyleCompiler {
           z-index: 1;
         }
 
+        \(root) [data-avatar-overlay-hit-region="mascot"] {
+          bottom: auto !important;
+          left: 50vw !important;
+          margin: 0 !important;
+          right: auto !important;
+          top: 50vh !important;
+          translate:
+            var(--cts-voice-orb-layout-shift-x, 0px)
+            var(--cts-voice-orb-layout-shift-y, 0px) !important;
+          will-change: left, top, translate;
+        }
+        """
+    }
+
+    private static var orbFoundationRules: String {
+        """
         \(root) :is(
           .codex-avatar-root,
           [data-voice-orb],
@@ -209,19 +321,13 @@ enum ThemeVoiceStyleCompiler {
           will-change: filter;
         }
 
-        \(root) [data-avatar-overlay-hit-region="mascot"] {
-          bottom: auto !important;
-          left: 50vw !important;
-          margin: 0 !important;
-          right: auto !important;
-          top: 50vh !important;
-          translate:
-            var(--cts-voice-orb-layout-shift-x, 0px)
-            var(--cts-voice-orb-layout-shift-y, 0px) !important;
-          will-change: left, top, translate;
-        }
-
-        \(root) canvas {
+        \(root) :is(
+          .codex-avatar-root,
+          [data-voice-orb],
+          [data-codex-voice-orb],
+          [class*="voice-orb" i],
+          [class*="voiceorb" i]
+        ) canvas {
           opacity: var(--cts-voice-opacity) !important;
           scale: var(--cts-voice-scale) !important;
           transform-origin: center !important;

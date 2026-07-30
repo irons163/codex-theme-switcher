@@ -4,7 +4,7 @@
   const GLOBAL_KEY = "__codexThemeSwitcherRuntime";
   const STYLE_ID = "codex-theme-switcher-style";
   const STAGING_STYLE_ID = `${STYLE_ID}-staging`;
-  const VERSION = 23;
+  const VERSION = 24;
   const PUBLISHED_AUDIO_SMOOTHING = 0.86;
   const VOICE_ORB_SELECTOR = ".codex-avatar-root";
   const VOICE_PULSE_ENABLED = "--cts-voice-orb-pulse-enabled";
@@ -339,7 +339,76 @@
     });
   }
 
+  function clearVoiceImageWarmup(pulse) {
+    pulse.voiceImageWarmup?.remove?.();
+    pulse.voiceImageWarmup = null;
+  }
+
+  function warmVoiceImageSources(sources, generation, key) {
+    const pulse = runtime.voicePulse;
+    clearVoiceImageWarmup(pulse);
+    const host = document.body || document.documentElement;
+    if (
+      sources.length === 0
+      || typeof document.createElement !== "function"
+      || typeof host?.appendChild !== "function"
+      || typeof requestAnimationFrame !== "function"
+    ) {
+      return Promise.resolve(true);
+    }
+
+    let container;
+    try {
+      container = document.createElement("div");
+      container.dataset.codexThemeVoiceImageWarmup = "true";
+      Object.assign(container.style, {
+        position: "fixed",
+        inset: "0 auto auto 0",
+        width: "1px",
+        height: "1px",
+        overflow: "hidden",
+        opacity: "0.001",
+        pointerEvents: "none",
+        zIndex: "2147483647",
+      });
+      for (const source of sources) {
+        const frame = document.createElement("span");
+        Object.assign(frame.style, {
+          position: "absolute",
+          inset: "0",
+          width: "1px",
+          height: "1px",
+          backgroundImage: source,
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+          backgroundSize: "cover",
+          transform: "translateZ(0)",
+        });
+        container.appendChild(frame);
+      }
+      host.appendChild(container);
+      container.getBoundingClientRect?.();
+      pulse.voiceImageWarmup = container;
+    } catch {
+      container?.remove?.();
+      return Promise.resolve(true);
+    }
+
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          resolve(
+            generation === runtime.voicePulse.generation
+              && key === runtime.voicePulse.mouthSourcesKey
+              && container.parentNode != null,
+          );
+        });
+      });
+    });
+  }
+
   function resetVoiceImagePreparation(pulse) {
+    clearVoiceImageWarmup(pulse);
     pulse.mouthSourcesKey = "";
     pulse.mouthSources = [];
     pulse.mouthSourcesReady = false;
@@ -380,13 +449,27 @@
         return;
       }
       const current = runtime.voicePulse;
-      current.mouthImagesPreparing = false;
       current.preloadedVoiceImages = results
         .map(({ image }) => image)
         .filter(Boolean);
       current.mouthImagesFailed = results.some(({ ready }) => !ready);
-      current.mouthSourcesReady = !current.mouthImagesFailed;
       pinVoiceMouthClosed(current.root);
+      if (current.mouthImagesFailed) {
+        current.mouthImagesPreparing = false;
+        return;
+      }
+      warmVoiceImageSources(imageSources, generation, key).then((painted) => {
+        if (
+          generation !== runtime.voicePulse.generation
+          || key !== runtime.voicePulse.mouthSourcesKey
+        ) {
+          return;
+        }
+        const prepared = runtime.voicePulse;
+        prepared.mouthImagesPreparing = false;
+        prepared.mouthSourcesReady = painted;
+        pinVoiceMouthClosed(prepared.root);
+      });
     });
   }
 
@@ -1945,6 +2028,7 @@
       mouthImagesPreparing: false,
       mouthImagesFailed: false,
       preloadedVoiceImages: [],
+      voiceImageWarmup: null,
       publishedAudioRenderer: null,
       publishedAudioSearchCountdown: 0,
       publishedAudioSnapshot: null,

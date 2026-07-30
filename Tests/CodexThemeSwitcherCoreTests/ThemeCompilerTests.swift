@@ -748,7 +748,7 @@ final class ThemeCompilerTests: XCTestCase {
         }
     }
 
-    func testVoiceStyleCompilesIntoIsolatedAvatarOverlayCSS() throws {
+    func testVoiceStyleCompilesFullOverlayAndSafeEmbeddedOrbCSS() throws {
         var voice = ThemeVoiceStyle(isEnabled: true)
         voice.light.orbScale = 1.25
         voice.dark.hueRotation = -45
@@ -758,7 +758,18 @@ final class ThemeCompilerTests: XCTestCase {
 
         let compiled = try ThemeCompiler().compile(theme)
 
-        XCTAssertFalse(compiled.css.contains("--cts-voice-scale"))
+        XCTAssertTrue(compiled.css.contains("--cts-voice-scale: 1.25;"))
+        XCTAssertTrue(compiled.css.contains(".codex-avatar-root"))
+        XCTAssertTrue(
+            compiled.css.contains("/* Codex Theme Voice Embedded Orb */")
+        )
+        XCTAssertFalse(compiled.css.contains(".voice-extra"))
+        XCTAssertFalse(compiled.css.contains("body::before"))
+        XCTAssertFalse(
+            compiled.css.contains(
+                "[data-avatar-overlay-hit-region=\"mascot\"]"
+            )
+        )
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
                 "--cts-voice-scale: 1.25;"
@@ -938,6 +949,10 @@ final class ThemeCompilerTests: XCTestCase {
         theme.voiceStyle = voice
 
         let compiled = try ThemeCompiler().compile(theme)
+        let outerURL =
+            "codex-theme-asset://\(outer.id.uuidString.lowercased())"
+        let orbURL =
+            "codex-theme-asset://\(orb.id.uuidString.lowercased())"
 
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(".codex-avatar-root")
@@ -1000,7 +1015,13 @@ final class ThemeCompilerTests: XCTestCase {
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
                 """
-                html:root[data-codex-theme-switcher-theme] canvas {
+                html:root[data-codex-theme-switcher-theme] :is(
+                  .codex-avatar-root,
+                  [data-voice-orb],
+                  [data-codex-voice-orb],
+                  [class*="voice-orb" i],
+                  [class*="voiceorb" i]
+                ) canvas {
                   opacity: var(--cts-voice-opacity) !important;
                   scale: var(--cts-voice-scale) !important;
                 """
@@ -1036,7 +1057,9 @@ final class ThemeCompilerTests: XCTestCase {
                 """
             )
         )
-        XCTAssertFalse(compiled.css.contains("voice-orb.png"))
+        XCTAssertFalse(compiled.css.contains(outerURL))
+        XCTAssertTrue(compiled.css.contains(orbURL))
+        XCTAssertFalse(compiled.css.contains("--cts-voice-background-image"))
         XCTAssertEqual(Set(compiled.runtimeAssets.map(\.id)), [outer.id, orb.id])
     }
 

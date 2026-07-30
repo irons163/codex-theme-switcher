@@ -1181,9 +1181,9 @@ enum L10nCatalogWestern {
         ),
         Entry(key: "Voice", french: "Voice", spanish: "Voice"),
         Entry(
-            key: "Customize CSS-addressable ChatGPT Voice orb surfaces and surrounding effects. Voice uses an isolated renderer and never receives the main window wallpaper or component rules.",
-            french: "Personnalisez les surfaces de l’orbe ChatGPT Voice accessibles en CSS et leurs effets. Voice utilise un moteur isolé qui ne reçoit jamais le fond d’écran ni les règles de composants de la fenêtre principale.",
-            spanish: "Personaliza las superficies de la esfera de ChatGPT Voice accesibles mediante CSS y sus efectos. Voice usa un renderer aislado que nunca recibe el fondo ni las reglas de componentes de la ventana principal."
+            key: "Customize the ChatGPT Voice orb and surrounding effects. The custom orb appears both in the main window and the isolated Voice overlay; full-page backgrounds remain isolated.",
+            french: "Personnalisez l’orbe ChatGPT Voice et ses effets. L’orbe personnalisé apparaît dans la fenêtre principale et dans la superposition Voice isolée ; les arrière-plans pleine page restent limités à la superposition.",
+            spanish: "Personaliza la esfera de ChatGPT Voice y sus efectos. La esfera personalizada aparece tanto en la ventana principal como en la superposición aislada de Voice; los fondos de página completa permanecen aislados."
         ),
         Entry(
             key: "Enable Voice styling",

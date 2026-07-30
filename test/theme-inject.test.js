@@ -29,6 +29,7 @@ function fakeDOM() {
     },
   };
   const documentElement = {
+    appendChild: host.appendChild,
     setAttribute(name, value) {
       attributes.set(name, String(value));
     },
@@ -44,17 +45,31 @@ function fakeDOM() {
     documentElement,
     body: null,
     createElement(tagName) {
+      const elementChildren = [];
       const element = {
         tagName: String(tagName).toUpperCase(),
         id: "",
         type: "",
         dataset: {},
+        style: {},
         textContent: "",
         disabled: false,
         parentNode: null,
+        children: elementChildren,
+        appendChild(child) {
+          if (!elementChildren.includes(child)) elementChildren.push(child);
+          child.parentNode = element;
+          return child;
+        },
+        getBoundingClientRect() {
+          return { left: 0, top: 0, width: 1, height: 1 };
+        },
         remove() {
-          const index = children.indexOf(element);
-          if (index >= 0) children.splice(index, 1);
+          const siblings = element.parentNode === host
+            ? children
+            : element.parentNode?.children;
+          const index = siblings?.indexOf?.(element) ?? -1;
+          if (index >= 0) siblings.splice(index, 1);
           element.parentNode = null;
         },
       };
@@ -163,7 +178,7 @@ function install(dom = fakeDOM()) {
   return dom;
 }
 
-test("VERSION=23 exposes transaction APIs and source evaluation is idempotent", () => {
+test("VERSION=24 exposes transaction APIs and source evaluation is idempotent", () => {
   const dom = install();
   const runtime = dom.window.__codexThemeSwitcherRuntime;
   const functions = [
@@ -175,7 +190,7 @@ test("VERSION=23 exposes transaction APIs and source evaluation is idempotent", 
     "__codexThemeSwitcherClear",
   ];
 
-  assert.equal(runtime.version, 23);
+  assert.equal(runtime.version, 24);
   for (const name of functions) {
     assert.equal(typeof dom.window[name], "function", name);
   }
@@ -559,12 +574,13 @@ test("runtime uses documentElement as style host and never schedules revival", (
   assert.equal(timeoutCalls, 0);
 });
 
-function voiceImagePreloadDOM() {
+function voiceImagePreloadDOM({ paintFrames = false } = {}) {
   const dom = fakeDOM();
   const liveProperties = new Map();
   const observers = [];
   const images = [];
   const pendingDecodes = new Map();
+  const paintCallbacks = [];
   const orb = {
     style: {
       getPropertyValue(name) {
@@ -647,6 +663,12 @@ function voiceImagePreloadDOM() {
       images.push(this);
     }
   };
+  if (paintFrames) {
+    dom.sandbox.requestAnimationFrame = (callback) => {
+      paintCallbacks.push(callback);
+      return paintCallbacks.length;
+    };
+  }
 
   install(dom);
   dom.window.__codexThemeSwitcherBegin(beginPayload({
@@ -658,6 +680,7 @@ function voiceImagePreloadDOM() {
     images,
     liveProperties,
     observers,
+    paintCallbacks,
     pendingDecodes,
   };
 }
@@ -738,6 +761,41 @@ test("failed Voice image decode keeps the closed mouth pinned", async () => {
     fixture.liveProperties.get("--cts-voice-orb-blink-opacity"),
     "0.0000",
   );
+});
+
+test("Voice images paint for two frames before mouth animation unlocks", async () => {
+  const fixture = voiceImagePreloadDOM({ paintFrames: true });
+  const pulse = fixture.dom.window
+    .__codexThemeSwitcherRuntime.voicePulse;
+
+  for (const source of ["frame-0", "frame-1", "frame-2", "blink"]) {
+    fixture.pendingDecodes.get(source).resolve();
+  }
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(pulse.mouthSourcesReady, false);
+  assert.equal(pulse.mouthImagesPreparing, true);
+  assert.ok(pulse.voiceImageWarmup);
+  assert.equal(pulse.voiceImageWarmup.children.length, 4);
+  assert.equal(fixture.paintCallbacks.length, 1);
+
+  fixture.paintCallbacks.shift()();
+  assert.equal(pulse.mouthSourcesReady, false);
+  assert.equal(pulse.mouthImagesPreparing, true);
+  assert.equal(fixture.paintCallbacks.length, 1);
+
+  fixture.paintCallbacks.shift()();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(pulse.mouthSourcesReady, true);
+  assert.equal(pulse.mouthImagesPreparing, false);
+  assert.ok(pulse.voiceImageWarmup);
+  assert.equal(
+    fixture.liveProperties.get("--cts-voice-orb-active-image"),
+    'url("frame-0")',
+  );
+
+  fixture.dom.window.__codexThemeSwitcherClear();
+  assert.equal(pulse.voiceImageWarmup, null);
 });
 
 test("custom Voice orb image follows native sprite frame size", async () => {

@@ -90,8 +90,8 @@ struct ThemeVoiceEditorView: View {
                 EditorIntro(
                     title: L10n.voice,
                     description: L10n.text(
-                        "自訂 ChatGPT Voice 圓球可由 CSS 控制的表面與周圍效果。Voice 使用獨立 renderer，不會套用主畫面的壁紙與元件規則。",
-                        "Customize CSS-addressable ChatGPT Voice orb surfaces and surrounding effects. Voice uses an isolated renderer and never receives the main window wallpaper or component rules."
+                        "自訂 ChatGPT Voice 圓球與周圍效果。人物圓球會同時套用於主視窗及獨立 Voice 畫面；全頁背景仍只套用於獨立畫面。",
+                        "Customize the ChatGPT Voice orb and surrounding effects. The custom orb appears both in the main window and the isolated Voice overlay; full-page backgrounds remain isolated."
                     )
                 )
                 Spacer()
