@@ -13,6 +13,19 @@ Theme Switcher se conecta al proceso de renderizado de Codex mediante Chromium D
 tema se sincronizan en tiempo real con todas las ventanas de Codex; el runtime también restaura
 automáticamente el tema después de recargar Codex o al abrir una ventana nueva.
 
+## Descargar
+
+**Versión estable actual: 0.3.0**
+
+[DMG para Apple Silicon](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-apple-silicon.dmg)
+·
+[DMG para Intel](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-intel.dmg)
+·
+[Notas de la versión, sumas de comprobación y todos los archivos](https://github.com/irons163/codex-theme-switcher/releases/tag/v0.3.0)
+
+Requiere macOS 13 o posterior. Ambos instaladores están firmados y notarizados por Apple, e
+incluyen Sparkle para recibir futuras actualizaciones Stable o Beta.
+
 ## Capturas de pantalla
 
 ### Estudio de temas de la barra de menús
@@ -51,6 +64,11 @@ después de aplicar el tema.
 - Estilo experimental de ChatGPT Voice: imágenes Light/Dark independientes con Fit / Fill, punto
   focal, zoom, opacidad y desenfoque, además de controles de esfera, filtros, resplandor, fondo y
   CSS avanzado exclusivo de Voice, enviados únicamente al renderer `avatar-overlay`.
+- Retratos Voice animados: una imagen base con la boca cerrada y hasta ocho poses ordenadas,
+  importación directa de hojas 2×2 / 3×3, parpadeo aleatorio, movimiento en reposo, sincronización
+  con el pulso nativo y opacidades independientes para el retrato y la esfera nativa.
+- Los temas nuevos incluyen un avatar Voice animado listo para usar. Sus imágenes se integran en
+  el tema, por lo que exportar e importar conserva toda la animación sin depender de rutas locales.
 - Declaraciones de componentes arbitrarias.
 - CSS selector rules arbitrarias.
 - Escape hatch de raw CSS completo.
@@ -135,6 +153,10 @@ Durante el silencio, un modo de reposo opcional balancea suavemente el retrato y
 gradualmente cuando empieza el habla. Se puede integrar un retrato equivalente con los ojos cerrados
 para parpadeos aleatorios, con intervalo medio y duración ajustables. Ambos efectos se pausan mientras
 Voice está hablando.
+Antes de iniciar la animación por audio, el runtime carga y decodifica todas las imágenes de boca y
+parpadeo mientras mantiene visible la imagen con la boca cerrada. La animación solo comienza cuando
+todo está listo; si una imagen no se puede decodificar, el retrato cerrado permanece visible en vez
+de mostrar un fotograma vacío, anterior o parpadeante durante el primer segundo de habla.
 Se admiten el renderer
 WebGL actual y la implementación `.codex-avatar-root` anterior; una futura esfera solo nativa podría
 no ser controlable. La vista previa sigue

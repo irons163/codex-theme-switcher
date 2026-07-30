@@ -13,6 +13,19 @@ Theme Switcher は Chromium DevTools Protocol（CDP）で Codex renderer に接�
 すべての Codex ウィンドウへ即座に同期され、Codex の reload 後や新しいウィンドウを
 開いた後も、runtime が自動的にテーマを再適用します。
 
+## ダウンロード
+
+**現在の安定版：0.3.0**
+
+[Apple Silicon DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-apple-silicon.dmg)
+·
+[Intel DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-intel.dmg)
+·
+[リリースノート、チェックサム、全ファイル](https://github.com/irons163/codex-theme-switcher/releases/tag/v0.3.0)
+
+macOS 13 以降が必要です。両方のインストーラーは署名済みで Apple の公証を取得しており、
+今後の Stable／Beta 更新を受け取る Sparkle も含まれています。
+
 ## スクリーンショット
 
 ### Menu bar テーマスタジオ
@@ -50,6 +63,12 @@ selector rules、raw CSS、および実際の Codex renderer における最終�
   ズーム、不透明度、ぼかしに加え、オーブ、カラーフィルター、グロー、背景色、
   および Voice 専用の高度な CSS。
   スタイルは独立した `avatar-overlay` renderer にのみ送信されます。
+- Voice 動画ポートレート：閉じた口の基準画像と最大 8 枚の口形、2×2／3×3
+  スプライトシートの直接読み込み、ランダムなまばたき、待機モーション、ネイティブの
+  脈動との同期、ポートレートとネイティブオーブそれぞれの不透明度調整に対応します。
+- 新しいテーマには、すぐ使える Voice 動画アバターのプリセットが含まれます。画像は
+  テーマへ埋め込まれるため、元のローカルパスに依存せず、エクスポート／インポート後も
+  アニメーション全体が保持されます。
 - 任意の component declarations。
 - 任意の CSS selector rules。
 - 完全な raw CSS escape hatch。
@@ -130,6 +149,10 @@ Voice タブは、ChatGPT Voice 内で CSS から参照できる表面に独立�
 無音時には人物をわずかに揺らす待機モードを有効にでき、発話が始まると滑らかに停止します。
 同じ構図の閉じた目の画像を埋め込み、平均間隔と時間を調整したランダムなまばたきも追加できます。
 発話中は両方の待機効果が一時停止します。
+音声駆動アニメーションを始める前に、runtime はすべての口形画像とまばたき画像を
+読み込んでデコードし、その間は閉じた口の基準画像を固定表示します。すべての準備が
+完了してから切り替えを開始し、デコードできない画像がある場合も閉じた口を維持するため、
+発話開始の最初の 1 秒に空白、前のフレーム、点滅が表示されません。
 現在のWebGL rendererと旧`.codex-avatar-root`実装に対応しますが、
 将来ネイティブのみのオーブになると内部を操作できない場合があります。
 プレビューは実測した `408:400` の比率を使いますが、ドラッグ後の実際の位置は異なります。

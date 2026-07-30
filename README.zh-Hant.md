@@ -11,6 +11,19 @@ Theme Switcher 以 Chromium DevTools Protocol（CDP）連接 Codex renderer，�
 的 CSS 寫進一個 namespaced `<style>`。主題切換會即時同步到所有 Codex 視窗；
 Codex reload 或開新視窗後，runtime 也會自動補上主題。
 
+## 下載
+
+**目前穩定版：0.3.0**
+
+[Apple Silicon DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-apple-silicon.dmg)
+·
+[Intel DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-intel.dmg)
+·
+[版本說明、檢查碼與全部檔案](https://github.com/irons163/codex-theme-switcher/releases/tag/v0.3.0)
+
+需要 macOS 13 或以上版本。兩種安裝檔均已簽章並通過 Apple 公證，也內建 Sparkle，
+之後可接收 Stable 或 Beta 更新。
+
 ## 截圖
 
 ### Menu bar 主題工作室
@@ -43,6 +56,10 @@ Agent CLI 可在無視窗環境產生 Light／Dark × Home／Chat PNG，供 AI a
 - 實驗性 ChatGPT Voice 樣式：Light／Dark 可分別設定背景圖片、Fit／Fill、焦點、縮放、
   透明度與模糊，也可調整圓球、色彩濾鏡、光暈、背景色及 Voice 專用進階 CSS；
   只會送進獨立的 `avatar-overlay` renderer。
+- Voice 動態人物：以閉嘴基準圖加最多 8 張依序排列的嘴型圖，也能直接匯入 2×2／3×3
+  嘴型圖，並支援隨機眨眼、待機搖晃、跟隨原生脈動，以及分別調整人物與原生圓球透明度。
+- 新主題會附上可直接使用的 Voice 動態人物預設；圖片會嵌入主題，導出再導入後仍保留
+  完整動畫，不依賴原本的本機路徑。
 - 任意 component declarations。
 - 任意 CSS selector rules。
 - 完整 raw CSS escape hatch。
@@ -109,6 +126,9 @@ runtime 會讀取 Voice 輸出強度，套用靈敏度、靜音門檻、反應�
 [3×3 動畫女角色範例](Examples/voice-mouth-sprites/anime-girl-mouth-3x3.png)。目前 WebGL renderer 與舊版 `.codex-avatar-root` 實作均支援；
 靜音時可啟用輕微的待機搖晃，開始說話後會平滑停止。另可嵌入一張構圖一致的閉眼圖片，
 依可調整的平均間隔與持續時間隨機眨眼；說話期間兩種待機效果都會暫停。
+音量驅動動畫開始前，runtime 會先載入並解碼全部嘴型與閉眼圖片，期間固定顯示閉嘴
+基準圖。所有圖片準備完成後才開始切換；若有圖片無法解碼，也會維持閉嘴圖，避免開始
+說話的第一秒出現空白、上一幀或閃爍。
 若未來改成純原生圓球，內部可能無法控制。
 預覽依實測的 `408:400` overlay 比例呈現，但使用者拖動圓球後，runtime 位置仍可能不同。
 

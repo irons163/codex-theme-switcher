@@ -13,6 +13,19 @@ Theme Switcher는 Chromium DevTools Protocol(CDP)로 Codex renderer에 연결하
 즉시 동기화되며, Codex를 reload하거나 새 창을 연 뒤에도 runtime이 테마를 자동으로
 다시 적용합니다.
 
+## 다운로드
+
+**현재 안정 버전: 0.3.0**
+
+[Apple Silicon DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-apple-silicon.dmg)
+·
+[Intel DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-intel.dmg)
+·
+[릴리스 노트, 체크섬 및 전체 파일](https://github.com/irons163/codex-theme-switcher/releases/tag/v0.3.0)
+
+macOS 13 이상이 필요합니다. 두 설치 파일 모두 서명 및 Apple 공증을 완료했으며,
+향후 Stable／Beta 업데이트를 받을 수 있는 Sparkle이 포함되어 있습니다.
+
 ## 스크린샷
 
 ### Menu bar 테마 스튜디오
@@ -48,6 +61,12 @@ raw CSS, 실제 Codex renderer의 최종 결과는 적용 후에도 확인해야
 - 실험적 ChatGPT Voice 스타일: Light／Dark별 배경 이미지, Fit／Fill, 초점, 확대／축소,
   불투명도, 흐림과 함께 오브, 색상 필터, 글로우, 배경색 및 Voice 전용 고급 CSS를
   조절하며, 독립된 `avatar-overlay` renderer에만 전송합니다.
+- Voice 애니메이션 인물: 닫힌 입 기준 이미지와 최대 8장의 순서별 입 모양, 2×2／3×3
+  스프라이트 시트 직접 가져오기, 무작위 눈 깜빡임, 대기 움직임, 기본 맥동 동기화,
+  인물과 기본 오브의 불투명도 개별 조절을 지원합니다.
+- 새 테마에는 바로 사용할 수 있는 Voice 애니메이션 아바타 프리셋이 포함됩니다. 이미지는
+  테마에 내장되므로 원래 로컬 경로에 의존하지 않고 내보내기／가져오기 후에도 전체
+  애니메이션이 유지됩니다.
 - 임의의 component declarations.
 - 임의의 CSS selector rules.
 - 완전한 raw CSS escape hatch.
@@ -126,6 +145,10 @@ session을 닫습니다.
 말이 없을 때 인물을 살짝 흔드는 대기 모드를 켤 수 있으며 말하기가 시작되면 부드럽게 멈춥니다.
 같은 구도의 눈 감은 이미지를 포함해 평균 간격과 시간을 조절하는 무작위 눈 깜빡임도 추가할 수
 있습니다. 말하는 동안에는 두 대기 효과가 모두 일시 중지됩니다.
+오디오 기반 애니메이션을 시작하기 전에 runtime이 모든 입 모양 및 눈 깜빡임 이미지를
+미리 불러오고 디코딩하며, 그동안 닫힌 입 기준 이미지를 고정 표시합니다. 전체 이미지가
+준비된 뒤에만 전환을 시작하고, 디코딩에 실패한 이미지가 있어도 닫힌 입을 유지하므로
+말하기 시작 첫 1초에 빈 화면, 이전 프레임 또는 깜빡임이 나타나지 않습니다.
 현재 WebGL renderer와 이전 `.codex-avatar-root` 구현을 지원하지만, 향후
 네이티브 전용 오브에서는 내부를 제어하지 못할 수 있습니다. 미리보기는 확인된 `408:400`
 비율을 사용하지만, 오브를 드래그한 뒤 실제 runtime 위치는 달라질 수 있습니다.

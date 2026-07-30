@@ -13,6 +13,19 @@ Theme Switcher se connecte au moteur de rendu de Codex via le Chromium DevTools 
 thème sont synchronisés en temps réel dans toutes les fenêtres Codex ; le runtime restaure aussi
 automatiquement le thème après un rechargement de Codex ou l’ouverture d’une nouvelle fenêtre.
 
+## Télécharger
+
+**Version stable actuelle : 0.3.0**
+
+[DMG Apple Silicon](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-apple-silicon.dmg)
+·
+[DMG Intel](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-intel.dmg)
+·
+[Notes de version, sommes de contrôle et tous les fichiers](https://github.com/irons163/codex-theme-switcher/releases/tag/v0.3.0)
+
+Nécessite macOS 13 ou une version ultérieure. Les deux installateurs sont signés, certifiés par
+Apple et intègrent Sparkle pour recevoir les prochaines mises à jour Stable ou Beta.
+
 ## Captures d’écran
 
 ### Studio de thèmes de la barre des menus
@@ -51,6 +64,12 @@ Codex doit encore être vérifié après application du thème.
 - Style expérimental de ChatGPT Voice : images Light/Dark distinctes avec Fit / Fill, point focal,
   zoom, opacité et flou, ainsi que réglages de l’orbe, filtres, lueur, arrière-plan et CSS avancé
   propre à Voice, envoyés uniquement au renderer `avatar-overlay`.
+- Portraits Voice animés : une image de base bouche fermée et jusqu’à huit poses ordonnées,
+  import direct de planches 2×2 / 3×3, clignements aléatoires, mouvement de repos, synchronisation
+  avec la pulsation native et opacités indépendantes du portrait et de l’orbe natif.
+- Les nouveaux thèmes contiennent un préréglage d’avatar Voice animé prêt à l’emploi. Ses images
+  sont intégrées au thème : l’exportation et l’importation conservent toute l’animation sans
+  dépendre des chemins locaux d’origine.
 - Déclarations de composants arbitraires.
 - CSS selector rules arbitraires.
 - Escape hatch complet pour le raw CSS.
@@ -137,6 +156,10 @@ Pendant le silence, un mode de repos facultatif balance légèrement le portrait
 douceur quand la parole commence. Un portrait correspondant avec les yeux fermés peut être intégré
 pour des clignements aléatoires, avec intervalle moyen et durée réglables. Les deux effets se mettent
 en pause pendant que Voice parle.
+Avant le démarrage de l’animation audio, le runtime charge et décode toutes les images de bouche et
+de clignement tout en maintenant l’image bouche fermée. L’animation ne commence que lorsque
+l’ensemble est prêt ; si une image ne peut pas être décodée, le portrait bouche fermée reste affiché
+au lieu d’une image vide, ancienne ou clignotante pendant la première seconde de parole.
 Le renderer WebGL
 actuel et l’ancienne implémentation `.codex-avatar-root` sont pris en charge ; un futur orbe
 uniquement natif pourrait ne pas être contrôlable. L’aperçu suit

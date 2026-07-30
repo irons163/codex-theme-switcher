@@ -12,6 +12,19 @@ writes compiled CSS into a namespaced `<style>`. Theme changes are synchronized 
 windows in real time; the runtime also automatically restores the theme after Codex reloads or
 opens a new window.
 
+## Download
+
+**Current stable release: 0.3.0**
+
+[Apple Silicon DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-apple-silicon.dmg)
+·
+[Intel DMG](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.0/CodexThemeSwitcher-0.3.0-intel.dmg)
+·
+[Release notes, checksums, and all assets](https://github.com/irons163/codex-theme-switcher/releases/tag/v0.3.0)
+
+Requires macOS 13 or later. Both installers are signed, notarized by Apple, and include Sparkle
+updates for future Stable or Beta releases.
+
 ## Screenshots
 
 ### Menu Bar Theme Studio
@@ -48,6 +61,11 @@ final rendering in Codex should still be verified after applying the theme.
   focal point, zoom, opacity and blur, plus orb scale, color filters, glow, backdrop controls, and
   Voice-only Advanced CSS. Voice CSS is sent only to the dedicated
   `avatar-overlay` renderer; main-window wallpaper and component rules never enter that renderer.
+- Animated Voice portraits: a closed-mouth base image plus up to eight ordered mouth frames,
+  direct 2×2 / 3×3 sprite-sheet import, randomized blinking, idle motion, native-pulse
+  synchronization, and independently adjustable portrait and native-orb opacity.
+- New themes start with a ready-to-use animated Voice avatar preset. Its images are embedded in the
+  theme, so export and import preserve the complete animation rather than depending on local paths.
 - Arbitrary component declarations.
 - Arbitrary CSS selector rules.
 - A complete raw CSS escape hatch.
@@ -127,6 +145,10 @@ imported and is split automatically from left to right, top to bottom. See the
 During silence, an optional idle mode gently sways the portrait and smoothly settles when speech
 starts. A matching closed-eye portrait can be embedded for randomized blinking, with adjustable
 average interval and blink duration. Both idle effects pause while Voice is speaking.
+Before audio-driven animation starts, the runtime loads and decodes every mouth and blink image
+while pinning the closed-mouth frame. Animation begins only after the complete set is ready; if an
+image cannot be decoded, the closed-mouth portrait remains visible instead of flashing an empty or
+stale frame during the first second of speech.
 Orb scale, opacity, brightness, contrast, saturation, hue rotation, blur,
 glow, and an optional backdrop tint remain independently adjustable. Voice Advanced CSS is isolated
 to `avatar-overlay` and can use portable `theme-asset("ASSET-UUID")` references under the same import
