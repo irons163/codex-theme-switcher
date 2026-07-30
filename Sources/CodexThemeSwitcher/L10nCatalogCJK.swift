@@ -123,7 +123,19 @@ enum L10nCatalogCJK {
             "先に「Codexを起動して接続」を選択してください。初回接続時はCodexが再起動する場合があります。",
             "먼저 ‘Codex 실행 및 연결’을 선택하세요. 처음 연결할 때 Codex가 다시 시작될 수 있습니다."
         ),
+        .init(
+            "Choose dark background",
+            "选择深色模式背景",
+            "ダーク背景を選択",
+            "다크 배경 선택"
+        ),
         .init("Choose image", "选择图像", "画像を選択", "이미지 선택"),
+        .init(
+            "Choose light background",
+            "选择浅色模式背景",
+            "ライト背景を選択",
+            "라이트 배경 선택"
+        ),
         .init(
             "Choose or create a theme from the library.",
             "请从主题库中选择或创建主题。",
@@ -627,7 +639,6 @@ enum L10nCatalogCJK {
         .init("Plugins", "插件", "プラグイン", "플러그인"),
         .init("Pull requests", "拉取请求", "プルリクエスト", "풀 리퀘스트"),
         .init("What should we build?", "我们来构建什么？", "何を作りましょうか？", "무엇을 만들어 볼까요?"),
-        .init("Choose project", "选择项目", "プロジェクトを選択", "프로젝트 선택"),
         .init("Select project", "选择项目", "プロジェクトを選択", "프로젝트 선택"),
         .init("Explore and understand code", "探索并理解代码", "コードを調べて理解する", "코드 탐색 및 이해"),
         .init("Build a new feature", "构建新功能", "新機能を構築する", "새 기능 구축"),
@@ -748,6 +759,12 @@ enum L10nCatalogCJK {
             "Codex 앱을 찾을 수 없습니다."
         ),
         .init(
+            "The selected application is not a valid Codex app.",
+            "所选 App 不是有效的 Codex。",
+            "選択したアプリは有効なCodexアプリではありません。",
+            "선택한 앱은 유효한 Codex 앱이 아닙니다."
+        ),
+        .init(
             "The Codex runtime operation failed.",
             "Codex runtime 操作失败。",
             "Codex runtimeの操作に失敗しました。",
@@ -866,13 +883,6 @@ enum L10nCatalogCJK {
             "不支持的主题归档格式：{0}。",
             "対応していないテーマアーカイブ形式です：{0}。",
             "지원되지 않는 테마 아카이브 형식입니다: {0}."
-        ),
-        .init("App updates", "App 更新", "Appのアップデート", "앱 업데이트"),
-        .init(
-            "Keep Codex Theme Switcher current with signed Sparkle updates.",
-            "通过已签名的 Sparkle 更新，让 Codex Theme Switcher 始终保持最新。",
-            "署名済みのSparkleアップデートで、Codex Theme Switcherを常に最新の状態に保ちます。",
-            "서명된 Sparkle 업데이트로 Codex Theme Switcher를 최신 상태로 유지합니다."
         ),
         .init(
             "Manage the interface language, Codex application, and update preferences.",
@@ -1316,12 +1326,6 @@ enum L10nCatalogCJK {
             "말하기 입 모양"
         ),
         .init(
-            "Frame 1 is the closed mouth. Order the rest from least to most open; Voice selects them from speech intensity.",
-            "第 1 张是闭嘴，其余请按嘴巴由小到大排列；Voice 会根据说话强度选择。",
-            "1枚目は閉じた口です。残りは口の開きが小さい順に並べると、Voiceが発話強度に応じて選択します。",
-            "1번은 닫힌 입입니다. 나머지는 입이 적게 열린 순서부터 크게 열린 순서로 배치하면 Voice가 말하기 강도에 따라 선택합니다."
-        ),
-        .init(
             "Add images",
             "添加多张图像",
             "画像を追加",
@@ -1338,18 +1342,6 @@ enum L10nCatalogCJK {
             "嘴型灵敏度",
             "口形の感度",
             "입 모양 감도"
-        ),
-        .init(
-            "Mouth smoothing",
-            "嘴型平滑",
-            "口形のスムージング",
-            "입 모양 부드럽게"
-        ),
-        .init(
-            "Minimum frame hold",
-            "最短停留时间",
-            "最短フレーム保持時間",
-            "최소 프레임 유지 시간"
         ),
         .init(
             "Choose mouth images (least to most open)",
@@ -1382,54 +1374,12 @@ enum L10nCatalogCJK {
             "입 모양 이미지 순서 변경"
         ),
         .init(
-            "Choose a 2×2 mouth sprite sheet",
-            "选择 2×2 嘴型图",
-            "2×2口形スプライトシートを選択",
-            "2×2 입 모양 스프라이트 시트 선택"
-        ),
-        .init(
-            "Import 2×2 mouth sprite sheet",
-            "导入 2×2 嘴型图",
-            "2×2口形スプライトシートを読み込む",
-            "2×2 입 모양 스프라이트 시트 가져오기"
-        ),
-        .init(
             "Import 2×2 sheet",
             "导入 2×2 嘴型图",
             "2×2シートを読み込む",
             "2×2 시트 가져오기"
         ),
-        .init(
-            "Imported four mouth frames in top-left, top-right, bottom-left, bottom-right order.",
-            "已按左上、右上、左下、右下的顺序导入 4 个嘴型。",
-            "左上、右上、左下、右下の順に4つの口形を読み込みました。",
-            "왼쪽 위, 오른쪽 위, 왼쪽 아래, 오른쪽 아래 순서로 입 모양 4개를 가져왔습니다."
-        ),
-        .init(
-            "“{0}” could not be decoded or split into a 2×2 mouth sprite sheet.",
-            "无法解码“{0}”或将其切割成 2×2 嘴型图。",
-            "「{0}」をデコード、または2×2口形スプライトシートに分割できませんでした。",
-            "“{0}”을(를) 디코딩하거나 2×2 입 모양 스프라이트 시트로 분할할 수 없습니다."
-        ),
         .init("closed", "闭嘴", "閉じた口", "닫힌 입"),
-        .init(
-            "slightly-open",
-            "微开",
-            "少し開いた口",
-            "살짝 열린 입"
-        ),
-        .init(
-            "medium-open",
-            "中开",
-            "中程度に開いた口",
-            "중간 열린 입"
-        ),
-        .init(
-            "wide-open",
-            "全开",
-            "大きく開いた口",
-            "크게 열린 입"
-        ),
         .init(
             "Frame 1 is closed. Order the rest from least to most open; Voice opens quickly, closes smoothly, and directly selects the nearest pose.",
             "第 1 张是闭嘴，其余按嘴巴由小到大排列；Voice 会快速张嘴、平滑闭嘴并直接切换到最接近的嘴型。",
@@ -1558,6 +1508,42 @@ enum L10nCatalogCJK {
             "嘴型响应曲线",
             "口形レスポンス曲線",
             "입 모양 반응 곡선"
+        ),
+        .init(
+            "Midnight",
+            "午夜",
+            "ミッドナイト",
+            "미드나이트"
+        ),
+        .init(
+            "Paper",
+            "纸张",
+            "ペーパー",
+            "종이"
+        ),
+        .init(
+            "High Contrast",
+            "高对比",
+            "ハイコントラスト",
+            "고대비"
+        ),
+        .init(
+            "A deep blue-black theme with a cool cyan accent.",
+            "深蓝黑底搭配冷调青色强调色的主题。",
+            "深いブルーブラックにクールなシアンのアクセントを組み合わせたテーマです。",
+            "깊은 청흑색 바탕에 차가운 시안 강조색을 더한 테마입니다."
+        ),
+        .init(
+            "A warm, low-glare light theme inspired by natural paper.",
+            "以天然纸张为灵感的温暖、低眩光浅色主题。",
+            "自然な紙をイメージした、暖かくまぶしさを抑えたライトテーマです。",
+            "천연 종이에서 영감을 받은 따뜻하고 눈부심이 적은 라이트 테마입니다."
+        ),
+        .init(
+            "Maximum contrast with strong focus and selection indicators.",
+            "通过清晰的焦点与选择指示提供最高对比度。",
+            "明確なフォーカスと選択表示で最大限のコントラストを提供します。",
+            "뚜렷한 포커스와 선택 표시로 최대 대비를 제공합니다."
         ),
         .init("open", "张嘴", "開いた口", "열린 입")
     ]

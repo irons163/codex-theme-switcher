@@ -197,6 +197,45 @@ final class L10nTests: XCTestCase {
                     .japanese: "組み込み",
                     .korean: "기본 제공"
                 ]
+            ),
+            (
+                "午夜",
+                "Midnight",
+                [
+                    .english: "Midnight",
+                    .traditionalChinese: "午夜",
+                    .simplifiedChinese: "午夜",
+                    .french: "Minuit",
+                    .spanish: "Medianoche",
+                    .japanese: "ミッドナイト",
+                    .korean: "미드나이트"
+                ]
+            ),
+            (
+                "紙張",
+                "Paper",
+                [
+                    .english: "Paper",
+                    .traditionalChinese: "紙張",
+                    .simplifiedChinese: "纸张",
+                    .french: "Papier",
+                    .spanish: "Papel",
+                    .japanese: "ペーパー",
+                    .korean: "종이"
+                ]
+            ),
+            (
+                "高對比",
+                "High Contrast",
+                [
+                    .english: "High Contrast",
+                    .traditionalChinese: "高對比",
+                    .simplifiedChinese: "高对比",
+                    .french: "Contraste élevé",
+                    .spanish: "Alto contraste",
+                    .japanese: "ハイコントラスト",
+                    .korean: "고대비"
+                ]
             )
         ]
 

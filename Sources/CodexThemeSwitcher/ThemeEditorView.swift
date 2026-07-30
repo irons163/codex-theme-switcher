@@ -120,7 +120,7 @@ private struct ThemePreviewPage: View {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 3) {
                     if model.isSelectedBuiltIn {
-                        Text(theme.metadata.name)
+                        Text(L10n.themeName(theme))
                             .font(.title2.bold())
                     } else {
                         TextField(
@@ -146,12 +146,12 @@ private struct ThemePreviewPage: View {
                         .textFieldStyle(.plain)
                     }
                     Text(
-                        theme.metadata.description.isEmpty
+                        L10n.themeDescription(theme).isEmpty
                             ? L10n.text(
                                 "即時模擬 Codex 的側欄、對話、程式碼與輸入框。",
                                 "Live simulation of Codex surfaces, conversation, code, and composer."
                             )
-                            : theme.metadata.description
+                            : L10n.themeDescription(theme)
                     )
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -607,17 +607,19 @@ private struct ComponentEditorPage: View {
                         Array(draft.layers.enumerated()),
                         id: \.element.id
                     ) { layerIndex, layer in
-                        let componentTemplate =
-                            layer.components.count == 1
-                                ? "{0} component override"
-                                : "{0} component overrides"
                         EditorSection(
-                            title: layer.name,
-                            subtitle: L10n.format(
-                                "{0} 個元件覆寫",
-                                componentTemplate,
-                                String(layer.components.count)
-                            )
+                            title: L10n.layerName(layer, in: draft),
+                            subtitle: layer.components.count == 1
+                                ? L10n.format(
+                                    "{0} 個元件覆寫",
+                                    "{0} component override",
+                                    String(layer.components.count)
+                                )
+                                : L10n.format(
+                                    "{0} 個元件覆寫",
+                                    "{0} component overrides",
+                                    String(layer.components.count)
+                                )
                         ) {
                             VStack(spacing: 12) {
                                 ForEach(
@@ -880,17 +882,21 @@ private struct RuleEditorPage: View {
                         let condition = localizedLayerCondition(
                             layer.condition
                         )
-                        let ruleTemplate = layer.rules.count == 1
-                            ? "{0} · {1} rule"
-                            : "{0} · {1} rules"
                         EditorSection(
-                            title: layer.name,
-                            subtitle: L10n.format(
-                                "{0} · {1} 條規則",
-                                ruleTemplate,
-                                condition,
-                                String(layer.rules.count)
-                            )
+                            title: L10n.layerName(layer, in: draft),
+                            subtitle: layer.rules.count == 1
+                                ? L10n.format(
+                                    "{0} · {1} 條規則",
+                                    "{0} · {1} rule",
+                                    condition,
+                                    String(layer.rules.count)
+                                )
+                                : L10n.format(
+                                    "{0} · {1} 條規則",
+                                    "{0} · {1} rules",
+                                    condition,
+                                    String(layer.rules.count)
+                                )
                         ) {
                             VStack(spacing: 12) {
                                 ForEach(
@@ -1117,7 +1123,7 @@ private struct RawCSSEditorPage: View {
                         id: \.element.id
                     ) { layerIndex, layer in
                         EditorSection(
-                            title: layer.name,
+                            title: L10n.layerName(layer, in: draft),
                             subtitle: layerSubtitle(layer)
                         ) {
                             VStack(alignment: .leading, spacing: 10) {
@@ -1137,7 +1143,14 @@ private struct RawCSSEditorPage: View {
                                     TextField(
                                         L10n.text("Layer 名稱", "Layer name"),
                                         text: Binding(
-                                            get: { layer.name },
+                                            get: {
+                                                model.isSelectedBuiltIn
+                                                    ? L10n.layerName(
+                                                        layer,
+                                                        in: draft
+                                                    )
+                                                    : layer.name
+                                            },
                                             set: { name in
                                                 model.mutateDraft {
                                                     $0.layers[layerIndex]
@@ -1615,7 +1628,10 @@ private struct ThemeInfoEditorPage: View {
                         ) {
                             infoRow(
                                 L10n.text("名稱", "Name"),
-                                \.metadata.name
+                                \.metadata.name,
+                                displayValue: model.isSelectedBuiltIn
+                                    ? L10n.themeName(theme)
+                                    : nil
                             )
                             infoRow(
                                 L10n.text("作者", "Author"),
@@ -1667,7 +1683,9 @@ private struct ThemeInfoEditorPage: View {
                                 TextEditor(
                                     text: Binding(
                                         get: {
-                                            theme.metadata.description
+                                            model.isSelectedBuiltIn
+                                                ? L10n.themeDescription(theme)
+                                                : theme.metadata.description
                                         },
                                         set: { value in
                                             model.mutateDraft {
@@ -1734,7 +1752,8 @@ private struct ThemeInfoEditorPage: View {
 
     private func infoRow(
         _ title: String,
-        _ keyPath: WritableKeyPath<ThemeDocument, String>
+        _ keyPath: WritableKeyPath<ThemeDocument, String>,
+        displayValue: String? = nil
     ) -> some View {
         GridRow {
             Text(title)
@@ -1742,7 +1761,11 @@ private struct ThemeInfoEditorPage: View {
             TextField(
                 title,
                 text: Binding(
-                    get: { model.draft?[keyPath: keyPath] ?? "" },
+                    get: {
+                        displayValue
+                            ?? model.draft?[keyPath: keyPath]
+                            ?? ""
+                    },
                     set: { value in
                         model.mutateDraft { $0[keyPath: keyPath] = value }
                     }

@@ -544,7 +544,7 @@ private struct ThemeLibraryRow: View {
                     )
                 } else {
                     HStack(spacing: 4) {
-                        Text(theme.metadata.name)
+                        Text(L10n.themeName(theme))
                             .font(.system(size: 12, weight: .medium))
                             .lineLimit(1)
                         if isBuiltIn {

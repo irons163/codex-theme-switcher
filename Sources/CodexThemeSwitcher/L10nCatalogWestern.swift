@@ -118,11 +118,21 @@ enum L10nCatalogWestern {
             spanish: "Cambiar de modo restablece el zoom a 1,00×; usa Zoom de imagen para ajustarlo más."
         ),
         Entry(key: "Chat font size", french: "Taille du texte du chat", spanish: "Tamaño de fuente del chat"),
-        Entry(key: "Choose image", french: "Choisir une image", spanish: "Elegir imagen"),
         Entry(
             key: "Choose Launch + Attach Codex first. The first attachment may restart Codex.",
             french: "Choisissez d’abord Lancer et connecter Codex. La première connexion peut redémarrer Codex.",
             spanish: "Elige primero Iniciar y conectar Codex. La primera conexión puede reiniciar Codex."
+        ),
+        Entry(
+            key: "Choose dark background",
+            french: "Choisir l’arrière-plan sombre",
+            spanish: "Elegir fondo oscuro"
+        ),
+        Entry(key: "Choose image", french: "Choisir une image", spanish: "Elegir imagen"),
+        Entry(
+            key: "Choose light background",
+            french: "Choisir l’arrière-plan clair",
+            spanish: "Elegir fondo claro"
         ),
         Entry(
             key: "Choose or create a theme from the library.",
@@ -576,6 +586,11 @@ enum L10nCatalogWestern {
             spanish: "No se encontró la app Codex."
         ),
         Entry(
+            key: "The selected application is not a valid Codex app.",
+            french: "L’application sélectionnée n’est pas une app Codex valide.",
+            spanish: "La aplicación seleccionada no es una app Codex válida."
+        ),
+        Entry(
             key: "No attachable Codex renderer was found.",
             french: "Aucun processus de rendu Codex disponible pour la connexion n’a été trouvé.",
             spanish: "No se encontró ningún proceso de renderizado de Codex al que conectarse."
@@ -895,7 +910,6 @@ enum L10nCatalogWestern {
             french: "Que devons-nous créer ?",
             spanish: "¿Qué deberíamos crear?"
         ),
-        Entry(key: "Choose project", french: "Choisir un projet", spanish: "Elegir proyecto"),
         Entry(
             key: "Explore and understand code",
             french: "Explorer et comprendre le code",
@@ -941,12 +955,6 @@ enum L10nCatalogWestern {
             key: "I’ll turn this into a menu bar app with live theme switching, a visual skin editor, and portable templates.",
             french: "Je vais en faire une app de barre des menus avec changement de thème en direct, éditeur visuel d’habillage et modèles portables.",
             spanish: "Lo convertiré en una app de barra de menús con cambio de tema en vivo, editor visual de apariencia y plantillas portátiles."
-        ),
-        Entry(key: "App updates", french: "Mises à jour de l’app", spanish: "Actualizaciones de la app"),
-        Entry(
-            key: "Keep Codex Theme Switcher current with signed Sparkle updates.",
-            french: "Gardez Codex Theme Switcher à jour grâce aux mises à jour Sparkle signées.",
-            spanish: "Mantén Codex Theme Switcher al día con actualizaciones firmadas de Sparkle."
         ),
         Entry(
             key: "Manage the interface language, Codex application, and update preferences.",
@@ -1410,11 +1418,6 @@ enum L10nCatalogWestern {
             spanish: "Fotogramas de boca al hablar"
         ),
         Entry(
-            key: "Frame 1 is the closed mouth. Order the rest from least to most open; Voice selects them from speech intensity.",
-            french: "L’image 1 montre la bouche fermée. Classez les autres de la moins ouverte à la plus ouverte ; Voice les choisit selon l’intensité de la parole.",
-            spanish: "La imagen 1 es la boca cerrada. Ordena las demás de menos a más abierta; Voice las elige según la intensidad del habla."
-        ),
-        Entry(
             key: "Add images",
             french: "Ajouter des images",
             spanish: "Añadir imágenes"
@@ -1428,16 +1431,6 @@ enum L10nCatalogWestern {
             key: "Mouth sensitivity",
             french: "Sensibilité de la bouche",
             spanish: "Sensibilidad de la boca"
-        ),
-        Entry(
-            key: "Mouth smoothing",
-            french: "Lissage de la bouche",
-            spanish: "Suavizado de la boca"
-        ),
-        Entry(
-            key: "Minimum frame hold",
-            french: "Durée minimale d’une image",
-            spanish: "Duración mínima del fotograma"
         ),
         Entry(
             key: "Choose mouth images (least to most open)",
@@ -1465,46 +1458,11 @@ enum L10nCatalogWestern {
             spanish: "Reordenar imágenes de boca"
         ),
         Entry(
-            key: "Choose a 2×2 mouth sprite sheet",
-            french: "Choisir une planche 2×2 de bouches",
-            spanish: "Elegir una hoja 2×2 de bocas"
-        ),
-        Entry(
-            key: "Import 2×2 mouth sprite sheet",
-            french: "Importer une planche 2×2 de bouches",
-            spanish: "Importar hoja 2×2 de bocas"
-        ),
-        Entry(
             key: "Import 2×2 sheet",
             french: "Importer une planche 2×2",
             spanish: "Importar hoja 2×2"
         ),
-        Entry(
-            key: "Imported four mouth frames in top-left, top-right, bottom-left, bottom-right order.",
-            french: "Quatre images de bouche ont été importées dans l’ordre haut gauche, haut droite, bas gauche, bas droite.",
-            spanish: "Se importaron cuatro bocas en orden: arriba izquierda, arriba derecha, abajo izquierda y abajo derecha."
-        ),
-        Entry(
-            key: "“{0}” could not be decoded or split into a 2×2 mouth sprite sheet.",
-            french: "Impossible de décoder « {0} » ou de le diviser en une planche 2×2 de bouches.",
-            spanish: "No se pudo decodificar «{0}» ni dividirla en una hoja 2×2 de bocas."
-        ),
         Entry(key: "closed", french: "fermée", spanish: "cerrada"),
-        Entry(
-            key: "slightly-open",
-            french: "légèrement-ouverte",
-            spanish: "ligeramente-abierta"
-        ),
-        Entry(
-            key: "medium-open",
-            french: "moyennement-ouverte",
-            spanish: "medio-abierta"
-        ),
-        Entry(
-            key: "wide-open",
-            french: "grande-ouverte",
-            spanish: "muy-abierta"
-        ),
         Entry(
             key: "Frame 1 is closed. Order the rest from least to most open; Voice opens quickly, closes smoothly, and directly selects the nearest pose.",
             french: "L’image 1 montre la bouche fermée. Classez les autres de la moins à la plus ouverte ; Voice ouvre rapidement, referme en douceur et sélectionne directement la pose la plus proche.",
@@ -1624,6 +1582,36 @@ enum L10nCatalogWestern {
             key: "Mouth response curve",
             french: "Courbe de réponse de la bouche",
             spanish: "Curva de respuesta de la boca"
+        ),
+        Entry(
+            key: "Midnight",
+            french: "Minuit",
+            spanish: "Medianoche"
+        ),
+        Entry(
+            key: "Paper",
+            french: "Papier",
+            spanish: "Papel"
+        ),
+        Entry(
+            key: "High Contrast",
+            french: "Contraste élevé",
+            spanish: "Alto contraste"
+        ),
+        Entry(
+            key: "A deep blue-black theme with a cool cyan accent.",
+            french: "Un thème bleu-noir profond rehaussé d’un accent cyan froid.",
+            spanish: "Un tema azul oscuro casi negro con un acento cian frío."
+        ),
+        Entry(
+            key: "A warm, low-glare light theme inspired by natural paper.",
+            french: "Un thème clair, chaleureux et peu éblouissant, inspiré du papier naturel.",
+            spanish: "Un tema claro, cálido y de bajo deslumbramiento inspirado en el papel natural."
+        ),
+        Entry(
+            key: "Maximum contrast with strong focus and selection indicators.",
+            french: "Un contraste maximal avec des indicateurs de focus et de sélection bien visibles.",
+            spanish: "Contraste máximo con indicadores claros de enfoque y selección."
         ),
         Entry(key: "open", french: "ouverte", spanish: "abierta"),
     ]

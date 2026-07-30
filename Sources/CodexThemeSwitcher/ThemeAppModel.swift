@@ -162,7 +162,10 @@ final class ThemeAppModel: ObservableObject {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return themes }
         return themes.filter {
-            $0.metadata.name.localizedCaseInsensitiveContains(query)
+            L10n.themeName($0).localizedCaseInsensitiveContains(query)
+                || $0.metadata.name.localizedCaseInsensitiveContains(query)
+                || L10n.themeDescription($0)
+                    .localizedCaseInsensitiveContains(query)
                 || $0.metadata.author.localizedCaseInsensitiveContains(query)
                 || $0.metadata.tags.contains {
                     $0.localizedCaseInsensitiveContains(query)
@@ -171,7 +174,11 @@ final class ThemeAppModel: ObservableObject {
     }
 
     var activeThemeName: String? {
-        runtimeStatus?.activeThemeName
+        guard let name = runtimeStatus?.activeThemeName else { return nil }
+        return L10n.themeName(
+            id: runtimeStatus?.activeThemeID.flatMap(UUID.init(uuidString:)),
+            fallback: name
+        )
     }
 
     var appliedThemeID: UUID? {
@@ -359,9 +366,10 @@ final class ThemeAppModel: ObservableObject {
 
     func duplicateSelected() {
         guard var theme = draft ?? selectedTheme else { return }
+        let localizedName = L10n.themeName(theme)
         let now = Date()
         theme.id = UUID()
-        theme.metadata.name += L10n.text(" 副本", " Copy")
+        theme.metadata.name = localizedName + L10n.text(" 副本", " Copy")
         theme.metadata.createdAt = now
         theme.metadata.updatedAt = now
 
@@ -461,11 +469,17 @@ final class ThemeAppModel: ObservableObject {
                 let result = try await runtime.launch().requiringSuccess()
                 self.runtimeStatus = result.status
                 if let restoredThemeName = result.status?.activeThemeName {
+                    let displayName = L10n.themeName(
+                        id: result.status?.activeThemeID.flatMap(
+                            UUID.init(uuidString:)
+                        ),
+                        fallback: restoredThemeName
+                    )
                     self.show(
                         L10n.format(
                             "已連接 Codex，並恢復「{0}」",
                             "Codex attached. Restored “{0}”.",
-                            restoredThemeName
+                            displayName
                         ),
                         style: .success
                     )
@@ -533,7 +547,7 @@ final class ThemeAppModel: ObservableObject {
                     L10n.format(
                         "已套用「{0}」",
                         "Applied “{0}”",
-                        document.metadata.name
+                        L10n.themeName(document)
                     ),
                     style: .success
                 )
@@ -915,15 +929,18 @@ final class ThemeAppModel: ObservableObject {
                 )
             }
             mutateDraft { $0.assets.append(contentsOf: assets) }
-            let englishMessage = assets.count == 1
-                ? "Added {0} asset"
-                : "Added {0} assets"
             show(
-                L10n.format(
-                    "已加入 {0} 個素材",
-                    englishMessage,
-                    String(assets.count)
-                ),
+                assets.count == 1
+                    ? L10n.format(
+                        "已加入 {0} 個素材",
+                        "Added {0} asset",
+                        String(assets.count)
+                    )
+                    : L10n.format(
+                        "已加入 {0} 個素材",
+                        "Added {0} assets",
+                        String(assets.count)
+                    ),
                 style: .success
             )
         } catch {

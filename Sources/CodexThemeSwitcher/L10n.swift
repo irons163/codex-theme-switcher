@@ -1,4 +1,5 @@
 import Combine
+import CodexThemeSwitcherCore
 import Foundation
 
 enum AppLanguage: String, CaseIterable, Sendable {
@@ -250,6 +251,57 @@ enum L10n {
             )
         }
         return result
+    }
+
+    static func themeName(_ theme: ThemeDocument) -> String {
+        themeName(id: theme.id, fallback: theme.metadata.name)
+    }
+
+    static func themeName(id: UUID?, fallback: String) -> String {
+        guard let id else { return fallback }
+        switch id {
+        case BuiltInThemes.midnight.id:
+            return text("午夜", "Midnight")
+        case BuiltInThemes.paper.id:
+            return text("紙張", "Paper")
+        case BuiltInThemes.highContrast.id:
+            return text("高對比", "High Contrast")
+        default:
+            return fallback
+        }
+    }
+
+    static func themeDescription(_ theme: ThemeDocument) -> String {
+        switch theme.id {
+        case BuiltInThemes.midnight.id:
+            return text(
+                "深藍黑底搭配冷調青色重點的主題。",
+                "A deep blue-black theme with a cool cyan accent."
+            )
+        case BuiltInThemes.paper.id:
+            return text(
+                "以天然紙張為靈感的溫暖、低眩光淺色主題。",
+                "A warm, low-glare light theme inspired by natural paper."
+            )
+        case BuiltInThemes.highContrast.id:
+            return text(
+                "以清楚的焦點與選取指示提供最高對比。",
+                "Maximum contrast with strong focus and selection indicators."
+            )
+        default:
+            return theme.metadata.description
+        }
+    }
+
+    static func layerName(
+        _ layer: ThemeLayer,
+        in theme: ThemeDocument
+    ) -> String {
+        guard BuiltInThemes.theme(id: theme.id) != nil,
+              layer.name == theme.metadata.name else {
+            return layer.name
+        }
+        return themeName(theme)
     }
 
     static var appName: String {
