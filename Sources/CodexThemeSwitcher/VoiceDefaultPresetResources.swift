@@ -5,20 +5,27 @@ enum VoiceDefaultPresetResources {
     static let blinkFilename = "anime-girl-blink-closed.png"
 
     static var directoryURL: URL? {
-        let fileManager = FileManager.default
-        let bundledCandidates = [
-            Bundle.main.resourceURL?
-                .appendingPathComponent("VoiceDefaults", isDirectory: true),
-            Bundle.module.resourceURL?
-                .appendingPathComponent("VoiceDefaults", isDirectory: true)
-        ].compactMap { $0 }
+        directoryURL(
+            mainResourceURL: Bundle.main.resourceURL,
+            sourceFileURL: URL(fileURLWithPath: #filePath)
+        )
+    }
 
-        for candidate in bundledCandidates
-        where containsRequiredResources(candidate, fileManager: fileManager) {
-            return candidate
+    static func directoryURL(
+        mainResourceURL: URL?,
+        sourceFileURL: URL,
+        fileManager: FileManager = .default
+    ) -> URL? {
+        if let bundledDirectory = mainResourceURL?
+            .appendingPathComponent("VoiceDefaults", isDirectory: true),
+           containsRequiredResources(
+               bundledDirectory,
+               fileManager: fileManager
+           ) {
+            return bundledDirectory
         }
 
-        let sourceTree = URL(fileURLWithPath: #filePath)
+        let sourceTree = sourceFileURL
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()

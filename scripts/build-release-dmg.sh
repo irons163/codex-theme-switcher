@@ -67,6 +67,7 @@ AGENT_CLI="${APP_PATH}/Contents/Helpers/codex-theme"
 AGENT_SCHEMA="${APP_PATH}/Contents/Resources/Schemas/codextheme.schema.json"
 FRAMEWORKS_DIR="${APP_PATH}/Contents/Frameworks"
 RESOURCES_DIR="${APP_PATH}/Contents/Resources"
+VOICE_DEFAULTS_DIR="${RESOURCES_DIR}/VoiceDefaults"
 STAGING_DIR="${WORK_DIR}/dmg-staging"
 DMG_NAME="${APP_PRODUCT_NAME}-${SAFE_VERSION}-${ARCH_LABEL}.dmg"
 DMG_PATH="${WORK_DIR}/${DMG_NAME}"
@@ -119,7 +120,8 @@ mkdir -p \
   "${APP_PATH}/Contents/Helpers" \
   "$FRAMEWORKS_DIR" \
   "$RESOURCES_DIR" \
-  "${RESOURCES_DIR}/Schemas"
+  "${RESOURCES_DIR}/Schemas" \
+  "$VOICE_DEFAULTS_DIR"
 
 ditto "$BINARY_SOURCE" "$APP_BINARY"
 ditto "$AGENT_CLI_SOURCE" "$AGENT_CLI"
@@ -128,12 +130,22 @@ ditto "$PROJECT_ROOT/Packaging/AppIcon.icns" "${RESOURCES_DIR}/AppIcon.icns"
 ditto \
   "$PROJECT_ROOT/Sources/CodexThemeAgentCLI/Resources/codextheme.schema.json" \
   "$AGENT_SCHEMA"
+ditto \
+  "$PROJECT_ROOT/Examples/voice-mouth-sprites/anime-girl-mouth-2x2.png" \
+  "$VOICE_DEFAULTS_DIR/anime-girl-mouth-2x2.png"
+ditto \
+  "$PROJECT_ROOT/Examples/voice-mouth-sprites/anime-girl-blink-closed.png" \
+  "$VOICE_DEFAULTS_DIR/anime-girl-blink-closed.png"
 ditto "$SPARKLE_FRAMEWORK_SOURCE" "${FRAMEWORKS_DIR}/Sparkle.framework"
 ditto "$RUNTIME_RESOURCE_BUNDLE" "${RESOURCES_DIR}/${APP_PRODUCT_NAME}_CodexThemeRuntime.bundle"
 ditto "$APP_RESOURCE_BUNDLE" "${RESOURCES_DIR}/${APP_PRODUCT_NAME}_${APP_PRODUCT_NAME}.bundle"
 chmod +x "$APP_BINARY"
 chmod +x "$AGENT_CLI"
 [[ -f "$AGENT_SCHEMA" ]] || fail "Agent JSON Schema was not packaged"
+[[ -f "$VOICE_DEFAULTS_DIR/anime-girl-mouth-2x2.png" ]] \
+  || fail "Default Voice mouth sprites were not packaged"
+[[ -f "$VOICE_DEFAULTS_DIR/anime-girl-blink-closed.png" ]] \
+  || fail "Default Voice blink image was not packaged"
 
 /usr/libexec/PlistBuddy \
   -c "Set :CFBundleShortVersionString ${RELEASE_VERSION}" \

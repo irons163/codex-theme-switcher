@@ -14,6 +14,54 @@ final class ThemeAppModelDraftTests: XCTestCase {
             .appendingPathComponent("voice-mouth-sprites")
     }
 
+    func testVoiceDefaultsPreferPackagedAppResources() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "CodexThemeSwitcherPackagedVoiceDefaults-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let resources = root.appendingPathComponent(
+            "Contents/Resources",
+            isDirectory: true
+        )
+        let voiceDefaults = resources.appendingPathComponent(
+            "VoiceDefaults",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: voiceDefaults,
+            withIntermediateDirectories: true
+        )
+        for filename in [
+            VoiceDefaultPresetResources.mouthSpriteFilename,
+            VoiceDefaultPresetResources.blinkFilename
+        ] {
+            XCTAssertTrue(
+                FileManager.default.createFile(
+                    atPath: voiceDefaults
+                        .appendingPathComponent(filename)
+                        .path,
+                    contents: Data([0])
+                )
+            )
+        }
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        let resolved = VoiceDefaultPresetResources.directoryURL(
+            mainResourceURL: resources,
+            sourceFileURL: root
+                .appendingPathComponent("Missing")
+                .appendingPathComponent("VoiceDefaultPresetResources.swift")
+        )
+
+        XCTAssertEqual(
+            resolved?.standardizedFileURL,
+            voiceDefaults.standardizedFileURL
+        )
+    }
+
     @MainActor
     func testMouthSpriteSheetSplitsIntoFourOrderedSquareAssets() throws {
         let root = FileManager.default.temporaryDirectory
