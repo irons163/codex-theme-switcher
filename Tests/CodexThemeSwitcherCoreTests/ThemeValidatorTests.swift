@@ -386,6 +386,7 @@ final class ThemeValidatorTests: XCTestCase {
         voice.light.orbIdleMotionPeriodSeconds = 1.49
         voice.dark.orbBlinkIntervalSeconds = 15.01
         voice.dark.orbBlinkDurationMilliseconds = 59
+        voice.dark.overlayMascotWidth = 340
         voice.light.orbScale = 3.01
         voice.light.glowOpacity = -0.01
         voice.dark.hueRotation = 181
@@ -459,6 +460,9 @@ final class ThemeValidatorTests: XCTestCase {
         )
         XCTAssertTrue(
             paths.contains("voiceStyle.dark.orbBlinkDurationMilliseconds")
+        )
+        XCTAssertTrue(
+            paths.contains("voiceStyle.dark.overlayMascotWidth")
         )
         XCTAssertTrue(paths.contains("voiceStyle.light.orbScale"))
         XCTAssertTrue(paths.contains("voiceStyle.light.glowOpacity"))

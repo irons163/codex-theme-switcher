@@ -150,6 +150,7 @@ final class ThemeSchemaExamplesTests: XCTestCase {
         XCTAssertNotNil(voiceProperties["avatarMode"])
         XCTAssertNotNil(voiceProperties["live2DModel"])
         XCTAssertNotNil(voiceProperties["backgroundAssetID"])
+        XCTAssertNotNil(voiceProperties["overlayMascotWidth"])
         XCTAssertNotNil(voiceProperties["orbLocksToOverlayCenter"])
         XCTAssertNotNil(voiceProperties["orbBackgroundAssetID"])
         XCTAssertNotNil(voiceProperties["orbBackgroundImageFit"])

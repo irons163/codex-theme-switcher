@@ -23,6 +23,16 @@ enum L10nCatalogWestern {
             spanish: "Modo de avatar"
         ),
         Entry(
+            key: "Avatar area size",
+            french: "Taille de la zone de l’avatar",
+            spanish: "Tamaño del área del avatar"
+        ),
+        Entry(
+            key: "Expands ChatGPT's native Voice window with the avatar. Increase it when a large or full-body Live2D model is clipped.",
+            french: "Agrandit la fenêtre Voice native de ChatGPT avec l’avatar. Augmentez la valeur si un grand modèle Live2D ou un personnage en pied est rogné.",
+            spanish: "Amplía la ventana Voice nativa de ChatGPT junto con el avatar. Aumenta el valor si se recorta un modelo Live2D grande o de cuerpo entero."
+        ),
+        Entry(
             key: "Native orb",
             french: "Orbe native",
             spanish: "Orbe nativo"

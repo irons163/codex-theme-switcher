@@ -492,6 +492,13 @@
           "minimum": 0,
           "maximum": 40
         },
+        "overlayMascotWidth": {
+          "type": "number",
+          "minimum": 80,
+          "maximum": 339,
+          "default": 113,
+          "description": "Width of ChatGPT's measured Voice avatar area in CSS pixels. Increasing it expands the native overlay window so large portraits and full-body Live2D models are not clipped."
+        },
         "orbLocksToOverlayCenter": {
           "type": "boolean",
           "default": true,

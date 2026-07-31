@@ -9,10 +9,20 @@ final class Live2DRuntimeTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(source.contains("const VERSION = 25;"))
+        XCTAssertTrue(source.contains("const VERSION = 32;"))
         XCTAssertTrue(source.contains("function prepareVoiceImages("))
         XCTAssertTrue(source.contains("function mountVoiceLive2D("))
         XCTAssertTrue(source.contains("function destroyVoiceLive2D("))
+        XCTAssertTrue(source.contains("function ensureLive2DBlobLoader("))
+        XCTAssertTrue(source.contains("async function live2DSettings("))
+        XCTAssertTrue(source.contains("function ensureLive2DDrawOrderCompatibility("))
+        XCTAssertTrue(source.contains("drawables.drawOrders"))
+        XCTAssertTrue(source.contains("const normalizedOrders = new Int32Array("))
+        XCTAssertTrue(source.contains("const asset = live2DAsset("))
+        XCTAssertTrue(source.contains("await asset.blob.arrayBuffer()"))
+        XCTAssertTrue(source.contains("new Settings(settingsJSON)"))
+        XCTAssertTrue(source.contains("[data-codex-live2d-avatar]"))
+        XCTAssertFalse(source.contains("const response = await fetch(url);"))
         XCTAssertTrue(source.contains("refreshVoicePulseSync,"))
         XCTAssertTrue(source.contains("live2D: {"))
     }
@@ -58,7 +68,7 @@ final class Live2DRuntimeTests: XCTestCase {
             JSONSerialization.jsonObject(with: result) as? [String: Any]
         )
 
-        XCTAssertEqual(object["version"] as? Int, 25)
+        XCTAssertEqual(object["version"] as? Int, 32)
         XCTAssertEqual(object["live"] as? Bool, true)
         XCTAssertEqual(object["flat"] as? Bool, false)
     }

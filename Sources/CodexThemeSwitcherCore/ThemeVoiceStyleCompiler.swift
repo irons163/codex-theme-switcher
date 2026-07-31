@@ -134,10 +134,12 @@ enum ThemeVoiceStyleCompiler {
 
     private static func centeredOverlayRule(selector: String) -> String {
         """
-        \(selector)[data-codex-theme-switcher-theme] [data-avatar-overlay-hit-region="mascot"] {
+        \(selector)[data-codex-theme-switcher-theme]
+        :has(> [data-avatar-overlay-hit-region="mascot"]) {
           bottom: auto !important;
           left: 50vw !important;
           margin: 0 !important;
+          position: fixed !important;
           right: auto !important;
           top: 50vh !important;
           translate:
@@ -187,6 +189,9 @@ enum ThemeVoiceStyleCompiler {
         let usesImageAvatar =
             variant.avatarMode == .image
             && variant.orbBackgroundAssetID != nil
+        let overlayMascotHeight = ceil(
+            variant.overlayMascotWidth * 208 / 192
+        )
 
         return """
         \(selector) {
@@ -201,6 +206,8 @@ enum ThemeVoiceStyleCompiler {
           --cts-voice-background-opacity: \(number(variant.backgroundImageOpacity));
           --cts-voice-background-blur: \(number(variant.backgroundImageBlur))px;
           --cts-voice-background-inset: \(insetValue);
+          --cts-voice-overlay-mascot-width: \(number(variant.overlayMascotWidth))px;
+          --cts-voice-overlay-mascot-height: \(number(overlayMascotHeight))px;
           --cts-voice-orb-background-image: \(orbImage);
           --cts-voice-orb-background-size: \(orbSizing.size);
           --cts-voice-orb-background-repeat: \(orbSizing.repeatMode);
@@ -351,6 +358,11 @@ enum ThemeVoiceStyleCompiler {
           min-height: 100%;
           position: relative;
           z-index: 1;
+        }
+
+        \(root) [data-avatar-overlay-size="mascot"] {
+          height: var(--cts-voice-overlay-mascot-height) !important;
+          width: var(--cts-voice-overlay-mascot-width) !important;
         }
 
         """

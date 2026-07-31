@@ -134,6 +134,30 @@ struct ThemeVoiceEditorView: View {
             }
             .pickerStyle(.segmented)
 
+            settingsGrid {
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "角色區域大小",
+                        "Avatar area size"
+                    ),
+                    value: variantBinding(\.overlayMascotWidth),
+                    range: 80...339,
+                    step: 1,
+                    format: {
+                        "\(Int(($0 / 113 * 100).rounded()))%"
+                    }
+                )
+            }
+
+            Text(
+                L10n.text(
+                    "會連同 ChatGPT 原生 Voice 視窗一起放大；大型或全身 Live2D 被裁切時可調高。",
+                    "Expands ChatGPT's native Voice window with the avatar. Increase it when a large or full-body Live2D model is clipped."
+                )
+            )
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+
             if variant.avatarMode == .live2D, live2DModel == nil {
                 Label(
                     L10n.text(

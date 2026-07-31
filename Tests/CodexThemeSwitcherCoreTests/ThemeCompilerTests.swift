@@ -751,6 +751,7 @@ final class ThemeCompilerTests: XCTestCase {
     func testVoiceStyleCompilesFullOverlayAndSafeEmbeddedOrbCSS() throws {
         var voice = ThemeVoiceStyle(isEnabled: true)
         voice.light.orbScale = 1.25
+        voice.light.overlayMascotWidth = 339
         voice.light.orbLocksToOverlayCenter = false
         voice.dark.hueRotation = -45
         voice.dark.orbLocksToOverlayCenter = false
@@ -761,6 +762,21 @@ final class ThemeCompilerTests: XCTestCase {
         let compiled = try ThemeCompiler().compile(theme)
 
         XCTAssertTrue(compiled.css.contains("--cts-voice-scale: 1.25;"))
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-overlay-mascot-width: 339px;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-overlay-mascot-height: 368px;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "[data-avatar-overlay-size=\"mascot\"]"
+            )
+        )
         XCTAssertTrue(compiled.css.contains(".codex-avatar-root"))
         XCTAssertTrue(
             compiled.css.contains("/* Codex Theme Voice Embedded Orb */")
@@ -875,9 +891,18 @@ final class ThemeCompilerTests: XCTestCase {
                 ":root:where(.electron-light)[data-codex-theme-switcher-theme]"
             )
         )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "position: fixed !important;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                ":has(> [data-avatar-overlay-hit-region=\"mascot\"]")
+        )
         XCTAssertFalse(
             compiled.avatarOverlayCSS.contains(
-                ":root:where(.electron-dark:not(.electron-light))[data-codex-theme-switcher-theme] [data-avatar-overlay-hit-region=\"mascot\"]"
+                ":root:where(.electron-dark:not(.electron-light))[data-codex-theme-switcher-theme]\n        :has(> [data-avatar-overlay-hit-region=\"mascot\"]"
             )
         )
         XCTAssertFalse(compiled.css.contains(centeringRule))

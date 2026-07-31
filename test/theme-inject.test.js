@@ -178,7 +178,7 @@ function install(dom = fakeDOM()) {
   return dom;
 }
 
-test("VERSION=25 exposes transaction APIs and source evaluation is idempotent", () => {
+test("VERSION=32 exposes transaction APIs and source evaluation is idempotent", () => {
   const dom = install();
   const runtime = dom.window.__codexThemeSwitcherRuntime;
   const functions = [
@@ -190,7 +190,7 @@ test("VERSION=25 exposes transaction APIs and source evaluation is idempotent", 
     "__codexThemeSwitcherClear",
   ];
 
-  assert.equal(runtime.version, 25);
+  assert.equal(runtime.version, 32);
   for (const name of functions) {
     assert.equal(typeof dom.window[name], "function", name);
   }
@@ -309,6 +309,34 @@ test("large base64 chunks become Uint8Array Blob parts and replace asset URLs", 
     dom.children[0].textContent,
     /codex-theme-asset:\/\//,
   );
+});
+
+test("committed assets retain their Blob for Live2D file loading", () => {
+  const dom = install();
+  const bytes = Buffer.from("MOC3 live2d model bytes");
+  const asset = {
+    ...descriptor("live2d-model", bytes),
+    mediaType: "application/octet-stream",
+  };
+  const payload = beginPayload({ assets: [asset] });
+
+  dom.window.__codexThemeSwitcherBegin(payload);
+  appendBase64(
+    dom.window,
+    payload.transactionID,
+    asset.id,
+    bytes,
+  );
+  dom.window.__codexThemeSwitcherCommit({
+    transactionID: payload.transactionID,
+  });
+
+  const committed = dom.window.__codexThemeSwitcherRuntime.assets.get(
+    asset.id,
+  );
+  assert.equal(committed.mediaType, "application/octet-stream");
+  assert.equal(committed.blob, dom.blobs[0]);
+  assert.deepEqual(Buffer.from(committed.blob.bytes()), bytes);
 });
 
 test("duplicate fingerprints share and reuse one URL across commits", () => {
@@ -1107,6 +1135,7 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
   };
   const voiceRenderer = {
     canvas,
+    inputs: { voiceActivity: "listening" },
     outputLevel: 0,
     publishedAudioLevels: null,
     setPublishedAudioLevels(levels) {
@@ -1371,6 +1400,30 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
     dom.window.__codexThemeSwitcherRuntime.voicePulse.mouthEnergySource,
     "webgl-output-level",
   );
+
+  voiceRenderer.inputs.voiceActivity = "speaking";
+  voiceRenderer.setPublishedAudioLevels({
+    high: 0,
+    low: 0,
+    mid: 0,
+    overall: 0,
+  });
+  uniforms.set("u_outputLevel", 0);
+  uniforms.set("u_stateListen", 0);
+  uniforms.set("u_stateSpeak", 1);
+  now = 48;
+  frameCallback();
+  assert.ok(
+    dom.window.__codexThemeSwitcherRuntime.voicePulse.mouthRawLevel > 0.1,
+  );
+  assert.equal(
+    dom.window.__codexThemeSwitcherRuntime.voicePulse.mouthEnergySource,
+    "speaking-state-fallback",
+  );
+
+  voiceRenderer.inputs.voiceActivity = "listening";
+  uniforms.set("u_stateListen", 1);
+  uniforms.set("u_stateSpeak", 0);
 
   voiceRenderer.setPublishedAudioLevels({
     high: 0.42,

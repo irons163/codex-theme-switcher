@@ -804,6 +804,11 @@ public struct ThemeValidator: Sendable {
                         variant.orbBlinkDurationMilliseconds,
                         60...400
                     ),
+                    (
+                        "overlayMascotWidth",
+                        variant.overlayMascotWidth,
+                        80...339
+                    ),
                     ("orbScale", variant.orbScale, 0.5...3),
                     ("brightness", variant.brightness, 0...3),
                     ("contrast", variant.contrast, 0...3),
