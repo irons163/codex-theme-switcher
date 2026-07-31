@@ -1357,6 +1357,10 @@ public struct CodexThemeAgentCLI {
                 "voiceMouthFrameLimit": 9,
                 "voiceMouthSpriteSheets": ["2x2", "3x3"],
                 "voiceMouthSynchronization": "amplitude-envelope-discrete",
+                "voiceAvatarModes": ["native", "image", "live2D"],
+                "voiceLive2DModelImport": ".model3.json",
+                "voiceLive2DMouthSynchronization":
+                    "amplitude-envelope-continuous",
                 "voiceIdleAnimation": true,
                 "voiceBlinkImage": true,
                 "voiceStyleIsolation": true
@@ -1604,6 +1608,12 @@ public struct CodexThemeAgentCLI {
                 copy.voiceStyle?.dark.orbBackgroundAssetID = newID
             }
             if var voiceStyle = copy.voiceStyle {
+                if voiceStyle.light.orbBlinkAssetID == oldID {
+                    voiceStyle.light.orbBlinkAssetID = newID
+                }
+                if voiceStyle.dark.orbBlinkAssetID == oldID {
+                    voiceStyle.dark.orbBlinkAssetID = newID
+                }
                 voiceStyle.light.orbMouthFrameAssetIDs =
                     voiceStyle.light.orbMouthFrameAssetIDs.map {
                     $0 == oldID ? newID : $0
@@ -1612,6 +1622,26 @@ public struct CodexThemeAgentCLI {
                     voiceStyle.dark.orbMouthFrameAssetIDs.map {
                         $0 == oldID ? newID : $0
                     }
+                if var live2D = voiceStyle.light.live2DModel {
+                    live2D.resources = live2D.resources.map { resource in
+                        var copy = resource
+                        if copy.assetID == oldID {
+                            copy.assetID = newID
+                        }
+                        return copy
+                    }
+                    voiceStyle.light.live2DModel = live2D
+                }
+                if var live2D = voiceStyle.dark.live2DModel {
+                    live2D.resources = live2D.resources.map { resource in
+                        var copy = resource
+                        if copy.assetID == oldID {
+                            copy.assetID = newID
+                        }
+                        return copy
+                    }
+                    voiceStyle.dark.live2DModel = live2D
+                }
                 copy.voiceStyle = voiceStyle
             }
         }

@@ -14,6 +14,98 @@ final class ThemeAppModelDraftTests: XCTestCase {
             .appendingPathComponent("voice-mouth-sprites")
     }
 
+    @MainActor
+    func testLive2DImportCollectsReferencedCubismFilesWithRelativePaths()
+        throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "CodexThemeSwitcherLive2DImport-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let textures = root.appendingPathComponent(
+            "textures",
+            isDirectory: true
+        )
+        let motions = root.appendingPathComponent(
+            "motions",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: textures,
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: motions,
+            withIntermediateDirectories: true
+        )
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: root)
+        }
+        let settingsURL = root.appendingPathComponent(
+            "avatar.model3.json"
+        )
+        let settings = """
+        {
+          "Version": 3,
+          "FileReferences": {
+            "Moc": "avatar.moc3",
+            "Textures": ["textures/texture_00.png"],
+            "Physics": "avatar.physics3.json",
+            "Motions": {
+              "Idle": [{"File": "motions/idle.motion3.json"}],
+              "Tap": [{
+                "File": "motions/missing.motion3.json",
+                "Sound": "../shared/missing.mp3"
+              }]
+            }
+          }
+        }
+        """
+        try Data(settings.utf8).write(to: settingsURL)
+        try Data([0x4D, 0x4F, 0x43, 0x33]).write(
+            to: root.appendingPathComponent("avatar.moc3")
+        )
+        try Data([0x89, 0x50, 0x4E, 0x47]).write(
+            to: textures.appendingPathComponent("texture_00.png")
+        )
+        try Data("{}".utf8).write(
+            to: root.appendingPathComponent("avatar.physics3.json")
+        )
+        try Data("{}".utf8).write(
+            to: motions.appendingPathComponent("idle.motion3.json")
+        )
+        let model = ThemeAppModel(
+            repository: FileThemeRepository(
+                rootDirectory: root.appendingPathComponent("repository")
+            ),
+            runtime: nil
+        )
+
+        let imported = try model.makeLive2DModel(from: settingsURL)
+
+        XCTAssertEqual(
+            Set(imported.model.resources.map(\.path)),
+            Set([
+                "avatar.model3.json",
+                "avatar.moc3",
+                "avatar.physics3.json",
+                "motions/idle.motion3.json",
+                "textures/texture_00.png"
+            ])
+        )
+        XCTAssertEqual(imported.assets.count, 5)
+        XCTAssertEqual(
+            imported.assets.first {
+                $0.name == "avatar.model3.json"
+            }?.mediaType,
+            "application/json"
+        )
+        XCTAssertEqual(
+            Set(imported.model.resources.map(\.assetID)),
+            Set(imported.assets.map(\.id))
+        )
+    }
+
     func testVoiceDefaultsPreferPackagedAppResources() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent(

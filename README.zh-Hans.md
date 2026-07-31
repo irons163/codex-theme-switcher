@@ -69,10 +69,11 @@ Agent 生成的预览是接近真实画面的近似结果。分享主题前，�
 
 - 设置 Voice 背景，以及动画圆球内部的独立图片。
 - 添加闭嘴人物和最多八张嘴型图，或直接导入 2×2／3×3 嘴型图。
+- 也可导入 Cubism `.model3.json`，使用骨骼化 Live2D 动作与音量驱动的连续嘴型；切换模式后，原有平面图设置仍会保留。
 - 调整灵敏度、静音阈值、张嘴／闭嘴速度、眨眼、待机动作、脉动和原生圆球显示程度。
 - 嘴型会跟随音量强度，并非音素级口型同步。
 
-Voice 样式依赖 ChatGPT 内部 renderer，Codex／ChatGPT 更新后可能需要相应调整。
+Voice 样式依赖 ChatGPT 内部 renderer，Codex／ChatGPT 更新后可能需要相应调整。Live2D renderer 启动时需要网络加载官方 Cubism Core；发布 App 或主题前，请确认模型、角色与 Cubism SDK 的发布权利。
 
 ## 导入与导出
 

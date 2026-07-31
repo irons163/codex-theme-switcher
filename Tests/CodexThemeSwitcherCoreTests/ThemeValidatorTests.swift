@@ -642,4 +642,88 @@ final class ThemeValidatorTests: XCTestCase {
             }
         )
     }
+
+    func testLive2DVoiceRequiresSafeCompleteModelResources() {
+        let settings = ThemeAsset(
+            name: "avatar.model3.json",
+            mediaType: "text/plain",
+            data: Data("{}".utf8)
+        )
+        let moc = ThemeAsset(
+            name: "avatar.moc3",
+            mediaType: "application/octet-stream",
+            data: Data([0x4D, 0x4F, 0x43, 0x33])
+        )
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.avatarMode = .live2D
+        voice.light.live2DModel = ThemeLive2DModel(
+            modelSettingsPath: "avatar.json",
+            resources: [
+                .init(path: "avatar.model3.json", assetID: settings.id),
+                .init(path: "../avatar.moc3", assetID: moc.id),
+                .init(path: "missing.png", assetID: UUID())
+            ],
+            mouthParameterID: "bad parameter"
+        )
+        voice.dark.avatarMode = .live2D
+        var theme = TestFixtures.theme(assets: [settings, moc])
+        theme.voiceStyle = voice
+
+        let result = validator.validate(theme)
+
+        XCTAssertTrue(result.issues.contains {
+            $0.path == "voiceStyle.dark.live2DModel"
+                && $0.code == .missingSkinAsset
+        })
+        XCTAssertTrue(result.issues.contains {
+            $0.path == "voiceStyle.light.live2DModel.modelSettingsPath"
+                && $0.code == .missingSkinAsset
+        })
+        XCTAssertTrue(result.issues.contains {
+            $0.path.hasSuffix("resources[1].path")
+                && $0.code == .invalidAssetName
+        })
+        XCTAssertTrue(result.issues.contains {
+            $0.path.hasSuffix("resources[2].assetID")
+                && $0.code == .missingSkinAsset
+        })
+        XCTAssertTrue(result.issues.contains {
+            $0.path.hasSuffix("mouthParameterID")
+                && $0.code == .invalidSkinCSSValue
+        })
+    }
+
+    func testLive2DVoiceAcceptsJSONSettingsMocAndTextureAssets() {
+        let settings = ThemeAsset(
+            name: "avatar.model3.json",
+            mediaType: "application/json",
+            data: Data("{}".utf8)
+        )
+        let moc = ThemeAsset(
+            name: "avatar.moc3",
+            mediaType: "application/octet-stream",
+            data: Data([0x4D, 0x4F, 0x43, 0x33])
+        )
+        let texture = TestFixtures.imageAsset(
+            name: "textures/texture_00.png"
+        )
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.avatarMode = .live2D
+        voice.light.live2DModel = ThemeLive2DModel(
+            modelSettingsPath: settings.name,
+            resources: [
+                .init(path: settings.name, assetID: settings.id),
+                .init(path: moc.name, assetID: moc.id),
+                .init(path: texture.name, assetID: texture.id)
+            ]
+        )
+        var theme = TestFixtures.theme(
+            assets: [settings, moc, texture]
+        )
+        theme.voiceStyle = voice
+
+        let result = validator.validate(theme)
+
+        XCTAssertTrue(result.isValid, "\(result.issues)")
+    }
 }

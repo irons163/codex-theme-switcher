@@ -4,7 +4,7 @@
   const GLOBAL_KEY = "__codexThemeSwitcherRuntime";
   const STYLE_ID = "codex-theme-switcher-style";
   const STAGING_STYLE_ID = `${STYLE_ID}-staging`;
-  const VERSION = 24;
+  const VERSION = 25;
   const PUBLISHED_AUDIO_SMOOTHING = 0.86;
   const VOICE_ORB_SELECTOR = ".codex-avatar-root";
   const VOICE_PULSE_ENABLED = "--cts-voice-orb-pulse-enabled";
@@ -35,6 +35,12 @@
   const VOICE_BLINK_INTERVAL = "--cts-voice-orb-blink-interval-ms";
   const VOICE_BLINK_DURATION = "--cts-voice-orb-blink-duration-ms";
   const VOICE_BLINK_OPACITY = "--cts-voice-orb-blink-opacity";
+  const VOICE_AVATAR_MODE = "--cts-voice-avatar-mode";
+  const VOICE_LIVE2D_MANIFEST = "--cts-voice-live2d-manifest";
+  const VOICE_LIVE2D_SCALE = "--cts-voice-live2d-scale";
+  const VOICE_LIVE2D_POSITION_X = "--cts-voice-live2d-position-x";
+  const VOICE_LIVE2D_POSITION_Y = "--cts-voice-live2d-position-y";
+  const VOICE_LIVE2D_PARAMETER_PREFIX = "--cts-voice-live2d-";
   const VOICE_ORB_LAYOUT_SHIFT = Object.freeze({
     x: "--cts-voice-orb-layout-shift-x",
     y: "--cts-voice-orb-layout-shift-y",
@@ -124,6 +130,30 @@
     return computedStyle(element)?.getPropertyValue?.(name)?.trim() || "";
   }
 
+  function unquotedCustomProperty(name, fallback = "") {
+    let value = customProperty(document.documentElement, name);
+    if (
+      value.length >= 2
+      && (
+        (value.startsWith("\"") && value.endsWith("\""))
+        || (value.startsWith("'") && value.endsWith("'"))
+      )
+    ) {
+      value = value.slice(1, -1);
+    }
+    return value || fallback;
+  }
+
+  function voiceAvatarMode() {
+    const value = unquotedCustomProperty(
+      VOICE_AVATAR_MODE,
+      "image",
+    );
+    return value === "live2D" || value === "native"
+      ? value
+      : "image";
+  }
+
   function voicePulseIsEnabled() {
     const value = customProperty(
       document.documentElement,
@@ -133,10 +163,11 @@
   }
 
   function voicePulseIsConfigured() {
-    return customProperty(
-      document.documentElement,
-      VOICE_ORB_IMAGE_ENABLED,
-    ) !== "";
+    return customProperty(document.documentElement, VOICE_AVATAR_MODE) !== ""
+      || customProperty(
+        document.documentElement,
+        VOICE_ORB_IMAGE_ENABLED,
+      ) !== "";
   }
 
   function voiceOrbImageIsEnabled() {
@@ -621,12 +652,13 @@
 
   function synchronizeVoiceMouth(root, rawEnergy) {
     const pulse = runtime.voicePulse;
-    if (!pulse.mouthSourcesReady) {
+    const usesLive2D = voiceAvatarMode() === "live2D";
+    if (!pulse.mouthSourcesReady && !usesLive2D) {
       pinVoiceMouthClosed(root);
       return;
     }
     const sources = pulse.mouthSources;
-    if (!root || sources.length < 2) {
+    if (!root || (sources.length < 2 && !usesLive2D)) {
       clearVoiceMouth(root);
       resetVoiceMouthDynamics(pulse);
       return;
@@ -757,7 +789,13 @@
     }
     pulse.mouthLastTimestamp = now;
     pulse.mouthRawLevel = raw;
+    runtime.live2D.mouthLevel = pulse.mouthLevel;
+    runtime.live2D.rawEnergy = raw;
 
+    if (usesLive2D) {
+      clearVoiceMouth(root);
+      return;
+    }
     const scaled = pulse.mouthLevel * (sources.length - 1);
     pulse.mouthFrameIndex = Math.min(
       Math.round(scaled),
@@ -822,6 +860,371 @@
       url = url.slice(1, -1);
     }
     return url || null;
+  }
+
+  function decodeLive2DManifest() {
+    const source = unquotedCustomProperty(VOICE_LIVE2D_MANIFEST);
+    if (!source) return null;
+    try {
+      const binary = atob(source);
+      const bytes = Uint8Array.from(
+        binary,
+        (character) => character.charCodeAt(0),
+      );
+      const text = typeof TextDecoder === "function"
+        ? new TextDecoder().decode(bytes)
+        : decodeURIComponent(
+          Array.from(bytes)
+            .map((value) => `%${value.toString(16).padStart(2, "0")}`)
+            .join(""),
+        );
+      const manifest = JSON.parse(text);
+      if (
+        !manifest
+        || typeof manifest.modelSettingsPath !== "string"
+        || !Array.isArray(manifest.resources)
+      ) {
+        return null;
+      }
+      return manifest;
+    } catch {
+      return null;
+    }
+  }
+
+  function live2DConfiguration() {
+    const manifest = decodeLive2DManifest();
+    if (!manifest) return null;
+    const parameter = (suffix, fallback) => unquotedCustomProperty(
+      `${VOICE_LIVE2D_PARAMETER_PREFIX}${suffix}-parameter`,
+      fallback,
+    );
+    return {
+      manifest,
+      scale: clamp(
+        numericCustomProperty(VOICE_LIVE2D_SCALE, 1),
+        0.25,
+        3,
+      ),
+      positionX: clamp(
+        numericCustomProperty(VOICE_LIVE2D_POSITION_X, 0.5),
+        0,
+        1,
+      ),
+      positionY: clamp(
+        numericCustomProperty(VOICE_LIVE2D_POSITION_Y, 0.5),
+        0,
+        1,
+      ),
+      parameters: {
+        mouth: parameter("mouth", "ParamMouthOpenY"),
+        angleX: parameter("angle-x", "ParamAngleX"),
+        angleY: parameter("angle-y", "ParamAngleY"),
+        angleZ: parameter("angle-z", "ParamAngleZ"),
+        bodyAngleX: parameter(
+          "body-angle-x",
+          "ParamBodyAngleX",
+        ),
+      },
+    };
+  }
+
+  function live2DAssetURL(assetID) {
+    if (typeof assetID !== "string" || !assetID) return null;
+    return extractCSSURL(customProperty(
+      document.documentElement,
+      `--cts-voice-asset-${assetID.toLowerCase()}`,
+    ));
+  }
+
+  function destroyVoiceLive2D() {
+    const state = runtime.live2D;
+    state.generation += 1;
+    state.resizeObserver?.disconnect?.();
+    state.resizeObserver = null;
+    const root = state.root;
+    root?.removeAttribute?.("data-codex-live2d-ready");
+    root?.removeAttribute?.("data-codex-live2d-error");
+    try {
+      state.app?.destroy?.(true, {
+        children: true,
+        texture: false,
+        baseTexture: false,
+      });
+    } catch {
+      try {
+        state.model?.destroy?.();
+      } catch {}
+    }
+    state.container?.remove?.();
+    state.root = null;
+    state.container = null;
+    state.canvas = null;
+    state.app = null;
+    state.model = null;
+    state.configurationKey = "";
+    state.loading = false;
+    state.error = null;
+    state.mouthLevel = 0;
+    state.rawEnergy = 0;
+  }
+
+  function live2DParameterHandle(coreModel, requested, fallback) {
+    const candidates = coreModel?._parameterIds;
+    if (Array.isArray(candidates)) {
+      const match = candidates.find((candidate) => {
+        try {
+          return String(candidate?.getString?.()?.s ?? candidate)
+            === requested;
+        } catch {
+          return false;
+        }
+      });
+      if (match) return match;
+    }
+    return fallback || null;
+  }
+
+  function configureLive2DParameters(model, configuration) {
+    const internal = model?.internalModel;
+    const coreModel = internal?.coreModel;
+    if (!internal || !coreModel) return;
+    const lipSyncIDs = internal.motionManager?.lipSyncIds || [];
+    const handles = {
+      mouth: live2DParameterHandle(
+        coreModel,
+        configuration.parameters.mouth,
+        lipSyncIDs[0],
+      ),
+      angleX: live2DParameterHandle(
+        coreModel,
+        configuration.parameters.angleX,
+        internal.idParamAngleX,
+      ),
+      angleY: live2DParameterHandle(
+        coreModel,
+        configuration.parameters.angleY,
+        internal.idParamAngleY,
+      ),
+      angleZ: live2DParameterHandle(
+        coreModel,
+        configuration.parameters.angleZ,
+        internal.idParamAngleZ,
+      ),
+      bodyAngleX: live2DParameterHandle(
+        coreModel,
+        configuration.parameters.bodyAngleX,
+        internal.idParamBodyAngleX,
+      ),
+    };
+    const add = (handle, value, weight = 1) => {
+      if (!handle || !Number.isFinite(value)) return;
+      try {
+        coreModel.addParameterValueById(handle, value, weight);
+      } catch {}
+    };
+    internal.on?.("beforeModelUpdate", () => {
+      const state = runtime.live2D;
+      if (state.model !== model) return;
+      const mouth = clamp(state.mouthLevel, 0, 1);
+      add(handles.mouth, mouth, 1);
+
+      const idleEnabled = booleanCustomProperty(VOICE_IDLE_ENABLED);
+      const idleStrength = idleEnabled
+        ? clamp(
+          numericCustomProperty(VOICE_IDLE_STRENGTH, 0.35),
+          0,
+          2,
+        ) * (1 - smoothstep(0.015, 0.12, mouth))
+        : 0;
+      const period = clamp(
+        numericCustomProperty(VOICE_IDLE_PERIOD, 4800),
+        1500,
+        12000,
+      );
+      const now = typeof performance !== "undefined"
+        && typeof performance.now === "function"
+        ? performance.now()
+        : Date.now();
+      const phase = now / period * Math.PI * 2;
+      add(handles.angleX, Math.sin(phase) * 4.2 * idleStrength);
+      add(
+        handles.angleY,
+        Math.sin(phase * 0.63 + 1.1) * 2.8 * idleStrength,
+      );
+      add(
+        handles.angleZ,
+        Math.sin(phase * 0.82 - 0.4) * 2.2 * idleStrength,
+      );
+      add(
+        handles.bodyAngleX,
+        Math.sin(phase * 0.71 + 0.3) * 1.6 * idleStrength,
+      );
+    });
+  }
+
+  async function live2DFiles(configuration) {
+    const resources = configuration.manifest.resources;
+    const files = [];
+    for (const resource of resources) {
+      if (
+        !resource
+        || typeof resource.path !== "string"
+        || typeof resource.assetID !== "string"
+      ) {
+        throw new Error("Live2D manifest contains an invalid resource.");
+      }
+      const url = live2DAssetURL(resource.assetID);
+      if (!url) {
+        throw new Error(`Live2D resource is unavailable: ${resource.path}`);
+      }
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Live2D resource failed to load: ${resource.path}`);
+      }
+      const blob = await response.blob();
+      const name = resource.path.split("/").pop() || resource.path;
+      const file = new File([blob], name, {
+        type: blob.type || "application/octet-stream",
+      });
+      Object.defineProperty(file, "webkitRelativePath", {
+        configurable: true,
+        value: resource.path,
+      });
+      files.push(file);
+    }
+    files.sort((left, right) => {
+      const settingsPath = configuration.manifest.modelSettingsPath;
+      if (left.webkitRelativePath === settingsPath) return -1;
+      if (right.webkitRelativePath === settingsPath) return 1;
+      return left.webkitRelativePath.localeCompare(right.webkitRelativePath);
+    });
+    return files;
+  }
+
+  function resizeLive2DModel(state, configuration) {
+    const container = state.container;
+    const app = state.app;
+    const model = state.model;
+    if (!container || !app || !model) return;
+    const width = Math.max(Math.round(container.clientWidth), 64);
+    const height = Math.max(Math.round(container.clientHeight), 64);
+    app.renderer.resize(width, height);
+    model.scale.set(1);
+    const bounds = model.getLocalBounds?.();
+    const modelWidth = Math.max(Number(bounds?.width) || model.width, 1);
+    const modelHeight = Math.max(
+      Number(bounds?.height) || model.height,
+      1,
+    );
+    const scale = Math.min(
+      width / modelWidth,
+      height / modelHeight,
+    ) * configuration.scale;
+    model.scale.set(scale);
+    model.x = width * configuration.positionX;
+    model.y = height * configuration.positionY;
+  }
+
+  async function mountVoiceLive2D(root, pulseGeneration) {
+    if (
+      voiceAvatarMode() !== "live2D"
+      || !root
+      || pulseGeneration !== runtime.voicePulse.generation
+    ) {
+      return;
+    }
+    const configuration = live2DConfiguration();
+    if (!configuration) return;
+    const key = JSON.stringify(configuration);
+    const state = runtime.live2D;
+    if (
+      state.root === root
+      && state.configurationKey === key
+      && (state.loading || state.model)
+    ) {
+      return;
+    }
+    destroyVoiceLive2D();
+    const generation = runtime.live2D.generation;
+    state.root = root;
+    state.configurationKey = key;
+    state.loading = true;
+
+    try {
+      if (
+        !window.PIXI?.Application
+        || !window.PIXI?.live2d?.Live2DModel
+      ) {
+        throw new Error("Live2D renderer is not installed.");
+      }
+      const files = await live2DFiles(configuration);
+      if (
+        generation !== runtime.live2D.generation
+        || pulseGeneration !== runtime.voicePulse.generation
+        || root !== runtime.voicePulse.root
+      ) {
+        return;
+      }
+
+      const container = document.createElement("div");
+      container.dataset.codexLive2dAvatar = "true";
+      const canvas = document.createElement("canvas");
+      canvas.dataset.codexLive2dCanvas = "true";
+      container.appendChild(canvas);
+      root.appendChild(container);
+
+      const app = new window.PIXI.Application({
+        view: canvas,
+        width: Math.max(container.clientWidth, 64),
+        height: Math.max(container.clientHeight, 64),
+        antialias: true,
+        autoDensity: true,
+        backgroundAlpha: 0,
+        resolution: Math.min(Number(window.devicePixelRatio) || 1, 2),
+      });
+      const model = await window.PIXI.live2d.Live2DModel.from(
+        files,
+        { autoInteract: false },
+      );
+      if (
+        generation !== runtime.live2D.generation
+        || pulseGeneration !== runtime.voicePulse.generation
+        || root !== runtime.voicePulse.root
+      ) {
+        model.destroy?.();
+        app.destroy?.(true);
+        container.remove();
+        return;
+      }
+      model.anchor?.set?.(0.5, 0.5);
+      app.stage.addChild(model);
+      state.container = container;
+      state.canvas = canvas;
+      state.app = app;
+      state.model = model;
+      state.loading = false;
+      configureLive2DParameters(model, configuration);
+      resizeLive2DModel(state, configuration);
+      if (typeof ResizeObserver === "function") {
+        state.resizeObserver = new ResizeObserver(() => {
+          resizeLive2DModel(state, configuration);
+        });
+        state.resizeObserver.observe(container);
+      }
+      requestAnimationFrame?.(() => {
+        if (state.model === model && root === runtime.voicePulse.root) {
+          root.setAttribute("data-codex-live2d-ready", "true");
+          root.removeAttribute("data-codex-live2d-error");
+        }
+      });
+    } catch (error) {
+      if (generation !== runtime.live2D.generation) return;
+      state.loading = false;
+      state.error = error?.message || String(error);
+      root.setAttribute("data-codex-live2d-error", "true");
+      console.warn("Codex Theme Live2D:", error);
+    }
   }
 
   function spriteGrid(root) {
@@ -1458,6 +1861,7 @@
 
   function detachVoicePulseRoot() {
     const pulse = runtime.voicePulse;
+    destroyVoiceLive2D();
     pulse.rootObserver?.disconnect?.();
     if (
       pulse.canvasFrameID != null
@@ -1489,8 +1893,11 @@
     if (!root || generation !== pulse.generation) return;
     pulse.root = root;
     pulse.active = true;
-    if (!pulse.mouthSourcesReady) {
+    if (voiceAvatarMode() === "image" && !pulse.mouthSourcesReady) {
       pinVoiceMouthClosed(root);
+    }
+    if (voiceAvatarMode() === "live2D") {
+      mountVoiceLive2D(root, generation);
     }
 
     if (typeof MutationObserver === "function") {
@@ -1571,10 +1978,17 @@
       runtime.voicePulse.colorSchemeQuery = query;
       runtime.voicePulse.colorSchemeListener = listener;
     }
-    if (!voiceOrbImageIsEnabled()) {
+    const avatarMode = voiceAvatarMode();
+    if (avatarMode === "native") {
       return;
     }
-    prepareVoiceImages(generation);
+    if (avatarMode === "image") {
+      if (!voiceOrbImageIsEnabled()) return;
+      prepareVoiceImages(generation);
+    } else {
+      resetVoiceImagePreparation(runtime.voicePulse);
+      runtime.voicePulse.mouthSourcesReady = true;
+    }
 
     const findRoot = () => (
       typeof document.querySelector === "function"
@@ -1972,6 +2386,8 @@
       digest: runtime.current?.digest || null,
       stylePresent: stylePresent(),
       voicePulseActive: runtime.voicePulse.active,
+      live2DActive: Boolean(runtime.live2D.model),
+      live2DError: runtime.live2D.error,
       current: runtime.current
         ? {
           themeID: runtime.current.themeID,
@@ -2051,6 +2467,20 @@
       nextBlinkAt: 0,
       active: false,
     },
+    live2D: {
+      generation: 0,
+      root: null,
+      container: null,
+      canvas: null,
+      app: null,
+      model: null,
+      resizeObserver: null,
+      configurationKey: "",
+      loading: false,
+      error: null,
+      mouthLevel: 0,
+      rawEnergy: 0,
+    },
     voicePulseCache: new Map(),
     begin,
     appendAsset,
@@ -2058,6 +2488,7 @@
     abort,
     status,
     clear,
+    refreshVoicePulseSync,
   };
   window[GLOBAL_KEY] = runtime;
   expose(runtime);

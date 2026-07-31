@@ -569,4 +569,60 @@ final class ThemeModelsTests: XCTestCase {
         XCTAssertEqual(summary.updatedAt, TestFixtures.date)
         XCTAssertFalse(summary.isBuiltIn)
     }
+
+    func testLive2DVoiceModelRoundTripsWithoutRemovingFlatImageData() throws {
+        let portraitID = UUID()
+        let settingsID = UUID()
+        let mocID = UUID()
+        let textureID = UUID()
+        let live2D = ThemeLive2DModel(
+            modelSettingsPath: "avatar.model3.json",
+            resources: [
+                .init(path: "avatar.model3.json", assetID: settingsID),
+                .init(path: "avatar.moc3", assetID: mocID),
+                .init(path: "textures/texture_00.png", assetID: textureID)
+            ],
+            scale: 1.25,
+            positionX: 0.42,
+            positionY: 0.58
+        )
+        let original = ThemeVoiceVariant(
+            avatarMode: .live2D,
+            live2DModel: live2D,
+            orbBackgroundAssetID: portraitID,
+            orbMouthFrameAssetIDs: [UUID()]
+        )
+
+        let encoded = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(
+            ThemeVoiceVariant.self,
+            from: encoded
+        )
+
+        XCTAssertEqual(decoded, original)
+        XCTAssertEqual(decoded.avatarMode, .live2D)
+        XCTAssertEqual(decoded.live2DModel, live2D)
+        XCTAssertEqual(decoded.orbBackgroundAssetID, portraitID)
+        XCTAssertEqual(decoded.orbMouthFrameAssetIDs.count, 1)
+    }
+
+    func testLegacyFlatVoiceVariantStillSelectsImageRenderer() throws {
+        let portraitID = UUID()
+        let json = """
+        {
+          "orbBackgroundAssetID": "\(portraitID.uuidString)",
+          "orbBackgroundImageOpacity": 0.72
+        }
+        """
+
+        let decoded = try JSONDecoder().decode(
+            ThemeVoiceVariant.self,
+            from: Data(json.utf8)
+        )
+
+        XCTAssertEqual(decoded.avatarMode, .image)
+        XCTAssertNil(decoded.live2DModel)
+        XCTAssertEqual(decoded.orbBackgroundAssetID, portraitID)
+        XCTAssertEqual(decoded.orbBackgroundImageOpacity, 0.72)
+    }
 }

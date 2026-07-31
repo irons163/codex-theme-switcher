@@ -178,7 +178,7 @@ function install(dom = fakeDOM()) {
   return dom;
 }
 
-test("VERSION=24 exposes transaction APIs and source evaluation is idempotent", () => {
+test("VERSION=25 exposes transaction APIs and source evaluation is idempotent", () => {
   const dom = install();
   const runtime = dom.window.__codexThemeSwitcherRuntime;
   const functions = [
@@ -190,7 +190,7 @@ test("VERSION=24 exposes transaction APIs and source evaluation is idempotent", 
     "__codexThemeSwitcherClear",
   ];
 
-  assert.equal(runtime.version, 24);
+  assert.equal(runtime.version, 25);
   for (const name of functions) {
     assert.equal(typeof dom.window[name], "function", name);
   }

@@ -69,10 +69,11 @@ Agent 產生的預覽是接近真實畫面的近似結果。分享主題前，�
 
 - 設定 Voice 背景，以及動畫圓球內的獨立圖片。
 - 加入閉嘴人物與最多八張嘴型圖，或直接導入 2×2／3×3 嘴型圖。
+- 也可導入 Cubism `.model3.json`，使用骨架化 Live2D 動作與音量驅動的連續嘴型；切換模式後，原本的平面圖設定仍會保留。
 - 調整靈敏度、靜音門檻、張嘴／閉嘴速度、眨眼、待機動作、脈動與原生圓球顯示程度。
 - 嘴型會跟隨音量強度，不是音素級對嘴。
 
-Voice 樣式依賴 ChatGPT 內部 renderer，Codex／ChatGPT 更新後可能需要跟著調整。
+Voice 樣式依賴 ChatGPT 內部 renderer，Codex／ChatGPT 更新後可能需要跟著調整。Live2D renderer 啟動時需要網路載入官方 Cubism Core；散布 App 或主題前，請確認模型、角色與 Cubism SDK 發布權利。
 
 ## 導入與導出
 

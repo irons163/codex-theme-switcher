@@ -2,6 +2,7 @@
 
 const crypto = require("node:crypto");
 const fs = require("node:fs");
+const https = require("node:https");
 const path = require("node:path");
 const {
   CdpSession,
@@ -12,7 +13,12 @@ const {
 } = require("./cdp");
 
 const BASE64_CHUNK_CHARACTERS = 256 * 1024;
-const RENDERER_RUNTIME_VERSION = 24;
+const RENDERER_RUNTIME_VERSION = 25;
+const LIVE2D_CORE_URL =
+  "https://cubism.live2d.com/sdk-web/core/06/live2dcubismcore.min.js";
+const LIVE2D_MARKER = "__codexThemeSwitcherLive2DReady";
+const MAX_LIVE2D_CORE_CHARACTERS = 4 * 1024 * 1024;
+const LIVE2D_CORE_RETRY_DELAY_MILLISECONDS = 30_000;
 const TARGET_KIND_MAIN = "main";
 const TARGET_KIND_AVATAR_OVERLAY = "avatar-overlay";
 const RUNTIME_GLOBALS = Object.freeze({
@@ -29,6 +35,208 @@ function rendererInjectionSource() {
     path.resolve(__dirname, "..", "theme-inject.js"),
     "utf8",
   );
+}
+
+function themeUsesLive2D(theme) {
+  return typeof theme?.css === "string"
+    && /--cts-voice-avatar-mode\s*:\s*live2D\b/.test(theme.css);
+}
+
+function live2DVendorSource() {
+  return [
+    fs.readFileSync(
+      path.resolve(__dirname, "..", "vendor", "pixi.min.js"),
+      "utf8",
+    ),
+    fs.readFileSync(
+      path.resolve(
+        __dirname,
+        "..",
+        "vendor",
+        "pixi-live2d-display-cubism4.min.js",
+      ),
+      "utf8",
+    ),
+  ].join("\n;\n");
+}
+
+let live2DCoreSourcePromise = null;
+let live2DCoreRetryAfter = 0;
+let live2DCoreLastError = null;
+
+function downloadText(url, redirectsRemaining = 4) {
+  return new Promise((resolve, reject) => {
+    const request = https.get(url, (response) => {
+      const status = Number(response.statusCode) || 0;
+      if (
+        status >= 300
+        && status < 400
+        && response.headers.location
+        && redirectsRemaining > 0
+      ) {
+        response.resume();
+        resolve(downloadText(
+          new URL(response.headers.location, url).href,
+          redirectsRemaining - 1,
+        ));
+        return;
+      }
+      if (status !== 200) {
+        response.resume();
+        reject(new Error(
+          `Cubism Core download returned HTTP ${status}.`,
+        ));
+        return;
+      }
+      response.setEncoding("utf8");
+      let source = "";
+      response.on("data", (chunk) => {
+        source += chunk;
+        if (source.length > MAX_LIVE2D_CORE_CHARACTERS) {
+          request.destroy(
+            new Error("Cubism Core download exceeded the size limit."),
+          );
+        }
+      });
+      response.on("end", () => {
+        if (
+          !source.includes("Live2DCubismCore")
+          || !source.includes("Moc")
+        ) {
+          reject(new Error("Cubism Core download was not recognized."));
+          return;
+        }
+        resolve(source);
+      });
+    });
+    request.setTimeout(15_000, () => {
+      request.destroy(new Error("Cubism Core download timed out."));
+    });
+    request.on("error", reject);
+  });
+}
+
+function live2DCoreSource() {
+  if (
+    !live2DCoreSourcePromise
+    && live2DCoreLastError
+    && Date.now() < live2DCoreRetryAfter
+  ) {
+    return Promise.reject(live2DCoreLastError);
+  }
+  if (!live2DCoreSourcePromise) {
+    live2DCoreSourcePromise = downloadText(LIVE2D_CORE_URL).then(
+      (source) => {
+        live2DCoreLastError = null;
+        live2DCoreRetryAfter = 0;
+        return source;
+      },
+      (error) => {
+        live2DCoreSourcePromise = null;
+        live2DCoreLastError = error;
+        live2DCoreRetryAfter =
+          Date.now() + LIVE2D_CORE_RETRY_DELAY_MILLISECONDS;
+        throw error;
+      },
+    );
+  }
+  return live2DCoreSourcePromise;
+}
+
+async function rendererLive2DSource() {
+  const core = await live2DCoreSource();
+  return [
+    core,
+    live2DVendorSource(),
+    `window[${JSON.stringify(LIVE2D_MARKER)}] = Boolean(`,
+    "  window.PIXI",
+    "  && window.PIXI.Application",
+    "  && window.PIXI.live2d",
+    "  && window.PIXI.live2d.Live2DModel",
+    ");",
+  ].join("\n");
+}
+
+async function ensureLive2DRenderer(session) {
+  const status = await evaluateRuntime(
+    session,
+    [
+      "({",
+      "  ok: true,",
+      `  ready: window[${JSON.stringify(LIVE2D_MARKER)}] === true`,
+      "})",
+    ].join("\n"),
+    "check Live2D runtime",
+  );
+  if (status.ready === true) return;
+
+  const source = await rendererLive2DSource();
+  if (session.codexThemeLive2DSourceInstalled !== true) {
+    await session.send(
+      "Page.addScriptToEvaluateOnNewDocument",
+      { source },
+    );
+    session.codexThemeLive2DSourceInstalled = true;
+  }
+  await evaluateRuntime(
+    session,
+    `${source}\n;({ ok: true, ready: window[${JSON.stringify(
+      LIVE2D_MARKER,
+    )}] === true })`,
+    "install Live2D runtime",
+  );
+  await evaluateRuntime(
+    session,
+    [
+      "(() => {",
+      "  const runtime = window.__codexThemeSwitcherRuntime;",
+      "  runtime?.refreshVoicePulseSync?.();",
+      "  return { ok: true };",
+      "})()",
+    ].join("\n"),
+    "refresh Live2D runtime",
+  );
+}
+
+async function bestEffortEnsureLive2DRenderer(session) {
+  try {
+    await ensureLive2DRenderer(session);
+    session.codexThemeLive2DError = null;
+    return true;
+  } catch (error) {
+    session.codexThemeLive2DError = error?.message || String(error);
+    return false;
+  }
+}
+
+async function rendererUsesLive2D(session) {
+  const result = await evaluateRuntime(
+    session,
+    [
+      "(() => {",
+      "  const root = document.documentElement;",
+      "  const value = root && typeof getComputedStyle === \"function\"",
+      "    ? getComputedStyle(root)",
+      "      .getPropertyValue(\"--cts-voice-avatar-mode\")",
+      "      .trim()",
+      "      .replace(/^[\\\"']|[\\\"']$/g, \"\")",
+      "    : \"\";",
+      "  return { ok: true, active: value === \"live2D\" };",
+      "})()",
+    ].join("\n"),
+    "check active Voice avatar mode",
+  );
+  return result.active === true;
+}
+
+async function ensureActiveLive2DRenderer(session, theme) {
+  if (!themeUsesLive2D(theme)) return false;
+  try {
+    if (!await rendererUsesLive2D(session)) return false;
+  } catch {
+    return false;
+  }
+  return bestEffortEnsureLive2DRenderer(session);
 }
 
 function runtimeCallExpression(globalName, payload, hasArgument = true) {
@@ -245,7 +453,10 @@ async function applyTheme(session, theme) {
       beginExpression(prepared.payload),
       "begin theme transaction",
     );
-    if (begun.unchanged === true) return begun;
+    if (begun.unchanged === true) {
+      await ensureActiveLive2DRenderer(session, theme);
+      return begun;
+    }
 
     transactionID = begun.transactionID;
     if (typeof transactionID !== "string" || !transactionID) {
@@ -290,11 +501,13 @@ async function applyTheme(session, theme) {
       }
     }
 
-    return await evaluateRuntime(
+    const committed = await evaluateRuntime(
       session,
       commitExpression({ transactionID }),
       "commit theme transaction",
     );
+    await ensureActiveLive2DRenderer(session, theme);
+    return committed;
   } catch (error) {
     await bestEffortAbort(session, transactionID);
     throw error;
@@ -343,6 +556,7 @@ async function reconcileExistingSession(session, theme) {
     && statusDigest(status) === theme.digest
     && status.stylePresent === true
   ) {
+    await ensureActiveLive2DRenderer(session, theme);
     return;
   }
   await applyTheme(session, theme);
@@ -502,6 +716,7 @@ async function clearRenderers(sessions, logger = () => {}) {
 
 module.exports = {
   BASE64_CHUNK_CHARACTERS,
+  MAX_LIVE2D_CORE_CHARACTERS,
   RENDERER_RUNTIME_VERSION,
   RUNTIME_GLOBALS,
   TARGET_KIND_AVATAR_OVERLAY,
@@ -525,6 +740,11 @@ module.exports = {
   installRuntime,
   reconcileExistingSession,
   rendererInjectionSource,
+  ensureLive2DRenderer,
+  bestEffortEnsureLive2DRenderer,
+  ensureActiveLive2DRenderer,
+  rendererUsesLive2D,
+  themeUsesLive2D,
   rendererStatus,
   runtimeCallExpression,
   statusExpression,

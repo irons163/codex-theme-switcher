@@ -45,6 +45,8 @@ enum ThemeVoiceStyleCompiler {
             ].compactMap { $0 }
                 + style.light.orbMouthFrameAssetIDs
                 + style.dark.orbMouthFrameAssetIDs
+                + (style.light.live2DModel?.resources.map(\.assetID) ?? [])
+                + (style.dark.live2DModel?.resources.map(\.assetID) ?? [])
         ).sorted { $0.uuidString < $1.uuidString }
 
         var output: [String] = []
@@ -182,9 +184,14 @@ enum ThemeVoiceStyleCompiler {
         let insetValue = inset == 0
             ? "0px"
             : "-\(number(inset))px"
+        let usesImageAvatar =
+            variant.avatarMode == .image
+            && variant.orbBackgroundAssetID != nil
 
         return """
         \(selector) {
+          --cts-voice-avatar-mode: \(variant.avatarMode.rawValue);
+        \(live2DVariables(for: variant))
           --cts-voice-background-image: \(image);
           --cts-voice-background-size: \(sizing.size);
           --cts-voice-background-repeat: \(sizing.repeatMode);
@@ -201,8 +208,8 @@ enum ThemeVoiceStyleCompiler {
           --cts-voice-orb-background-opacity: \(number(variant.orbBackgroundImageOpacity));
           --cts-voice-orb-background-blur: \(number(variant.orbBackgroundImageBlur))px;
           --cts-voice-orb-background-inset: \(number(variant.orbBackgroundInset))px;
-          --cts-voice-orb-image-enabled: \(variant.orbBackgroundAssetID != nil ? "1" : "0");
-          --cts-voice-orb-pulse-enabled: \(variant.orbBackgroundAssetID != nil && variant.orbBackgroundFollowsVoicePulse ? "1" : "0");
+          --cts-voice-orb-image-enabled: \(usesImageAvatar ? "1" : "0");
+          --cts-voice-orb-pulse-enabled: \(variant.avatarMode != .native && variant.orbBackgroundFollowsVoicePulse ? "1" : "0");
           --cts-voice-orb-pulse-strength: \(number(variant.orbBackgroundPulseStrength));
           --cts-voice-orb-mouth-frame-count: \(mouthFrameIDs.count);
           --cts-voice-orb-mouth-sensitivity: \(number(variant.orbMouthSensitivity));
@@ -260,9 +267,14 @@ enum ThemeVoiceStyleCompiler {
                 : "none"
             return "  --cts-voice-orb-mouth-frame-\(index): \(value);"
         }.joined(separator: "\n")
+        let usesImageAvatar =
+            variant.avatarMode == .image
+            && variant.orbBackgroundAssetID != nil
 
         return """
         \(selector) {
+          --cts-voice-avatar-mode: \(variant.avatarMode.rawValue);
+        \(live2DVariables(for: variant))
           --cts-voice-orb-background-image: \(orbImage);
           --cts-voice-orb-background-size: \(orbSizing.size);
           --cts-voice-orb-background-repeat: \(orbSizing.repeatMode);
@@ -270,8 +282,8 @@ enum ThemeVoiceStyleCompiler {
           --cts-voice-orb-background-opacity: \(number(variant.orbBackgroundImageOpacity));
           --cts-voice-orb-background-blur: \(number(variant.orbBackgroundImageBlur))px;
           --cts-voice-orb-background-inset: \(number(variant.orbBackgroundInset))px;
-          --cts-voice-orb-image-enabled: \(variant.orbBackgroundAssetID != nil ? "1" : "0");
-          --cts-voice-orb-pulse-enabled: \(variant.orbBackgroundAssetID != nil && variant.orbBackgroundFollowsVoicePulse ? "1" : "0");
+          --cts-voice-orb-image-enabled: \(usesImageAvatar ? "1" : "0");
+          --cts-voice-orb-pulse-enabled: \(variant.avatarMode != .native && variant.orbBackgroundFollowsVoicePulse ? "1" : "0");
           --cts-voice-orb-pulse-strength: \(number(variant.orbBackgroundPulseStrength));
           --cts-voice-orb-mouth-frame-count: \(mouthFrameIDs.count);
           --cts-voice-orb-mouth-sensitivity: \(number(variant.orbMouthSensitivity));
@@ -496,6 +508,122 @@ enum ThemeVoiceStyleCompiler {
             - var(--cts-voice-orb-background-inset)
           );
         }
+
+        \(root) :is(
+          .codex-avatar-root,
+          [data-voice-orb],
+          [data-codex-voice-orb],
+          [class*="voice-orb" i],
+          [class*="voiceorb" i]
+        ) [data-codex-live2d-avatar] {
+          border-radius: 50%;
+          clip-path: circle(50%);
+          height: var(--cts-voice-orb-live-height, 68.2692%);
+          left: var(--cts-voice-orb-live-left, 15.625%);
+          overflow: hidden;
+          pointer-events: none;
+          position: absolute;
+          top: var(--cts-voice-orb-live-top, 14.9038%);
+          transform:
+            translate(
+              var(--cts-voice-orb-idle-x, 0px),
+              var(--cts-voice-orb-idle-y, 0px)
+            )
+            rotate(var(--cts-voice-orb-idle-rotation, 0deg))
+            scale(var(--cts-voice-scale));
+          transform-origin: center;
+          width: var(--cts-voice-orb-live-width, 69.2708%);
+          will-change: left, top, width, height, transform;
+          z-index: 4;
+        }
+
+        \(root) :is(
+          .codex-avatar-root,
+          [data-voice-orb],
+          [data-codex-voice-orb],
+          [class*="voice-orb" i],
+          [class*="voiceorb" i]
+        ) canvas[data-codex-live2d-canvas] {
+          height: 100% !important;
+          inset: 0 !important;
+          opacity: 1 !important;
+          position: absolute !important;
+          scale: 1 !important;
+          width: 100% !important;
+        }
+
+        \(root) :is(
+          .codex-avatar-root,
+          [data-voice-orb],
+          [data-codex-voice-orb],
+          [class*="voice-orb" i],
+          [class*="voiceorb" i]
+        )[data-codex-live2d-ready="true"] > canvas:not([data-codex-live2d-canvas]) {
+          opacity: 0 !important;
+        }
+
+        \(root) :is(
+          .codex-avatar-root,
+          [data-voice-orb],
+          [data-codex-voice-orb],
+          [class*="voice-orb" i],
+          [class*="voiceorb" i]
+        )[data-codex-live2d-ready="true"]::before,
+        \(root) :is(
+          .codex-avatar-root,
+          [data-voice-orb],
+          [data-codex-voice-orb],
+          [class*="voice-orb" i],
+          [class*="voiceorb" i]
+        )[data-codex-live2d-ready="true"]::after {
+          display: none !important;
+        }
+        """
+    }
+
+    private static func live2DVariables(
+        for variant: ThemeVoiceVariant
+    ) -> String {
+        guard let model = variant.live2DModel else {
+            return """
+              --cts-voice-live2d-manifest: "";
+              --cts-voice-live2d-scale: 1;
+              --cts-voice-live2d-position-x: 0.5;
+              --cts-voice-live2d-position-y: 0.5;
+              --cts-voice-live2d-mouth-parameter: "ParamMouthOpenY";
+              --cts-voice-live2d-angle-x-parameter: "ParamAngleX";
+              --cts-voice-live2d-angle-y-parameter: "ParamAngleY";
+              --cts-voice-live2d-angle-z-parameter: "ParamAngleZ";
+              --cts-voice-live2d-body-angle-x-parameter: "ParamBodyAngleX";
+            """
+        }
+
+        let manifest: [String: Any] = [
+            "modelSettingsPath": model.modelSettingsPath,
+            "resources": model.resources
+                .sorted { $0.path < $1.path }
+                .map {
+                    [
+                        "path": $0.path,
+                        "assetID": $0.assetID.uuidString.lowercased()
+                    ]
+                }
+        ]
+        let encoded = (try? JSONSerialization.data(
+            withJSONObject: manifest,
+            options: [.sortedKeys]
+        ))?.base64EncodedString() ?? ""
+
+        return """
+          --cts-voice-live2d-manifest: "\(encoded)";
+          --cts-voice-live2d-scale: \(number(model.scale));
+          --cts-voice-live2d-position-x: \(number(model.positionX));
+          --cts-voice-live2d-position-y: \(number(model.positionY));
+          --cts-voice-live2d-mouth-parameter: \(cssString(model.mouthParameterID));
+          --cts-voice-live2d-angle-x-parameter: \(cssString(model.angleXParameterID));
+          --cts-voice-live2d-angle-y-parameter: \(cssString(model.angleYParameterID));
+          --cts-voice-live2d-angle-z-parameter: \(cssString(model.angleZParameterID));
+          --cts-voice-live2d-body-angle-x-parameter: \(cssString(model.bodyAngleXParameterID));
         """
     }
 
@@ -522,6 +650,15 @@ enum ThemeVoiceStyleCompiler {
 
     private static func alphaColor(_ color: String, _ opacity: Double) -> String {
         "color-mix(in srgb, \(color) \(number(opacity * 100))%, transparent)"
+    }
+
+    private static func cssString(_ value: String) -> String {
+        let escaped = value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\A ")
+            .replacingOccurrences(of: "\r", with: "")
+        return "\"\(escaped)\""
     }
 
     private static func number(_ value: Double) -> String {

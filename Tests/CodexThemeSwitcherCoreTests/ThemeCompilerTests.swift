@@ -1215,4 +1215,70 @@ final class ThemeCompilerTests: XCTestCase {
         XCTAssertEqual(CSSEscaper.escapeString("a\"b\\c\n"), "a\\\"b\\\\c\\a ")
         XCTAssertFalse(CSSEscaper.escapeComment("name */ body").contains("*/"))
     }
+
+    func testLive2DVoiceCompilesModelResourcesAndKeepsFlatRendererData() throws {
+        let settings = ThemeAsset(
+            name: "avatar.model3.json",
+            mediaType: "application/json",
+            data: Data("{}".utf8)
+        )
+        let moc = ThemeAsset(
+            name: "avatar.moc3",
+            mediaType: "application/octet-stream",
+            data: Data([0x4D, 0x4F, 0x43, 0x33])
+        )
+        let texture = TestFixtures.imageAsset(
+            name: "textures/texture_00.png"
+        )
+        let flat = TestFixtures.imageAsset(name: "flat.png")
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.avatarMode = .live2D
+        voice.light.live2DModel = ThemeLive2DModel(
+            modelSettingsPath: settings.name,
+            resources: [
+                .init(path: settings.name, assetID: settings.id),
+                .init(path: moc.name, assetID: moc.id),
+                .init(path: texture.name, assetID: texture.id)
+            ]
+        )
+        voice.light.orbBackgroundAssetID = flat.id
+        voice.dark.avatarMode = .image
+        voice.dark.orbBackgroundAssetID = flat.id
+        var theme = TestFixtures.theme(
+            assets: [settings, moc, texture, flat]
+        )
+        theme.voiceStyle = voice
+
+        let compiled = try ThemeCompiler().compile(theme)
+
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-avatar-mode: live2D;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-avatar-mode: image;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-live2d-manifest:"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "[data-codex-live2d-avatar]"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-background-image:"
+            )
+        )
+        XCTAssertEqual(
+            Set(compiled.runtimeAssets.map(\.id)),
+            Set([settings.id, moc.id, texture.id, flat.id])
+        )
+    }
 }

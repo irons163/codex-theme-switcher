@@ -18,6 +18,16 @@ struct ThemeVoiceEditorView: View {
         style.variant(for: appearance)
     }
 
+    private var live2DModel: ThemeLive2DModel? {
+        variant.live2DModel
+    }
+
+    private var live2DAssets: [ThemeAsset] {
+        guard let live2DModel else { return [] }
+        let ids = Set(live2DModel.resources.map(\.assetID))
+        return model.draft?.assets.filter { ids.contains($0.id) } ?? []
+    }
+
     private var backgroundAsset: ThemeAsset? {
         guard let id = variant.backgroundAssetID else { return nil }
         return model.draft?.assets.first { $0.id == id }
@@ -70,9 +80,14 @@ struct ThemeVoiceEditorView: View {
                 header
 
                 if style.isEnabled {
+                    avatarModeSection
                     previewSection
                     backgroundSection
-                    orbBackgroundSection
+                    if variant.avatarMode == .image {
+                        orbBackgroundSection
+                    } else if variant.avatarMode == .live2D {
+                        live2DSection
+                    }
                     orbSection
                     glowSection
                     backdropSection
@@ -82,6 +97,55 @@ struct ThemeVoiceEditorView: View {
             .padding(18)
         }
         .disabled(model.isSelectedBuiltIn)
+    }
+
+    private var avatarModeSection: some View {
+        EditorSection(
+            title: L10n.text("Voice 角色模式", "Voice avatar mode"),
+            subtitle: L10n.text(
+                "三種模式彼此獨立；切換模式不會刪除平面圖或 Live2D 素材。",
+                "The three modes are independent. Switching modes does not remove flat-image or Live2D assets."
+            )
+        ) {
+            Picker(
+                L10n.text("角色模式", "Avatar mode"),
+                selection: Binding(
+                    get: { variant.avatarMode },
+                    set: {
+                        model.setVoiceAvatarMode(
+                            $0,
+                            for: appearance
+                        )
+                    }
+                )
+            ) {
+                Label(
+                    L10n.text("原生圓球", "Native orb"),
+                    systemImage: "circle.fill"
+                )
+                .tag(ThemeVoiceAvatarMode.native)
+                Label(
+                    L10n.text("平面圖／嘴型圖", "Flat image / mouth frames"),
+                    systemImage: "photo"
+                )
+                .tag(ThemeVoiceAvatarMode.image)
+                Label("Live2D", systemImage: "person.crop.rectangle.stack")
+                    .tag(ThemeVoiceAvatarMode.live2D)
+            }
+            .pickerStyle(.segmented)
+
+            if variant.avatarMode == .live2D, live2DModel == nil {
+                Label(
+                    L10n.text(
+                        "請先匯入 .model3.json，套用後才會取代原生圓球。",
+                        "Import a .model3.json first. The native orb remains visible until the model is ready."
+                    ),
+                    systemImage: "info.circle"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+        }
     }
 
     private var header: some View {
@@ -198,16 +262,24 @@ struct ThemeVoiceEditorView: View {
                 .controlSize(.small)
             }
 
-            VoiceOrbPreview(
-                variant: variant,
-                appearance: appearance,
-                backgroundAsset: backgroundAsset,
-                orbBackgroundAsset: previewOrbAsset,
-                blinkAsset: blinkAsset,
-                speechLevel: previewSpeechLevel
-            )
-            .frame(width: 408, height: 400)
-            .frame(maxWidth: .infinity)
+            if variant.avatarMode == .live2D {
+                live2DPreviewPlaceholder
+            } else {
+                VoiceOrbPreview(
+                    variant: variant,
+                    appearance: appearance,
+                    backgroundAsset: backgroundAsset,
+                    orbBackgroundAsset:
+                        variant.avatarMode == .image
+                            ? previewOrbAsset
+                            : nil,
+                    blinkAsset:
+                        variant.avatarMode == .image ? blinkAsset : nil,
+                    speechLevel: previewSpeechLevel
+                )
+                .frame(width: 408, height: 400)
+                .frame(maxWidth: .infinity)
+            }
 
             if !variant.orbMouthFrameAssetIDs.isEmpty
                 || variant.orbIdleMotionEnabled
@@ -238,6 +310,291 @@ struct ThemeVoiceEditorView: View {
                     .foregroundStyle(.secondary)
                 }
             }
+        }
+    }
+
+    private var live2DPreviewPlaceholder: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(
+                    appearance == .dark
+                        ? Color.black.opacity(0.3)
+                        : Color.white.opacity(0.65)
+                )
+            VStack(spacing: 12) {
+                Image(systemName: "person.crop.rectangle.stack")
+                    .font(.system(size: 54, weight: .light))
+                    .foregroundStyle(.secondary)
+                Text(
+                    live2DModel?.modelSettingsPath
+                        ?? L10n.text(
+                            "尚未匯入 Live2D 模型",
+                            "No Live2D model imported"
+                        )
+                )
+                .font(.headline)
+                Text(
+                    L10n.text(
+                        "Live2D 使用 WebGL，請套用主題並開啟 Voice 對話查看真實動畫。",
+                        "Live2D uses WebGL. Apply the theme and open a Voice conversation to inspect the real animation."
+                    )
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 300)
+            }
+            .padding()
+        }
+        .frame(width: 408, height: 400)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var live2DSection: some View {
+        EditorSection(
+            title: "Live2D",
+            subtitle: L10n.text(
+                "匯入 Cubism .model3.json 與其引用的模型資源。主題仍會保留原本的平面圖設定。",
+                "Import a Cubism .model3.json and its referenced resources. Existing flat-image settings stay in the theme."
+            )
+        ) {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(.quaternary.opacity(0.3))
+                    Image(systemName: "person.crop.rectangle.stack")
+                        .font(.system(size: 36))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(width: 108, height: 108)
+
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(
+                        live2DModel?.modelSettingsPath
+                            ?? L10n.text(
+                                "尚未選擇模型",
+                                "No model selected"
+                            )
+                    )
+                    .font(.caption.weight(.semibold))
+
+                    if live2DModel != nil {
+                        let bytes = live2DAssets.reduce(0) {
+                            $0 + ($1.decodedData?.count ?? 0)
+                        }
+                        Text(
+                            L10n.format(
+                                "{0} 個檔案 · {1}",
+                                "{0} files · {1}",
+                                "\(live2DAssets.count)",
+                                ByteCountFormatter.string(
+                                    fromByteCount: Int64(bytes),
+                                    countStyle: .file
+                                )
+                            )
+                        )
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                    }
+
+                    HStack {
+                        Button {
+                            model.chooseVoiceLive2DModel(
+                                for: appearance
+                            )
+                        } label: {
+                            Label(
+                                live2DModel == nil
+                                    ? L10n.text(
+                                        "匯入模型",
+                                        "Import model"
+                                    )
+                                    : L10n.text(
+                                        "更換模型",
+                                        "Replace model"
+                                    ),
+                                systemImage: "square.and.arrow.down"
+                            )
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        if live2DModel != nil {
+                            Button(
+                                L10n.text("移除", "Remove"),
+                                role: .destructive
+                            ) {
+                                model.clearVoiceLive2DModel(
+                                    for: appearance
+                                )
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    .controlSize(.small)
+                }
+                Spacer()
+            }
+
+            if live2DModel != nil {
+                settingsGrid {
+                    VoiceValueSlider(
+                        title: L10n.text("模型縮放", "Model scale"),
+                        value: live2DBinding(\.scale),
+                        range: 0.25...3,
+                        step: 0.01,
+                        format: { String(format: "%.2f×", $0) }
+                    )
+                    VoiceValueSlider(
+                        title: L10n.text(
+                            "水平位置",
+                            "Horizontal position"
+                        ),
+                        value: live2DBinding(\.positionX),
+                        range: 0...1,
+                        step: 0.01,
+                        format: Self.percent
+                    )
+                    VoiceValueSlider(
+                        title: L10n.text(
+                            "垂直位置",
+                            "Vertical position"
+                        ),
+                        value: live2DBinding(\.positionY),
+                        range: 0...1,
+                        step: 0.01,
+                        format: Self.percent
+                    )
+                    VoiceValueSlider(
+                        title: L10n.text(
+                            "嘴型靈敏度",
+                            "Mouth sensitivity"
+                        ),
+                        value: variantBinding(\.orbMouthSensitivity),
+                        range: 0.25...3,
+                        step: 0.05,
+                        format: { String(format: "%.2f×", $0) }
+                    )
+                    VoiceValueSlider(
+                        title: L10n.text("張嘴速度", "Mouth attack"),
+                        value: variantBinding(
+                            \.orbMouthAttackMilliseconds
+                        ),
+                        range: 8...120,
+                        step: 2,
+                        format: { "\(Int($0)) ms" }
+                    )
+                    VoiceValueSlider(
+                        title: L10n.text("閉嘴速度", "Mouth release"),
+                        value: variantBinding(
+                            \.orbMouthReleaseMilliseconds
+                        ),
+                        range: 5...300,
+                        step: 1,
+                        format: { "\(Int($0)) ms" }
+                    )
+                    VoiceValueSlider(
+                        title: L10n.text("靜音門檻", "Noise gate"),
+                        value: variantBinding(\.orbMouthNoiseGate),
+                        range: 0...0.2,
+                        step: 0.005,
+                        format: Self.percent
+                    )
+                    VoiceValueSlider(
+                        title: L10n.text(
+                            "待機動作強度",
+                            "Idle motion strength"
+                        ),
+                        value: variantBinding(\.orbIdleMotionStrength),
+                        range: 0...2,
+                        step: 0.05,
+                        format: { String(format: "%.2f×", $0) }
+                    )
+                }
+
+                Toggle(
+                    L10n.text(
+                        "啟用待機動作",
+                        "Enable idle motion"
+                    ),
+                    isOn: variantBinding(\.orbIdleMotionEnabled)
+                )
+                .toggleStyle(.switch)
+
+                DisclosureGroup(
+                    L10n.text(
+                        "參數對應",
+                        "Parameter mapping"
+                    )
+                ) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(
+                            L10n.text(
+                                "若模型使用自訂參數 ID，可在此對應嘴型與頭部動作。",
+                                "Map mouth and head motion here when the model uses custom parameter IDs."
+                            )
+                        )
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+
+                        live2DParameterField(
+                            title: L10n.text(
+                                "嘴巴張合",
+                                "Mouth open"
+                            ),
+                            keyPath: \.mouthParameterID
+                        )
+                        live2DParameterField(
+                            title: L10n.text(
+                                "頭部水平",
+                                "Head angle X"
+                            ),
+                            keyPath: \.angleXParameterID
+                        )
+                        live2DParameterField(
+                            title: L10n.text(
+                                "頭部垂直",
+                                "Head angle Y"
+                            ),
+                            keyPath: \.angleYParameterID
+                        )
+                        live2DParameterField(
+                            title: L10n.text(
+                                "頭部傾斜",
+                                "Head angle Z"
+                            ),
+                            keyPath: \.angleZParameterID
+                        )
+                        live2DParameterField(
+                            title: L10n.text(
+                                "身體水平",
+                                "Body angle X"
+                            ),
+                            keyPath: \.bodyAngleXParameterID
+                        )
+                    }
+                    .padding(.top, 8)
+                }
+            }
+
+            Label(
+                L10n.text(
+                    "Live2D renderer 啟動時需要網路，以載入官方 Cubism Core。",
+                    "Live2D requires internet access when its renderer starts so it can load the official Cubism Core."
+                ),
+                systemImage: "network"
+            )
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+
+            Label(
+                L10n.text(
+                    "Live2D 模型與角色授權由匯入者負責；公開散布前也請確認 Cubism SDK 發布授權。",
+                    "The importer is responsible for model and character rights. Confirm the Cubism SDK publication license before distributing the app."
+                ),
+                systemImage: "exclamationmark.shield"
+            )
+            .font(.caption2)
+            .foregroundStyle(.secondary)
         }
     }
 
@@ -1353,6 +1710,53 @@ struct ThemeVoiceEditorView: View {
                 }
             }
         )
+    }
+
+    private func live2DBinding<Value>(
+        _ keyPath: WritableKeyPath<ThemeLive2DModel, Value>
+    ) -> Binding<Value> {
+        Binding(
+            get: {
+                guard let model = style.variant(for: appearance).live2DModel
+                else {
+                    preconditionFailure("Live2D binding requires a model.")
+                }
+                return model[keyPath: keyPath]
+            },
+            set: { value in
+                model.mutateDraft(
+                    coalescingKey:
+                        "voice-style.\(appearance.rawValue).live2d."
+                        + String(reflecting: keyPath)
+                ) { document in
+                    var voice = document.voiceStyle
+                        ?? ThemeVoiceStyle(isEnabled: true)
+                    var item = voice.variant(for: appearance)
+                    guard var live2D = item.live2DModel else { return }
+                    live2D[keyPath: keyPath] = value
+                    item.live2DModel = live2D
+                    voice.setVariant(item, for: appearance)
+                    document.voiceStyle = voice
+                }
+            }
+        )
+    }
+
+    private func live2DParameterField(
+        title: String,
+        keyPath: WritableKeyPath<ThemeLive2DModel, String>
+    ) -> some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .frame(width: 110, alignment: .leading)
+            TextField(
+                "Param…",
+                text: live2DBinding(keyPath)
+            )
+            .textFieldStyle(.roundedBorder)
+            .font(.system(size: 11, design: .monospaced))
+        }
     }
 
     private var rawCSSBinding: Binding<String> {

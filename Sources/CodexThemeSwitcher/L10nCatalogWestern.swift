@@ -8,6 +8,191 @@ enum L10nCatalogWestern {
     private static let entries: [Entry] = [
         Entry(key: " Copy", french: " Copie", spanish: " Copia"),
         Entry(
+            key: "Voice avatar mode",
+            french: "Mode d’avatar vocal",
+            spanish: "Modo de avatar de voz"
+        ),
+        Entry(
+            key: "The three modes are independent. Switching modes does not remove flat-image or Live2D assets.",
+            french: "Les trois modes sont indépendants. Changer de mode ne supprime ni les images 2D ni les ressources Live2D.",
+            spanish: "Los tres modos son independientes. Cambiar de modo no elimina las imágenes 2D ni los recursos de Live2D."
+        ),
+        Entry(
+            key: "Avatar mode",
+            french: "Mode d’avatar",
+            spanish: "Modo de avatar"
+        ),
+        Entry(
+            key: "Native orb",
+            french: "Orbe native",
+            spanish: "Orbe nativo"
+        ),
+        Entry(
+            key: "Flat image / mouth frames",
+            french: "Image 2D / images de bouche",
+            spanish: "Imagen 2D / fotogramas de boca"
+        ),
+        Entry(
+            key: "Import a .model3.json first. The native orb remains visible until the model is ready.",
+            french: "Importez d’abord un fichier .model3.json. L’orbe native reste visible jusqu’à ce que le modèle soit prêt.",
+            spanish: "Importa primero un archivo .model3.json. El orbe nativo seguirá visible hasta que el modelo esté listo."
+        ),
+        Entry(
+            key: "No Live2D model imported",
+            french: "Aucun modèle Live2D importé",
+            spanish: "No se ha importado ningún modelo Live2D"
+        ),
+        Entry(
+            key: "Live2D uses WebGL. Apply the theme and open a Voice conversation to inspect the real animation.",
+            french: "Live2D utilise WebGL. Appliquez le thème et ouvrez une conversation vocale pour voir l’animation réelle.",
+            spanish: "Live2D usa WebGL. Aplica el tema y abre una conversación de voz para ver la animación real."
+        ),
+        Entry(
+            key: "Import a Cubism .model3.json and its referenced resources. Existing flat-image settings stay in the theme.",
+            french: "Importez un fichier Cubism .model3.json et ses ressources référencées. Les réglages d’image 2D existants restent dans le thème.",
+            spanish: "Importa un archivo .model3.json de Cubism y sus recursos. Los ajustes de imagen 2D existentes permanecen en el tema."
+        ),
+        Entry(
+            key: "No model selected",
+            french: "Aucun modèle sélectionné",
+            spanish: "Ningún modelo seleccionado"
+        ),
+        Entry(
+            key: "{0} files · {1}",
+            french: "{0} fichiers · {1}",
+            spanish: "{0} archivos · {1}"
+        ),
+        Entry(
+            key: "Import model",
+            french: "Importer le modèle",
+            spanish: "Importar modelo"
+        ),
+        Entry(
+            key: "Replace model",
+            french: "Remplacer le modèle",
+            spanish: "Reemplazar modelo"
+        ),
+        Entry(
+            key: "Model scale",
+            french: "Échelle du modèle",
+            spanish: "Escala del modelo"
+        ),
+        Entry(
+            key: "Idle motion strength",
+            french: "Intensité du mouvement d’attente",
+            spanish: "Intensidad del movimiento en reposo"
+        ),
+        Entry(
+            key: "The importer is responsible for model and character rights. Confirm the Cubism SDK publication license before distributing the app.",
+            french: "La personne qui importe le modèle est responsable des droits du modèle et du personnage. Vérifiez la licence de publication du SDK Cubism avant de distribuer l’app.",
+            spanish: "Quien importa el modelo es responsable de los derechos del modelo y del personaje. Confirma la licencia de publicación del SDK de Cubism antes de distribuir la app."
+        ),
+        Entry(
+            key: "Choose Live2D model3.json",
+            french: "Choisir le fichier model3.json Live2D",
+            spanish: "Elegir model3.json de Live2D"
+        ),
+        Entry(
+            key: "Choose the .model3.json inside an exported Cubism folder. Referenced model, texture, physics, and motion files will be embedded with the theme.",
+            french: "Choisissez le fichier .model3.json dans un dossier Cubism exporté. Les fichiers de modèle, texture, physique et mouvement référencés seront intégrés au thème.",
+            spanish: "Elige el archivo .model3.json de una carpeta exportada de Cubism. Los archivos de modelo, textura, física y movimiento referenciados se incluirán en el tema."
+        ),
+        Entry(
+            key: "Import Live2D model",
+            french: "Importer le modèle Live2D",
+            spanish: "Importar modelo Live2D"
+        ),
+        Entry(
+            key: "Imported the Live2D model with {0} files.",
+            french: "Modèle Live2D importé avec {0} fichiers.",
+            spanish: "Modelo Live2D importado con {0} archivos."
+        ),
+        Entry(
+            key: "Change Voice avatar mode",
+            french: "Changer le mode d’avatar vocal",
+            spanish: "Cambiar el modo de avatar de voz"
+        ),
+        Entry(
+            key: "Remove Live2D model",
+            french: "Supprimer le modèle Live2D",
+            spanish: "Eliminar modelo Live2D"
+        ),
+        Entry(
+            key: "“{0}” is not a valid Live2D .model3.json file.",
+            french: "« {0} » n’est pas un fichier Live2D .model3.json valide.",
+            spanish: "«{0}» no es un archivo .model3.json de Live2D válido."
+        ),
+        Entry(
+            key: "The Live2D model is missing “{0}”.",
+            french: "Le fichier « {0} » manque dans le modèle Live2D.",
+            spanish: "Falta «{0}» en el modelo Live2D."
+        ),
+        Entry(
+            key: "Live2D resource path “{0}” escapes the model folder.",
+            french: "Le chemin de ressource Live2D « {0} » sort du dossier du modèle.",
+            spanish: "La ruta de recurso Live2D «{0}» sale de la carpeta del modelo."
+        ),
+        Entry(
+            key: "Enable idle motion",
+            french: "Activer le mouvement d’attente",
+            spanish: "Activar movimiento en reposo"
+        ),
+        Entry(
+            key: "Parameter mapping",
+            french: "Correspondance des paramètres",
+            spanish: "Asignación de parámetros"
+        ),
+        Entry(
+            key: "Map mouth and head motion here when the model uses custom parameter IDs.",
+            french: "Associez ici les mouvements de la bouche et de la tête si le modèle utilise des identifiants de paramètres personnalisés.",
+            spanish: "Asigna aquí el movimiento de la boca y la cabeza si el modelo usa identificadores de parámetros personalizados."
+        ),
+        Entry(
+            key: "Mouth open",
+            french: "Ouverture de la bouche",
+            spanish: "Apertura de boca"
+        ),
+        Entry(
+            key: "Head angle X",
+            french: "Angle horizontal de la tête",
+            spanish: "Ángulo X de la cabeza"
+        ),
+        Entry(
+            key: "Head angle Y",
+            french: "Angle vertical de la tête",
+            spanish: "Ángulo Y de la cabeza"
+        ),
+        Entry(
+            key: "Head angle Z",
+            french: "Inclinaison de la tête",
+            spanish: "Ángulo Z de la cabeza"
+        ),
+        Entry(
+            key: "Body angle X",
+            french: "Angle horizontal du corps",
+            spanish: "Ángulo X del cuerpo"
+        ),
+        Entry(
+            key: "Live2D requires internet access when its renderer starts so it can load the official Cubism Core.",
+            french: "Live2D nécessite un accès à Internet au démarrage de son moteur afin de charger le Cubism Core officiel.",
+            spanish: "Live2D necesita acceso a internet cuando inicia su motor para cargar el Cubism Core oficial."
+        ),
+        Entry(
+            key: "Remove",
+            french: "Supprimer",
+            spanish: "Eliminar"
+        ),
+        Entry(
+            key: "Horizontal position",
+            french: "Position horizontale",
+            spanish: "Posición horizontal"
+        ),
+        Entry(
+            key: "Vertical position",
+            french: "Position verticale",
+            spanish: "Posición vertical"
+        ),
+        Entry(
             key: "16 MB per asset; 32 MB total assets; 48 MB per template",
             french: "16 Mo par ressource ; 32 Mo de ressources au total ; 48 Mo par modèle",
             spanish: "16 MB por recurso; 32 MB de recursos en total; 48 MB por plantilla"
