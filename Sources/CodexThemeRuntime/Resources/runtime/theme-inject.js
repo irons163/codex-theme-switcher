@@ -4,9 +4,14 @@
   const GLOBAL_KEY = "__codexThemeSwitcherRuntime";
   const STYLE_ID = "codex-theme-switcher-style";
   const STAGING_STYLE_ID = `${STYLE_ID}-staging`;
-  const VERSION = 32;
+  const VOICE_SESSION_STYLE_ID = `${STYLE_ID}-voice-session`;
+  const VERSION = 44;
   const PUBLISHED_AUDIO_SMOOTHING = 0.86;
-  const VOICE_ORB_SELECTOR = ".codex-avatar-root";
+  // ChatGPT keeps its detachable Pet in another `.codex-avatar-root`.
+  // Mounting the Voice renderer there makes a finished Voice session look
+  // like it left a second, clickable Live2D avatar behind.
+  const VOICE_ORB_SELECTOR =
+    ".codex-avatar-root:not([data-codex-pet-id])";
   const VOICE_PULSE_ENABLED = "--cts-voice-orb-pulse-enabled";
   const VOICE_PULSE_STRENGTH = "--cts-voice-orb-pulse-strength";
   const VOICE_PULSE_LIVE_SCALE = "--cts-voice-orb-live-pulse";
@@ -42,6 +47,8 @@
   const VOICE_LIVE2D_POSITION_Y = "--cts-voice-live2d-position-y";
   const VOICE_LIVE2D_PARAMETER_PREFIX = "--cts-voice-live2d-";
   const VOICE_LIVE2D_ASSET_PROTOCOL = "codex-theme-live2d-asset:";
+  const VOICE_SESSION_ACTIVE_ATTRIBUTE =
+    "data-codex-voice-session-active";
   const VOICE_ORB_LAYOUT_SHIFT = Object.freeze({
     x: "--cts-voice-orb-layout-shift-x",
     y: "--cts-voice-orb-layout-shift-y",
@@ -194,12 +201,16 @@
     return value === "1" || value === "true";
   }
 
-  function voiceMouthFrameSources() {
-    const count = Math.round(clamp(
+  function voiceMouthFrameCount() {
+    return Math.round(clamp(
       numericCustomProperty(VOICE_MOUTH_FRAME_COUNT, 0),
       0,
       9,
     ));
+  }
+
+  function voiceMouthFrameSources() {
+    const count = voiceMouthFrameCount();
     const sources = [];
     for (let index = 0; index < count; index += 1) {
       const source = customProperty(
@@ -210,6 +221,14 @@
       sources.push(source);
     }
     return sources;
+  }
+
+  function steppedVoiceMouthLevel(level) {
+    const continuous = clamp(Number(level) || 0, 0, 1);
+    const frameCount = voiceMouthFrameCount();
+    if (frameCount < 2) return continuous;
+    const maximumIndex = frameCount - 1;
+    return Math.round(continuous * maximumIndex) / maximumIndex;
   }
 
   function voiceBlinkSource() {
@@ -946,6 +965,17 @@
   function destroyVoiceLive2D() {
     const state = runtime.live2D;
     state.generation += 1;
+    if (
+      state.modelUpdateTarget
+      && state.modelUpdateOriginal
+      && state.modelUpdateWrapper
+      && state.modelUpdateTarget.update === state.modelUpdateWrapper
+    ) {
+      state.modelUpdateTarget.update = state.modelUpdateOriginal;
+    }
+    state.modelUpdateTarget = null;
+    state.modelUpdateOriginal = null;
+    state.modelUpdateWrapper = null;
     state.resizeObserver?.disconnect?.();
     state.resizeObserver = null;
     const root = state.root;
@@ -973,6 +1003,10 @@
     state.error = null;
     state.mouthLevel = 0;
     state.rawEnergy = 0;
+    state.eyeBlinkStartedAt = 0;
+    state.eyeBlinkNextAt = 0;
+    state.eyeBlinkAmount = 0;
+    state.eyeBlinkLastTimestamp = 0;
   }
 
   function live2DParameterHandle(coreModel, requested, fallback) {
@@ -996,11 +1030,24 @@
     const coreModel = internal?.coreModel;
     if (!internal || !coreModel) return;
     const lipSyncIDs = internal.motionManager?.lipSyncIds || [];
+    const eyeBlinkIDs = internal.eyeBlink?.getParameterIds?.()
+      || internal.motionManager?.eyeBlinkIds
+      || [];
     const handles = {
       mouth: live2DParameterHandle(
         coreModel,
         configuration.parameters.mouth,
         lipSyncIDs[0],
+      ),
+      eyeLeft: live2DParameterHandle(
+        coreModel,
+        "ParamEyeLOpen",
+        eyeBlinkIDs[0],
+      ),
+      eyeRight: live2DParameterHandle(
+        coreModel,
+        "ParamEyeROpen",
+        eyeBlinkIDs[1],
       ),
       angleX: live2DParameterHandle(
         coreModel,
@@ -1029,11 +1076,81 @@
         coreModel.addParameterValueById(handle, value, weight);
       } catch {}
     };
-    internal.on?.("beforeModelUpdate", () => {
+    const set = (handle, value, weight = 1) => {
+      if (!handle || !Number.isFinite(value)) return;
+      try {
+        coreModel.setParameterValueById(handle, value, weight);
+      } catch {}
+    };
+    const applyParameters = () => {
       const state = runtime.live2D;
       if (state.model !== model) return;
-      const mouth = clamp(state.mouthLevel, 0, 1);
-      add(handles.mouth, mouth, 1);
+      // Use the same discrete energy-to-frame mapping as the proven flat
+      // renderer. A Live2D model still receives ParamMouthOpenY, but its
+      // openness now advances through the exact mouth-frame steps retained by
+      // the theme instead of smoothing them into one nearly static blend.
+      const mouth = steppedVoiceMouthLevel(state.mouthLevel);
+      // Mouth openness is an absolute voice envelope. Adding zero after
+      // speech does not undo the last non-zero Cubism value, which leaves the
+      // character visibly stuck with an open mouth. Set it on every frame so
+      // silence always returns ParamMouthOpenY to its closed value.
+      set(handles.mouth, mouth, 1);
+
+      // Cubism normally owns EyeBlink, but a motion or expression can
+      // temporarily suppress that effect. Keep a small deterministic blink
+      // driver here so a model with a valid EyeBlink group always animates.
+      if (handles.eyeLeft || handles.eyeRight) {
+        const now = typeof performance !== "undefined"
+          && typeof performance.now === "function"
+          ? performance.now()
+          : Date.now();
+        const interval = clamp(
+          numericCustomProperty(VOICE_BLINK_INTERVAL, 3800),
+          1000,
+          12000,
+        );
+        const duration = clamp(
+          numericCustomProperty(VOICE_BLINK_DURATION, 160),
+          80,
+          600,
+        );
+        if (!(state.eyeBlinkNextAt > 0)) {
+          state.eyeBlinkNextAt = now + interval;
+        }
+        if (
+          state.eyeBlinkStartedAt <= 0
+          && now >= state.eyeBlinkNextAt
+        ) {
+          state.eyeBlinkStartedAt = now;
+        }
+        let blinkAmount = 0;
+        if (state.eyeBlinkStartedAt > 0) {
+          const progress = clamp(
+            (now - state.eyeBlinkStartedAt) / duration,
+            0,
+            1,
+          );
+          blinkAmount = Math.sin(progress * Math.PI) ** 2;
+          if (progress >= 1) {
+            state.eyeBlinkStartedAt = 0;
+            state.eyeBlinkNextAt = now + interval;
+            blinkAmount = 0;
+          }
+        }
+        const eyeOpen = 1 - blinkAmount;
+        if (handles.eyeLeft) {
+          try {
+            coreModel.setParameterValueById(handles.eyeLeft, eyeOpen);
+          } catch {}
+        }
+        if (handles.eyeRight) {
+          try {
+            coreModel.setParameterValueById(handles.eyeRight, eyeOpen);
+          } catch {}
+        }
+        state.eyeBlinkAmount = blinkAmount;
+        state.eyeBlinkLastTimestamp = now;
+      }
 
       const idleEnabled = booleanCustomProperty(VOICE_IDLE_ENABLED);
       const idleStrength = idleEnabled
@@ -1066,7 +1183,34 @@
         handles.bodyAngleX,
         Math.sin(phase * 0.71 + 0.3) * 1.6 * idleStrength,
       );
-    });
+    };
+
+    // Cubism's update() saves parameters, emits beforeModelUpdate, then
+    // restores the saved values after the event. Applying our values in that
+    // event makes the state look correct but the rendered model stay open.
+    // Wrap update() so the final values are written after Cubism restores its
+    // parameters and immediately before Pixi draws the model.
+    const originalUpdate = internal.update;
+    if (typeof originalUpdate === "function") {
+      const wrappedUpdate = function (...args) {
+        const result = originalUpdate.apply(this, args);
+        applyParameters();
+        // Cubism's internal update has already computed drawable vertices by
+        // this point. Recompute them after our final parameter writes so the
+        // values are visible in the frame that Pixi draws next.
+        try {
+          coreModel.update?.();
+        } catch {}
+        return result;
+      };
+      wrappedUpdate.__codexThemeSwitcherLive2DUpdate = true;
+      internal.update = wrappedUpdate;
+      runtime.live2D.modelUpdateTarget = internal;
+      runtime.live2D.modelUpdateOriginal = originalUpdate;
+      runtime.live2D.modelUpdateWrapper = wrappedUpdate;
+    } else {
+      internal.on?.("beforeModelUpdate", applyParameters);
+    }
   }
 
   function ensureLive2DDrawOrderCompatibility(model) {
@@ -1097,7 +1241,12 @@
       drawableIndices.sort((left, right) => (
         (Number(drawables.drawOrders[left]) || 0)
         - (Number(drawables.drawOrders[right]) || 0)
-        || left - right
+        // Cubism assigns the same draw order to aligned full-canvas layers.
+        // Their drawable indices follow the PSD stack from foreground to
+        // background, so equal-order layers must be drawn in reverse index
+        // order. Otherwise the neutral base is drawn last and hides blinking
+        // and lip-sync overlays even though their parameters change.
+        || right - left
       ));
       drawableIndices.forEach((drawableIndex, order) => {
         normalizedOrders[drawableIndex] = order;
@@ -1512,6 +1661,39 @@
     ) || null;
   }
 
+  function setVoiceSessionActive(active) {
+    const documentRoot = document.documentElement;
+    if (!documentRoot) return;
+    if (!document.getElementById(VOICE_SESSION_STYLE_ID)) {
+      const style = document.createElement("style");
+      style.id = VOICE_SESSION_STYLE_ID;
+      style.textContent = `
+        html:root[data-codex-voice-session-active="false"],
+        html:root[data-codex-voice-session-active="false"] body {
+          background-color: transparent !important;
+        }
+        html:root[data-codex-voice-session-active="false"] body::before,
+        html:root[data-codex-voice-session-active="false"]
+          .codex-avatar-root[data-realtime-voice-orb]
+          [data-codex-live2d-avatar] {
+          opacity: 0 !important;
+          visibility: hidden !important;
+        }
+        html:root[data-codex-voice-session-active="true"]
+          .codex-avatar-root[data-codex-pet-id] {
+          opacity: 0 !important;
+          pointer-events: none !important;
+          visibility: hidden !important;
+        }
+      `;
+      (document.head || documentRoot).appendChild(style);
+    }
+    documentRoot.setAttribute(
+      VOICE_SESSION_ACTIVE_ATTRIBUTE,
+      active ? "true" : "false",
+    );
+  }
+
   function isVoiceRendererInstance(value, canvas) {
     try {
       return Boolean(
@@ -1735,6 +1917,10 @@
       "u_stateSpeak",
     );
     const renderer = runtime.voicePulse.publishedAudioRenderer;
+    const sessionPhase = String(renderer?.inputs?.phase || "");
+    if (sessionPhase) {
+      setVoiceSessionActive(sessionPhase === "active");
+    }
     const rendererIsSpeaking = renderer?.inputs?.voiceActivity === "speaking";
     const speakingAmount = Math.max(
       clamp(stateSpeak, 0, 1),
@@ -1919,8 +2105,16 @@
       ) {
         return;
       }
-      synchronizeVoiceCanvas();
-      scheduleVoiceCanvasFrame(generation);
+      try {
+        synchronizeVoiceCanvas();
+        pulse.canvasLastError = null;
+      } catch (error) {
+        // A transient WebGL/DOM change must not permanently stop the
+        // animation loop. Keep the next frame alive and retain a diagnostic.
+        pulse.canvasLastError = error?.message || String(error);
+      } finally {
+        scheduleVoiceCanvasFrame(generation);
+      }
     });
   }
 
@@ -2038,6 +2232,7 @@
 
   function detachVoicePulseRoot() {
     const pulse = runtime.voicePulse;
+    setVoiceSessionActive(false);
     destroyVoiceLive2D();
     pulse.rootObserver?.disconnect?.();
     if (
@@ -2581,8 +2776,12 @@
     stopVoicePulseSync();
     activeStyle()?.remove();
     removeStagingStyle();
+    document.getElementById(VOICE_SESSION_STYLE_ID)?.remove();
     document.documentElement?.removeAttribute(
       "data-codex-theme-switcher-theme",
+    );
+    document.documentElement?.removeAttribute(
+      VOICE_SESSION_ACTIVE_ATTRIBUTE,
     );
     revokeURLs([...runtime.assets.values()].map((asset) => asset.url));
     runtime.current = null;
@@ -2609,6 +2808,7 @@
       analysisLoading: false,
       lastPosition: null,
       canvasFrameID: null,
+      canvasLastError: null,
       mouthLevel: 0,
       mouthFrameIndex: 0,
       mouthLastTimestamp: 0,
@@ -2659,6 +2859,13 @@
       error: null,
       mouthLevel: 0,
       rawEnergy: 0,
+      eyeBlinkStartedAt: 0,
+      eyeBlinkNextAt: 0,
+      eyeBlinkAmount: 0,
+      eyeBlinkLastTimestamp: 0,
+      modelUpdateTarget: null,
+      modelUpdateOriginal: null,
+      modelUpdateWrapper: null,
     },
     voicePulseCache: new Map(),
     begin,

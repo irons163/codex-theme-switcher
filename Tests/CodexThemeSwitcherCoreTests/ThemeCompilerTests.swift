@@ -1026,6 +1026,16 @@ final class ThemeCompilerTests: XCTestCase {
         )
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
+                "data-codex-voice-session-active=\"false\""
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                ".codex-avatar-root[data-codex-pet-id]"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
                 ".codex-avatar-root,"
             )
         )

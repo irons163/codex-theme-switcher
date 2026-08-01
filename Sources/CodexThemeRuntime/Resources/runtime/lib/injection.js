@@ -13,10 +13,11 @@ const {
 } = require("./cdp");
 
 const BASE64_CHUNK_CHARACTERS = 256 * 1024;
-const RENDERER_RUNTIME_VERSION = 32;
+const RENDERER_RUNTIME_VERSION = 44;
 const LIVE2D_CORE_URL =
   "https://cubism.live2d.com/sdk-web/core/06/live2dcubismcore.min.js";
 const LIVE2D_MARKER = "__codexThemeSwitcherLive2DReady";
+const LIVE2D_CSP_MARKER = "__codexThemeSwitcherLive2DCspReady";
 const MAX_LIVE2D_CORE_CHARACTERS = 4 * 1024 * 1024;
 const LIVE2D_CORE_RETRY_DELAY_MILLISECONDS = 30_000;
 const TARGET_KIND_MAIN = "main";
@@ -46,6 +47,15 @@ function live2DVendorSource() {
   return [
     fs.readFileSync(
       path.resolve(__dirname, "..", "vendor", "pixi.min.js"),
+      "utf8",
+    ),
+    fs.readFileSync(
+      path.resolve(
+        __dirname,
+        "..",
+        "vendor",
+        "pixi-unsafe-eval.min.js",
+      ),
       "utf8",
     ),
     fs.readFileSync(
@@ -148,6 +158,7 @@ async function rendererLive2DSource() {
   return [
     core,
     live2DVendorSource(),
+    `window[${JSON.stringify(LIVE2D_CSP_MARKER)}] = true;`,
     `window[${JSON.stringify(LIVE2D_MARKER)}] = Boolean(`,
     "  window.PIXI",
     "  && window.PIXI.Application",
@@ -164,6 +175,7 @@ async function ensureLive2DRenderer(session) {
       "({",
       "  ok: true,",
       `  ready: window[${JSON.stringify(LIVE2D_MARKER)}] === true`,
+      `  && window[${JSON.stringify(LIVE2D_CSP_MARKER)}] === true`,
       "})",
     ].join("\n"),
     "check Live2D runtime",

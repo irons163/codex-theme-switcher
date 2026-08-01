@@ -337,6 +337,26 @@ enum ThemeVoiceStyleCompiler {
           position: relative;
         }
 
+        \(root)[data-codex-voice-session-active="false"],
+        \(root)[data-codex-voice-session-active="false"] body {
+          background-color: transparent !important;
+        }
+
+        \(root)[data-codex-voice-session-active="false"] body::before,
+        \(root)[data-codex-voice-session-active="false"]
+        .codex-avatar-root[data-realtime-voice-orb]
+        [data-codex-live2d-avatar] {
+          opacity: 0 !important;
+          visibility: hidden !important;
+        }
+
+        \(root)[data-codex-voice-session-active="true"]
+        .codex-avatar-root[data-codex-pet-id] {
+          opacity: 0 !important;
+          pointer-events: none !important;
+          visibility: hidden !important;
+        }
+
         \(root) body::before {
           background-image: var(--cts-voice-background-image);
           background-position: var(--cts-voice-background-position);
