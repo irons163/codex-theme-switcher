@@ -5,7 +5,7 @@
   const STYLE_ID = "codex-theme-switcher-style";
   const STAGING_STYLE_ID = `${STYLE_ID}-staging`;
   const VOICE_SESSION_STYLE_ID = `${STYLE_ID}-voice-session`;
-  const VERSION = 44;
+  const VERSION = 46;
   const PUBLISHED_AUDIO_SMOOTHING = 0.86;
   // ChatGPT keeps its detachable Pet in another `.codex-avatar-root`.
   // Mounting the Voice renderer there makes a finished Voice session look
@@ -1680,7 +1680,13 @@
           visibility: hidden !important;
         }
         html:root[data-codex-voice-session-active="true"]
-          .codex-avatar-root[data-codex-pet-id] {
+          .codex-avatar-root[data-codex-pet-id],
+        html:root[data-codex-voice-session-active="true"]
+          [data-testid="avatar-mascot-button"]:has(
+            .codex-avatar-root[data-codex-pet-id]
+          ),
+        html:root[data-codex-voice-session-active="true"]
+          [data-avatar-overlay-hit-region="mascot-badge"] {
           opacity: 0 !important;
           pointer-events: none !important;
           visibility: hidden !important;

@@ -9,7 +9,7 @@ final class Live2DRuntimeTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(source.contains("const VERSION = 44;"))
+        XCTAssertTrue(source.contains("const VERSION = 46;"))
         XCTAssertTrue(
             source.contains(
                 ".codex-avatar-root:not([data-codex-pet-id])"
@@ -50,6 +50,8 @@ final class Live2DRuntimeTests: XCTestCase {
         XCTAssertTrue(source.contains("setVoiceSessionActive(false)"))
         XCTAssertTrue(source.contains("VOICE_SESSION_STYLE_ID"))
         XCTAssertTrue(source.contains("data-codex-pet-id"))
+        XCTAssertTrue(source.contains("avatar-mascot-button"))
+        XCTAssertTrue(source.contains("mascot-badge"))
         XCTAssertTrue(source.contains("VOICE_SESSION_ACTIVE_ATTRIBUTE"))
     }
 
@@ -78,6 +80,18 @@ final class Live2DRuntimeTests: XCTestCase {
     func testInjectionRecognizesOnlyLive2DThemes() throws {
         let injection = runtimeDirectory
             .appendingPathComponent("lib/injection.js")
+        let injectionSource = try String(
+            contentsOf: injection,
+            encoding: .utf8
+        )
+        XCTAssertTrue(injectionSource.contains("previousDocumentMarker"))
+        XCTAssertTrue(
+            injectionSource.contains(
+                "require the old global marker to disappear"
+            )
+        )
+        XCTAssertFalse(injectionSource.contains("await delay(150);"))
+
         let script = """
         const runtime = require(\(javascriptString(injection.path)));
         const result = {
@@ -96,7 +110,54 @@ final class Live2DRuntimeTests: XCTestCase {
             JSONSerialization.jsonObject(with: result) as? [String: Any]
         )
 
-        XCTAssertEqual(object["version"] as? Int, 44)
+        XCTAssertEqual(object["version"] as? Int, 46)
+
+        let nativeCompositionTest = """
+        const runtime = require(\(javascriptString(injection.path)));
+        class Storage {
+          constructor(values) { this.values = values; }
+          getItem(key) { return this.values[key] ?? null; }
+        }
+        global.Storage = Storage;
+        const gate = {
+          name: "620613358",
+          value: true,
+          rule_id: "enabled"
+        };
+        const inner = { feature_gates: { "620613358": gate } };
+        const stored = JSON.stringify({ data: JSON.stringify(inner) });
+        const storage = new Storage({
+          "statsig.cached.evaluations.test": stored,
+          "unrelated": "unchanged"
+        });
+        eval(runtime.live2DNativeCompositionOverrideSource());
+        const returned = storage.getItem(
+          "statsig.cached.evaluations.test"
+        );
+        const parsed = JSON.parse(JSON.parse(returned).data);
+        const original = JSON.parse(JSON.parse(stored).data);
+        process.stdout.write(JSON.stringify({
+          gate: parsed.feature_gates["620613358"].value,
+          original: original.feature_gates["620613358"].value,
+          unrelated: storage.getItem("unrelated"),
+          overlay: runtime.isAvatarOverlayIndexURL(
+            "app://-/index.html?initialRoute=%2Favatar-overlay"
+          ),
+          composition: runtime.isAvatarOverlayIndexURL(
+            "app://-/avatar-overlay-composition-surface.html?surfaceId=voice-output"
+          )
+        }));
+        """
+        let nativeCompositionData = try runNode(nativeCompositionTest)
+        let nativeComposition = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: nativeCompositionData)
+                as? [String: Any]
+        )
+        XCTAssertEqual(nativeComposition["gate"] as? Bool, false)
+        XCTAssertEqual(nativeComposition["original"] as? Bool, true)
+        XCTAssertEqual(nativeComposition["unrelated"] as? String, "unchanged")
+        XCTAssertEqual(nativeComposition["overlay"] as? Bool, true)
+        XCTAssertEqual(nativeComposition["composition"] as? Bool, false)
 
         let cdp = runtimeDirectory.appendingPathComponent("lib/cdp.js")
         let targetTest = """

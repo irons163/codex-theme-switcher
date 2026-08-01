@@ -1036,6 +1036,16 @@ final class ThemeCompilerTests: XCTestCase {
         )
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
+                "[data-testid=\"avatar-mascot-button\"]:has("
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "[data-avatar-overlay-hit-region=\"mascot-badge\"]"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
                 ".codex-avatar-root,"
             )
         )

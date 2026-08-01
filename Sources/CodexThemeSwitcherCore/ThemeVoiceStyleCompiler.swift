@@ -351,7 +351,13 @@ enum ThemeVoiceStyleCompiler {
         }
 
         \(root)[data-codex-voice-session-active="true"]
-        .codex-avatar-root[data-codex-pet-id] {
+        .codex-avatar-root[data-codex-pet-id],
+        \(root)[data-codex-voice-session-active="true"]
+        [data-testid="avatar-mascot-button"]:has(
+          .codex-avatar-root[data-codex-pet-id]
+        ),
+        \(root)[data-codex-voice-session-active="true"]
+        [data-avatar-overlay-hit-region="mascot-badge"] {
           opacity: 0 !important;
           pointer-events: none !important;
           visibility: hidden !important;

@@ -13,7 +13,7 @@ const {
 } = require("./cdp");
 
 const BASE64_CHUNK_CHARACTERS = 256 * 1024;
-const RENDERER_RUNTIME_VERSION = 44;
+const RENDERER_RUNTIME_VERSION = 46;
 const LIVE2D_CORE_URL =
   "https://cubism.live2d.com/sdk-web/core/06/live2dcubismcore.min.js";
 const LIVE2D_MARKER = "__codexThemeSwitcherLive2DReady";
@@ -22,6 +22,9 @@ const MAX_LIVE2D_CORE_CHARACTERS = 4 * 1024 * 1024;
 const LIVE2D_CORE_RETRY_DELAY_MILLISECONDS = 30_000;
 const TARGET_KIND_MAIN = "main";
 const TARGET_KIND_AVATAR_OVERLAY = "avatar-overlay";
+const AVATAR_OVERLAY_INDEX_PATTERN =
+  /^app:\/\/-\/index\.html(?:[?#]|$)/;
+const LIVE2D_NATIVE_COMPOSITION_GATE = "620613358";
 const RUNTIME_GLOBALS = Object.freeze({
   begin: "__codexThemeSwitcherBegin",
   appendAsset: "__codexThemeSwitcherAppendAsset",
@@ -41,6 +44,132 @@ function rendererInjectionSource() {
 function themeUsesLive2D(theme) {
   return typeof theme?.css === "string"
     && /--cts-voice-avatar-mode\s*:\s*live2D\b/.test(theme.css);
+}
+
+function isAvatarOverlayIndexURL(url) {
+  return AVATAR_OVERLAY_INDEX_PATTERN.test(String(url || ""))
+    && String(url || "").includes("avatar-overlay");
+}
+
+function live2DNativeCompositionOverrideSource() {
+  return [
+    "(() => {",
+    "  const original = Storage.prototype.getItem;",
+    "  if (original.__codexThemeSwitcherNativeCompositionOverride) return;",
+    "  function getItem(key) {",
+    "    const value = original.call(this, key);",
+    "    if (",
+    "      typeof key !== \"string\"",
+    "      || !key.includes(\"statsig.cached.evaluations\")",
+    "      || typeof value !== \"string\"",
+    "    ) return value;",
+    "    try {",
+    "      const outer = JSON.parse(value);",
+    "      if (typeof outer.data !== \"string\") return value;",
+    "      const inner = JSON.parse(outer.data);",
+    `      const gate = inner.feature_gates?.[${JSON.stringify(
+      LIVE2D_NATIVE_COMPOSITION_GATE,
+    )}];`,
+    "      if (!gate || gate.value === false) return value;",
+    `      inner.feature_gates[${JSON.stringify(
+      LIVE2D_NATIVE_COMPOSITION_GATE,
+    )}] = { ...gate, value: false };`,
+    "      outer.data = JSON.stringify(inner);",
+    "      return JSON.stringify(outer);",
+    "    } catch {",
+    "      return value;",
+    "    }",
+    "  }",
+    "  Object.defineProperty(",
+    "    getItem,",
+    "    \"__codexThemeSwitcherNativeCompositionOverride\",",
+    "    { value: true },",
+    "  );",
+    "  Storage.prototype.getItem = getItem;",
+    "})();",
+  ].join("\n");
+}
+
+function delay(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function waitForRendererDocument(session, previousDocumentMarker) {
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    try {
+      const response = await session.send("Runtime.evaluate", {
+        expression: [
+          "JSON.stringify({",
+          "  readyState: document.readyState,",
+          `  previousDocument: globalThis[${JSON.stringify(
+            previousDocumentMarker,
+          )}] === true,`,
+          "})",
+        ].join("\n"),
+        returnByValue: true,
+      });
+      const state = JSON.parse(response?.result?.value || "null");
+      if (
+        state?.previousDocument === false
+        && (
+          state.readyState === "interactive"
+          || state.readyState === "complete"
+        )
+      ) return;
+    } catch {}
+    await delay(50);
+  }
+  throw rendererError(
+    "reload avatar overlay",
+    "renderer did not finish reloading",
+    "renderer-reload-timeout",
+  );
+}
+
+async function reloadRenderer(session) {
+  await session.send("Page.enable");
+  const previousDocumentMarker =
+    `__codexThemeSwitcherReload_${crypto.randomUUID().replaceAll("-", "")}`;
+  await session.send("Runtime.evaluate", {
+    expression: `globalThis[${JSON.stringify(previousDocumentMarker)}] = true`,
+  });
+  await session.send("Page.reload", { ignoreCache: false });
+  // Page.reload resolves before Chromium swaps in the new document. Waiting
+  // only for readyState can accidentally observe the old complete document,
+  // so also require the old global marker to disappear.
+  await waitForRendererDocument(session, previousDocumentMarker);
+}
+
+async function configureLive2DNativeComposition(
+  session,
+  targetURL,
+  theme,
+) {
+  if (!isAvatarOverlayIndexURL(targetURL)) return false;
+  const shouldDisable = themeUsesLive2D(theme);
+  const scriptID = session.codexThemeLive2DNativeCompositionScriptID;
+  if (shouldDisable && !scriptID) {
+    const result = await session.send(
+      "Page.addScriptToEvaluateOnNewDocument",
+      { source: live2DNativeCompositionOverrideSource() },
+    );
+    session.codexThemeLive2DNativeCompositionScriptID =
+      result.identifier || true;
+    await reloadRenderer(session);
+    return true;
+  }
+  if (!shouldDisable && scriptID) {
+    if (typeof scriptID === "string") {
+      await session.send("Page.removeScriptToEvaluateOnNewDocument", {
+        identifier: scriptID,
+      });
+    }
+    session.codexThemeLive2DNativeCompositionScriptID = null;
+    await reloadRenderer(session);
+    return true;
+  }
+  return false;
 }
 
 function live2DVendorSource() {
@@ -658,11 +787,23 @@ async function injectRenderers(
           logger,
         );
         session.codexThemeTargetKind = kind;
+        session.codexThemeTargetURL = String(target.url || "");
+        await configureLive2DNativeComposition(
+          session,
+          session.codexThemeTargetURL,
+          targetTheme,
+        );
         await installRuntime(session);
         sessions.set(target.id, session);
         if (targetTheme) await applyTheme(session, targetTheme);
       } else {
         session.codexThemeTargetKind = kind;
+        session.codexThemeTargetURL = String(target.url || "");
+        await configureLive2DNativeComposition(
+          session,
+          session.codexThemeTargetURL,
+          targetTheme,
+        );
         await reconcileExistingSession(session, targetTheme);
       }
       successful += 1;
@@ -692,6 +833,11 @@ async function broadcastTheme(sessions, theme, logger = () => {}) {
         theme,
         session.codexThemeTargetKind || TARGET_KIND_MAIN,
       );
+      await configureLive2DNativeComposition(
+        session,
+        session.codexThemeTargetURL,
+        targetTheme,
+      );
       if (targetTheme) {
         await reconcileExistingSession(session, targetTheme);
       } else {
@@ -715,6 +861,11 @@ async function clearRenderers(sessions, logger = () => {}) {
       continue;
     }
     try {
+      await configureLive2DNativeComposition(
+        session,
+        session.codexThemeTargetURL,
+        null,
+      );
       await clearTheme(session);
       successful += 1;
     } catch (error) {
@@ -747,11 +898,14 @@ module.exports = {
   clearRenderers,
   clearTheme,
   commitExpression,
+  configureLive2DNativeComposition,
   evaluateRuntime,
   injectRenderers,
+  isAvatarOverlayIndexURL,
   installRuntime,
   reconcileExistingSession,
   rendererInjectionSource,
+  live2DNativeCompositionOverrideSource,
   ensureLive2DRenderer,
   bestEffortEnsureLive2DRenderer,
   ensureActiveLive2DRenderer,
