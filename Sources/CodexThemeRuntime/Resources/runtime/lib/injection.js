@@ -13,7 +13,7 @@ const {
 } = require("./cdp");
 
 const BASE64_CHUNK_CHARACTERS = 256 * 1024;
-const RENDERER_RUNTIME_VERSION = 46;
+const RENDERER_RUNTIME_VERSION = 50;
 const LIVE2D_CORE_URL =
   "https://cubism.live2d.com/sdk-web/core/06/live2dcubismcore.min.js";
 const LIVE2D_MARKER = "__codexThemeSwitcherLive2DReady";
@@ -24,6 +24,8 @@ const TARGET_KIND_MAIN = "main";
 const TARGET_KIND_AVATAR_OVERLAY = "avatar-overlay";
 const AVATAR_OVERLAY_INDEX_PATTERN =
   /^app:\/\/-\/index\.html(?:[?#]|$)/;
+const VOICE_COMPOSITION_PATTERN =
+  /^app:\/\/-\/avatar-overlay-composition-surface\.html(?:[?#]|$)/;
 const LIVE2D_NATIVE_COMPOSITION_GATE = "620613358";
 const RUNTIME_GLOBALS = Object.freeze({
   begin: "__codexThemeSwitcherBegin",
@@ -49,6 +51,16 @@ function themeUsesLive2D(theme) {
 function isAvatarOverlayIndexURL(url) {
   return AVATAR_OVERLAY_INDEX_PATTERN.test(String(url || ""))
     && String(url || "").includes("avatar-overlay");
+}
+
+function isCodexIndexURL(url) {
+  return AVATAR_OVERLAY_INDEX_PATTERN.test(String(url || ""));
+}
+
+function isVoiceCompositionURL(url) {
+  const value = String(url || "");
+  return VOICE_COMPOSITION_PATTERN.test(value)
+    && /(?:[?&])surfaceId=voice-output(?:&|$)/.test(value);
 }
 
 function live2DNativeCompositionOverrideSource() {
@@ -146,7 +158,11 @@ async function configureLive2DNativeComposition(
   targetURL,
   theme,
 ) {
-  if (!isAvatarOverlayIndexURL(targetURL)) return false;
+  // ChatGPT 26.727 reads the native-composition gate in the main renderer
+  // before it creates the detachable Voice surfaces. Installing the override
+  // only in the legacy overlay is too late and leaves two renderers competing
+  // for the same session. Keep the main and legacy index documents aligned.
+  if (!isCodexIndexURL(targetURL)) return false;
   const shouldDisable = themeUsesLive2D(theme);
   const scriptID = session.codexThemeLive2DNativeCompositionScriptID;
   if (shouldDisable && !scriptID) {
@@ -733,6 +749,16 @@ function themeForTargetKind(theme, targetKind) {
     : theme;
 }
 
+function preferredAvatarOverlayTargets(allOverlayTargets, overlayTheme) {
+  if (!themeUsesLive2D(overlayTheme)) return allOverlayTargets;
+  const legacyOverlayTargets = allOverlayTargets.filter(({ url }) => (
+    isAvatarOverlayIndexURL(url)
+  ));
+  return legacyOverlayTargets.length > 0
+    ? legacyOverlayTargets
+    : allOverlayTargets;
+}
+
 async function injectRenderers(
   debugPort,
   theme,
@@ -745,22 +771,35 @@ async function injectRenderers(
     kind: TARGET_KIND_MAIN,
   }));
   const overlayTheme = avatarOverlayTheme(theme);
-  const overlayTargets = codexAvatarOverlayTargets(listedTargets)
+  const allOverlayTargets = codexAvatarOverlayTargets(listedTargets);
+  // Live2D owns one renderer only. When the legacy overlay exists, prefer it
+  // and reject the transient voice-output surface which otherwise remounts a
+  // second Pixi app at a different size during the handoff animation.
+  const selectedOverlayTargets = preferredAvatarOverlayTargets(
+    allOverlayTargets,
+    overlayTheme,
+  );
+  const overlayTargets = selectedOverlayTargets
     .filter(({ id }) => overlayTheme || sessions.has(id))
     .map((target) => ({
       target,
       kind: TARGET_KIND_AVATAR_OVERLAY,
     }));
   const targets = [...mainTargets, ...overlayTargets];
-  const liveTargetIDs = new Set(
+  const selectedTargetIDs = new Set(
     [
       ...codexPageTargets(listedTargets),
-      ...codexAvatarOverlayTargets(listedTargets),
+      ...selectedOverlayTargets,
     ].map((target) => target.id),
   );
 
   for (const [targetID, session] of sessions) {
-    if (session.closed || !liveTargetIDs.has(targetID)) {
+    if (session.closed || !selectedTargetIDs.has(targetID)) {
+      if (!session.closed) {
+        try {
+          await reconcileExistingSession(session, null);
+        } catch {}
+      }
       session.close();
       sessions.delete(targetID);
     }
@@ -902,7 +941,10 @@ module.exports = {
   evaluateRuntime,
   injectRenderers,
   isAvatarOverlayIndexURL,
+  isCodexIndexURL,
+  isVoiceCompositionURL,
   installRuntime,
+  preferredAvatarOverlayTargets,
   reconcileExistingSession,
   rendererInjectionSource,
   live2DNativeCompositionOverrideSource,

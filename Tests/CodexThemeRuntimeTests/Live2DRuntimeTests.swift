@@ -9,15 +9,18 @@ final class Live2DRuntimeTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(source.contains("const VERSION = 46;"))
+        XCTAssertTrue(source.contains("const VERSION = 50;"))
         XCTAssertTrue(
             source.contains(
-                ".codex-avatar-root:not([data-codex-pet-id])"
+                ".codex-avatar-root[data-realtime-voice-orb]"
             )
         )
         XCTAssertTrue(source.contains("function prepareVoiceImages("))
         XCTAssertTrue(source.contains("function mountVoiceLive2D("))
         XCTAssertTrue(source.contains("function destroyVoiceLive2D("))
+        XCTAssertTrue(source.contains("preserveLive2D = false"))
+        XCTAssertTrue(source.contains("root.appendChild(state.container)"))
+        XCTAssertTrue(source.contains("data-codex-live2d-loading"))
         XCTAssertTrue(source.contains("pulse.canvasLastError = null"))
         XCTAssertTrue(source.contains("finally {"))
         XCTAssertTrue(source.contains("function ensureLive2DBlobLoader("))
@@ -46,13 +49,44 @@ final class Live2DRuntimeTests: XCTestCase {
         XCTAssertTrue(source.contains("const maximumIndex = frameCount - 1"))
         XCTAssertTrue(source.contains("the exact mouth-frame steps"))
         XCTAssertTrue(source.contains("function setVoiceSessionActive("))
-        XCTAssertTrue(source.contains("sessionPhase === \"active\""))
+        XCTAssertTrue(source.contains("function rendererVoiceSessionActive("))
+        XCTAssertTrue(source.contains("function instrumentVoiceRenderer("))
+        XCTAssertTrue(source.contains("function releaseVoiceRendererInstrumentation("))
+        XCTAssertTrue(source.contains("function synchronizeRendererVoiceFrame("))
+        XCTAssertTrue(source.contains("function renderVoiceLive2DFrame("))
+        XCTAssertTrue(source.contains("Prime Pixi immediately"))
+        XCTAssertTrue(source.contains("renderVoiceLive2DFrame();"))
+        XCTAssertTrue(source.contains("renderer.setInputs = wrappedSetInputs"))
+        XCTAssertTrue(
+            source.contains(
+                "renderer.setPublishedAudioLevels = wrappedSetPublishedAudioLevels"
+            )
+        )
+        XCTAssertTrue(source.contains("renderer.setInputs = pulse.originalSetInputs"))
+        XCTAssertTrue(
+            source.contains(
+                "pulse.originalSetPublishedAudioLevels"
+            )
+        )
+        XCTAssertTrue(
+            source.contains(
+                "phase === \"starting\" || phase === \"active\""
+            )
+        )
+        XCTAssertFalse(source.contains("sessionPhase === \"active\""))
+        XCTAssertTrue(source.contains("const rendererHasActivity"))
+        XCTAssertTrue(source.contains("it is the authoritative"))
         XCTAssertTrue(source.contains("setVoiceSessionActive(false)"))
         XCTAssertTrue(source.contains("VOICE_SESSION_STYLE_ID"))
         XCTAssertTrue(source.contains("data-codex-pet-id"))
         XCTAssertTrue(source.contains("avatar-mascot-button"))
         XCTAssertTrue(source.contains("mascot-badge"))
         XCTAssertTrue(source.contains("VOICE_SESSION_ACTIVE_ATTRIBUTE"))
+        XCTAssertTrue(source.contains("const rootWidth = Number(root.offsetWidth)"))
+        XCTAssertTrue(source.contains("untransformed CSS layout box"))
+        XCTAssertTrue(source.contains("voiceSessionActive:"))
+        XCTAssertTrue(source.contains("voiceSessionPhase:"))
+        XCTAssertTrue(source.contains("voiceRendererFound:"))
     }
 
     func testBundledLive2DLibrariesIncludeTheirLicenses() {
@@ -75,6 +109,136 @@ final class Live2DRuntimeTests: XCTestCase {
                 "\(filename) should be bundled"
             )
         }
+    }
+
+    func testVoiceSessionVisibilityCoversUpdatedChatGPTPhases() throws {
+        let source = try String(
+            contentsOf: runtimeDirectory
+                .appendingPathComponent("theme-inject.js"),
+            encoding: .utf8
+        )
+        let start = try XCTUnwrap(
+            source.range(of: "  function rendererVoiceSessionActive(")
+        )
+        let end = try XCTUnwrap(
+            source.range(
+                of: "\n  function isVoiceRendererInstance(",
+                range: start.upperBound..<source.endIndex
+            )
+        )
+        let functionSource = String(source[start.lowerBound..<end.lowerBound])
+        let script = """
+        \(functionSource)
+        const runtime = {
+          voicePulse: {
+            root: {},
+            canvasLastError: null,
+            sessionActive: false,
+            sessionPhase: "inactive",
+            instrumentedAudioRenderer: null,
+            instrumentedSetInputs: null,
+            originalSetInputs: null,
+            instrumentedSetPublishedAudioLevels: null,
+            originalSetPublishedAudioLevels: null
+          }
+        };
+        const transitions = [];
+        let synchronizedFrames = 0;
+        function synchronizeVoiceCanvas() { return true; }
+        function renderVoiceLive2DFrame() { synchronizedFrames += 1; }
+        function rendererVoiceLevel() { return 0; }
+        function speakingFallbackEnergy() { return 0.5; }
+        function synchronizeVoiceMouth() {}
+        function synchronizeVoiceIdle() {}
+        function setVoiceSessionActive(active) {
+          runtime.voicePulse.sessionActive = Boolean(active);
+          transitions.push(Boolean(active));
+        }
+        const phase = (value) => rendererVoiceSessionActive({
+          inputs: { phase: value, voiceActivity: "idle" },
+          publishedAudioLevels: null
+        });
+        const originalSetInputs = function (inputs) {
+          this.inputs = inputs;
+        };
+        const originalSetPublishedAudioLevels = function (levels) {
+          this.publishedAudioLevels = levels;
+        };
+        const renderer = {
+          inputs: { phase: "inactive", voiceActivity: "idle" },
+          publishedAudioLevels: null,
+          setInputs: originalSetInputs,
+          setPublishedAudioLevels: originalSetPublishedAudioLevels
+        };
+        instrumentVoiceRenderer(renderer);
+        renderer.setInputs({ phase: "starting", voiceActivity: "idle" });
+        const instrumentedStarting = {
+          active: runtime.voicePulse.sessionActive,
+          phase: runtime.voicePulse.sessionPhase
+        };
+        renderer.setInputs({ phase: "stopping", voiceActivity: "idle" });
+        const instrumentedStopping = {
+          active: runtime.voicePulse.sessionActive,
+          phase: runtime.voicePulse.sessionPhase
+        };
+        renderer.setInputs({ phase: "inactive", voiceActivity: "idle" });
+        const instrumentedInactive = {
+          active: runtime.voicePulse.sessionActive,
+          phase: runtime.voicePulse.sessionPhase
+        };
+        renderer.setPublishedAudioLevels({ overall: 0.42 });
+        releaseVoiceRendererInstrumentation();
+        process.stdout.write(JSON.stringify({
+          inactive: phase("inactive"),
+          starting: phase("starting"),
+          active: phase("active"),
+          stopping: phase("stopping"),
+          speakingFallback: rendererVoiceSessionActive({
+            inputs: { voiceActivity: "speaking" },
+            publishedAudioLevels: null
+          }),
+          audioFallback: rendererVoiceSessionActive({
+            inputs: { voiceActivity: "idle" },
+            publishedAudioLevels: { overall: 0 }
+          }),
+          unknown: rendererVoiceSessionActive(null),
+          instrumentedStarting,
+          instrumentedStopping,
+          instrumentedInactive,
+          restoredInputs: renderer.setInputs === originalSetInputs,
+          restoredLevels: renderer.setPublishedAudioLevels
+            === originalSetPublishedAudioLevels,
+          synchronizedFrames,
+          transitions
+        }));
+        """
+        let data = try runNode(script)
+        let result = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+
+        XCTAssertEqual(result["inactive"] as? Bool, false)
+        XCTAssertEqual(result["starting"] as? Bool, true)
+        XCTAssertEqual(result["active"] as? Bool, true)
+        XCTAssertEqual(result["stopping"] as? Bool, false)
+        XCTAssertEqual(result["speakingFallback"] as? Bool, true)
+        XCTAssertEqual(result["audioFallback"] as? Bool, true)
+        XCTAssertTrue(result["unknown"] is NSNull)
+        let instrumentedStarting = result["instrumentedStarting"]
+            as? [String: Any]
+        XCTAssertEqual(instrumentedStarting?["active"] as? Bool, true)
+        XCTAssertEqual(instrumentedStarting?["phase"] as? String, "starting")
+        let instrumentedStopping = result["instrumentedStopping"]
+            as? [String: Any]
+        XCTAssertEqual(instrumentedStopping?["active"] as? Bool, false)
+        XCTAssertEqual(instrumentedStopping?["phase"] as? String, "stopping")
+        let instrumentedInactive = result["instrumentedInactive"]
+            as? [String: Any]
+        XCTAssertEqual(instrumentedInactive?["active"] as? Bool, false)
+        XCTAssertEqual(instrumentedInactive?["phase"] as? String, "inactive")
+        XCTAssertEqual(result["restoredInputs"] as? Bool, true)
+        XCTAssertEqual(result["restoredLevels"] as? Bool, true)
+        XCTAssertGreaterThanOrEqual(result["synchronizedFrames"] as? Int ?? 0, 4)
     }
 
     func testInjectionRecognizesOnlyLive2DThemes() throws {
@@ -110,7 +274,7 @@ final class Live2DRuntimeTests: XCTestCase {
             JSONSerialization.jsonObject(with: result) as? [String: Any]
         )
 
-        XCTAssertEqual(object["version"] as? Int, 46)
+        XCTAssertEqual(object["version"] as? Int, 50)
 
         let nativeCompositionTest = """
         const runtime = require(\(javascriptString(injection.path)));
@@ -145,6 +309,12 @@ final class Live2DRuntimeTests: XCTestCase {
           ),
           composition: runtime.isAvatarOverlayIndexURL(
             "app://-/avatar-overlay-composition-surface.html?surfaceId=voice-output"
+          ),
+          mainIndex: runtime.isCodexIndexURL(
+            "app://-/index.html"
+          ),
+          voiceComposition: runtime.isVoiceCompositionURL(
+            "app://-/avatar-overlay-composition-surface.html?surfaceId=voice-output"
           )
         }));
         """
@@ -158,24 +328,42 @@ final class Live2DRuntimeTests: XCTestCase {
         XCTAssertEqual(nativeComposition["unrelated"] as? String, "unchanged")
         XCTAssertEqual(nativeComposition["overlay"] as? Bool, true)
         XCTAssertEqual(nativeComposition["composition"] as? Bool, false)
+        XCTAssertEqual(nativeComposition["mainIndex"] as? Bool, true)
+        XCTAssertEqual(nativeComposition["voiceComposition"] as? Bool, true)
 
         let cdp = runtimeDirectory.appendingPathComponent("lib/cdp.js")
         let targetTest = """
         const { codexAvatarOverlayTargets } = require(\(javascriptString(cdp.path)));
+        const injection = require(\(javascriptString(injection.path)));
         const targets = [
-          { type: "page", webSocketDebuggerUrl: "ws://main", url: "app://-/index.html?initialRoute=%2Favatar-overlay" },
-          { type: "page", webSocketDebuggerUrl: "ws://voice", url: "app://-/avatar-overlay-composition-surface.html?surfaceId=voice-output" },
+          { id: "legacy", type: "page", webSocketDebuggerUrl: "ws://main", url: "app://-/index.html?initialRoute=%2Favatar-overlay" },
+          { id: "voice", type: "page", webSocketDebuggerUrl: "ws://voice", url: "app://-/avatar-overlay-composition-surface.html?surfaceId=voice-output" },
           { type: "page", webSocketDebuggerUrl: "ws://activity", url: "app://-/avatar-overlay-composition-surface.html?surfaceId=activity-slot-0" }
         ];
-        process.stdout.write(JSON.stringify(codexAvatarOverlayTargets(targets).map((target) => target.url)));
+        const live2DTheme = {
+          css: ":root { --cts-voice-avatar-mode: live2D; }",
+          live2D: { assetID: "model" }
+        };
+        const allOverlayTargets = codexAvatarOverlayTargets(targets);
+        process.stdout.write(JSON.stringify({
+          all: allOverlayTargets.map((target) => target.id),
+          live2D: injection.preferredAvatarOverlayTargets(
+            allOverlayTargets,
+            live2DTheme
+          ).map((target) => target.id),
+          flat: injection.preferredAvatarOverlayTargets(
+            allOverlayTargets,
+            { css: ".flat { display: block; }" }
+          ).map((target) => target.id)
+        }));
         """
         let targetData = try runNode(targetTest)
-        let overlayURLs = try XCTUnwrap(
-            JSONSerialization.jsonObject(with: targetData) as? [String]
+        let overlayTargets = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: targetData) as? [String: Any]
         )
-        XCTAssertEqual(overlayURLs.count, 2)
-        XCTAssertTrue(overlayURLs.contains { $0.contains("surfaceId=voice-output") })
-        XCTAssertFalse(overlayURLs.contains { $0.contains("activity-slot-0") })
+        XCTAssertEqual(overlayTargets["all"] as? [String], ["legacy", "voice"])
+        XCTAssertEqual(overlayTargets["live2D"] as? [String], ["legacy"])
+        XCTAssertEqual(overlayTargets["flat"] as? [String], ["legacy", "voice"])
         XCTAssertEqual(object["live"] as? Bool, true)
         XCTAssertEqual(object["flat"] as? Bool, false)
     }

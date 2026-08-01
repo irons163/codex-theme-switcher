@@ -1046,7 +1046,12 @@ final class ThemeCompilerTests: XCTestCase {
         )
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
-                ".codex-avatar-root,"
+                ".codex-avatar-root[data-realtime-voice-orb],"
+            )
+        )
+        XCTAssertFalse(
+            compiled.avatarOverlayCSS.contains(
+                "\n          .codex-avatar-root,"
             )
         )
         XCTAssertTrue(
@@ -1103,7 +1108,7 @@ final class ThemeCompilerTests: XCTestCase {
             compiled.avatarOverlayCSS.contains(
                 """
                 html:root[data-codex-theme-switcher-theme] :is(
-                  .codex-avatar-root,
+                  .codex-avatar-root[data-realtime-voice-orb],
                   [data-voice-orb],
                   [data-codex-voice-orb],
                   [class*="voice-orb" i],
@@ -1314,6 +1319,11 @@ final class ThemeCompilerTests: XCTestCase {
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
                 "[data-codex-live2d-avatar]"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "[data-codex-live2d-loading=\"true\"]"
             )
         )
         XCTAssertTrue(

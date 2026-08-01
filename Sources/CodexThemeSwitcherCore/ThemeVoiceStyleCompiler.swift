@@ -345,7 +345,11 @@ enum ThemeVoiceStyleCompiler {
         \(root)[data-codex-voice-session-active="false"] body::before,
         \(root)[data-codex-voice-session-active="false"]
         .codex-avatar-root[data-realtime-voice-orb]
-        [data-codex-live2d-avatar] {
+        [data-codex-live2d-avatar],
+        \(root)[data-codex-voice-session-active="false"]
+        .codex-avatar-root[data-realtime-voice-orb]::before,
+        \(root)[data-codex-voice-session-active="false"]
+        .codex-avatar-root[data-realtime-voice-orb]::after {
           opacity: 0 !important;
           visibility: hidden !important;
         }
@@ -397,7 +401,7 @@ enum ThemeVoiceStyleCompiler {
     private static var orbFoundationRules: String {
         """
         \(root) :is(
-          .codex-avatar-root,
+          .codex-avatar-root[data-realtime-voice-orb],
           [data-voice-orb],
           [data-codex-voice-orb],
           [class*="voice-orb" i],
@@ -417,7 +421,7 @@ enum ThemeVoiceStyleCompiler {
         }
 
         \(root) :is(
-          .codex-avatar-root,
+          .codex-avatar-root[data-realtime-voice-orb],
           [data-voice-orb],
           [data-codex-voice-orb],
           [class*="voice-orb" i],
@@ -430,7 +434,7 @@ enum ThemeVoiceStyleCompiler {
         }
 
         \(root) :is(
-          .codex-avatar-root,
+          .codex-avatar-root[data-realtime-voice-orb],
           [data-voice-orb],
           [data-codex-voice-orb],
           [class*="voice-orb" i],
@@ -440,14 +444,14 @@ enum ThemeVoiceStyleCompiler {
         }
 
         \(root) :is(
-          .codex-avatar-root,
+          .codex-avatar-root[data-realtime-voice-orb],
           [data-voice-orb],
           [data-codex-voice-orb],
           [class*="voice-orb" i],
           [class*="voiceorb" i]
         )::before,
         \(root) :is(
-          .codex-avatar-root,
+          .codex-avatar-root[data-realtime-voice-orb],
           [data-voice-orb],
           [data-codex-voice-orb],
           [class*="voice-orb" i],
@@ -494,7 +498,7 @@ enum ThemeVoiceStyleCompiler {
         }
 
         \(root) :is(
-          .codex-avatar-root,
+          .codex-avatar-root[data-realtime-voice-orb],
           [data-voice-orb],
           [data-codex-voice-orb],
           [class*="voice-orb" i],
@@ -506,7 +510,7 @@ enum ThemeVoiceStyleCompiler {
         }
 
         \(root) :is(
-          .codex-avatar-root,
+          .codex-avatar-root[data-realtime-voice-orb],
           [data-voice-orb],
           [data-codex-voice-orb],
           [class*="voice-orb" i],
@@ -548,7 +552,7 @@ enum ThemeVoiceStyleCompiler {
         }
 
         \(root) :is(
-          .codex-avatar-root,
+          .codex-avatar-root[data-realtime-voice-orb],
           [data-voice-orb],
           [data-codex-voice-orb],
           [class*="voice-orb" i],
@@ -576,7 +580,7 @@ enum ThemeVoiceStyleCompiler {
         }
 
         \(root) :is(
-          .codex-avatar-root,
+          .codex-avatar-root[data-realtime-voice-orb],
           [data-voice-orb],
           [data-codex-voice-orb],
           [class*="voice-orb" i],
@@ -590,8 +594,21 @@ enum ThemeVoiceStyleCompiler {
           width: 100% !important;
         }
 
+        \(root) .codex-avatar-root[data-realtime-voice-orb]
+        [data-codex-live2d-avatar] {
+          opacity: 1;
+          visibility: visible;
+        }
+
+        \(root) .codex-avatar-root[data-realtime-voice-orb][data-codex-live2d-loading="true"]::before,
+        \(root) .codex-avatar-root[data-realtime-voice-orb][data-codex-live2d-loading="true"]::after,
+        \(root) .codex-avatar-root[data-realtime-voice-orb][data-codex-live2d-loading="true"] > canvas:not([data-codex-live2d-canvas]) {
+          opacity: 0 !important;
+          visibility: hidden !important;
+        }
+
         \(root) :is(
-          .codex-avatar-root,
+          .codex-avatar-root[data-realtime-voice-orb],
           [data-voice-orb],
           [data-codex-voice-orb],
           [class*="voice-orb" i],
@@ -601,14 +618,14 @@ enum ThemeVoiceStyleCompiler {
         }
 
         \(root) :is(
-          .codex-avatar-root,
+          .codex-avatar-root[data-realtime-voice-orb],
           [data-voice-orb],
           [data-codex-voice-orb],
           [class*="voice-orb" i],
           [class*="voiceorb" i]
         )[data-codex-live2d-ready="true"]::before,
         \(root) :is(
-          .codex-avatar-root,
+          .codex-avatar-root[data-realtime-voice-orb],
           [data-voice-orb],
           [data-codex-voice-orb],
           [class*="voice-orb" i],

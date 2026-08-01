@@ -5,13 +5,19 @@
   const STYLE_ID = "codex-theme-switcher-style";
   const STAGING_STYLE_ID = `${STYLE_ID}-staging`;
   const VOICE_SESSION_STYLE_ID = `${STYLE_ID}-voice-session`;
-  const VERSION = 46;
+  const VERSION = 50;
   const PUBLISHED_AUDIO_SMOOTHING = 0.86;
   // ChatGPT keeps its detachable Pet in another `.codex-avatar-root`.
   // Mounting the Voice renderer there makes a finished Voice session look
   // like it left a second, clickable Live2D avatar behind.
-  const VOICE_ORB_SELECTOR =
-    ".codex-avatar-root:not([data-codex-pet-id])";
+  const VOICE_ORB_SELECTOR = [
+    ".codex-avatar-root[data-realtime-voice-orb]",
+    [
+      ".codex-avatar-root:not([data-codex-pet-id]):has(",
+      "canvas[data-avatar-overlay-placement]",
+      ")",
+    ].join(""),
+  ].join(", ");
   const VOICE_PULSE_ENABLED = "--cts-voice-orb-pulse-enabled";
   const VOICE_PULSE_STRENGTH = "--cts-voice-orb-pulse-strength";
   const VOICE_PULSE_LIVE_SCALE = "--cts-voice-orb-live-pulse";
@@ -980,6 +986,7 @@
     state.resizeObserver = null;
     const root = state.root;
     root?.removeAttribute?.("data-codex-live2d-ready");
+    root?.removeAttribute?.("data-codex-live2d-loading");
     root?.removeAttribute?.("data-codex-live2d-error");
     try {
       state.app?.destroy?.(true, {
@@ -1007,6 +1014,7 @@
     state.eyeBlinkNextAt = 0;
     state.eyeBlinkAmount = 0;
     state.eyeBlinkLastTimestamp = 0;
+    state.applyParameters = null;
   }
 
   function live2DParameterHandle(coreModel, requested, fallback) {
@@ -1184,6 +1192,7 @@
         Math.sin(phase * 0.71 + 0.3) * 1.6 * idleStrength,
       );
     };
+    runtime.live2D.applyParameters = applyParameters;
 
     // Cubism's update() saves parameters, emits beforeModelUpdate, then
     // restores the saved values after the event. Applying our values in that
@@ -1210,6 +1219,27 @@
       runtime.live2D.modelUpdateWrapper = wrappedUpdate;
     } else {
       internal.on?.("beforeModelUpdate", applyParameters);
+    }
+  }
+
+  function renderVoiceLive2DFrame() {
+    const state = runtime.live2D;
+    const coreModel = state.model?.internalModel?.coreModel;
+    if (
+      !state.model
+      || !state.app
+      || !coreModel
+      || typeof state.applyParameters !== "function"
+    ) {
+      return false;
+    }
+    try {
+      state.applyParameters();
+      coreModel.update?.();
+      state.app.renderer?.render?.(state.app.stage);
+      return true;
+    } catch {
+      return false;
     }
   }
 
@@ -1388,6 +1418,32 @@
     ) {
       return;
     }
+    if (
+      state.configurationKey === key
+      && state.model
+      && state.container
+    ) {
+      state.root?.removeAttribute?.("data-codex-live2d-ready");
+      state.root?.removeAttribute?.("data-codex-live2d-loading");
+      state.root = root;
+      root.querySelectorAll?.("[data-codex-live2d-avatar]")
+        ?.forEach?.((element) => {
+          if (element !== state.container) element.remove?.();
+        });
+      root.appendChild(state.container);
+      state.resizeObserver?.disconnect?.();
+      if (typeof ResizeObserver === "function") {
+        state.resizeObserver = new ResizeObserver(() => {
+          resizeLive2DModel(state, configuration);
+        });
+        state.resizeObserver.observe(state.container);
+      }
+      resizeLive2DModel(state, configuration);
+      root.setAttribute("data-codex-live2d-ready", "true");
+      root.removeAttribute("data-codex-live2d-loading");
+      root.removeAttribute("data-codex-live2d-error");
+      return;
+    }
     destroyVoiceLive2D();
     root.querySelectorAll?.("[data-codex-live2d-avatar]")
       ?.forEach?.((element) => element.remove?.());
@@ -1395,6 +1451,9 @@
     state.root = root;
     state.configurationKey = key;
     state.loading = true;
+    root.setAttribute("data-codex-live2d-loading", "true");
+    root.removeAttribute("data-codex-live2d-ready");
+    root.removeAttribute("data-codex-live2d-error");
     let container = null;
     let app = null;
     let model = null;
@@ -1461,12 +1520,16 @@
         });
         state.resizeObserver.observe(container);
       }
-      requestAnimationFrame?.(() => {
-        if (state.model === model && root === runtime.voicePulse.root) {
-          root.setAttribute("data-codex-live2d-ready", "true");
-          root.removeAttribute("data-codex-live2d-error");
-        }
-      });
+      // The inactive overlay is background-throttled, so an rAF scheduled
+      // here may not run until the user opens Voice. Prime Pixi immediately
+      // and publish readiness now; otherwise the first visible frame is the
+      // native orb (or an empty canvas) and the portrait appears only later.
+      renderVoiceLive2DFrame();
+      if (state.model === model && root === runtime.voicePulse.root) {
+        root.setAttribute("data-codex-live2d-ready", "true");
+        root.removeAttribute("data-codex-live2d-loading");
+        root.removeAttribute("data-codex-live2d-error");
+      }
     } catch (error) {
       try {
         app?.destroy?.(true, {
@@ -1483,6 +1546,7 @@
       state.model = null;
       state.loading = false;
       state.error = error?.message || String(error);
+      root.removeAttribute("data-codex-live2d-loading");
       root.setAttribute("data-codex-live2d-error", "true");
       console.warn("Codex Theme Live2D:", error);
     }
@@ -1674,10 +1738,13 @@
         }
         html:root[data-codex-voice-session-active="false"] body::before,
         html:root[data-codex-voice-session-active="false"]
+          .codex-avatar-root[data-realtime-voice-orb],
+        html:root[data-codex-voice-session-active="false"]
           .codex-avatar-root[data-realtime-voice-orb]
           [data-codex-live2d-avatar] {
           opacity: 0 !important;
           visibility: hidden !important;
+          pointer-events: none !important;
         }
         html:root[data-codex-voice-session-active="true"]
           .codex-avatar-root[data-codex-pet-id],
@@ -1698,6 +1765,146 @@
       VOICE_SESSION_ACTIVE_ATTRIBUTE,
       active ? "true" : "false",
     );
+    runtime.voicePulse.sessionActive = Boolean(active);
+  }
+
+  function rendererVoiceSessionActive(renderer) {
+    const phase = String(renderer?.inputs?.phase || "")
+      .trim()
+      .toLowerCase();
+    if (phase) {
+      // ChatGPT 26.727 keeps the renderer mounted while inactive and uses
+      // starting before the first visible Voice frame. Its stopping phase can
+      // linger after the native handoff has already returned to Pet; keeping
+      // it visible is what leaves a second miniature avatar on the composer.
+      return phase === "starting" || phase === "active";
+    }
+    const activity = String(renderer?.inputs?.voiceActivity || "")
+      .trim()
+      .toLowerCase();
+    if (activity && activity !== "idle") return true;
+    if (renderer?.publishedAudioLevels != null) return true;
+    return null;
+  }
+
+  function synchronizeRendererVoiceSession(renderer) {
+    const pulse = runtime.voicePulse;
+    const phase = String(renderer?.inputs?.phase || "")
+      .trim()
+      .toLowerCase();
+    const active = rendererVoiceSessionActive(renderer);
+    if (phase) pulse.sessionPhase = phase;
+    if (active != null) setVoiceSessionActive(active);
+  }
+
+  function synchronizeRendererVoiceFrame(renderer) {
+    const pulse = runtime.voicePulse;
+    const root = pulse.root;
+    if (!root) return false;
+    let synchronized = false;
+    try {
+      synchronized = synchronizeVoiceCanvas();
+    } catch (error) {
+      pulse.canvasLastError = error?.message || String(error);
+    }
+    if (!synchronized) {
+      let energy = Number(renderer?.publishedAudioLevels?.overall);
+      if (!Number.isFinite(energy)) energy = rendererVoiceLevel(renderer);
+      const speaking = String(renderer?.inputs?.voiceActivity || "")
+        .trim()
+        .toLowerCase() === "speaking";
+      if (speaking && energy <= 0.008) {
+        energy = speakingFallbackEnergy(undefined, 1);
+        pulse.mouthEnergySource = "speaking-state-hook-fallback";
+      } else {
+        pulse.mouthEnergySource = "published-audio-levels-hook";
+      }
+      synchronizeVoiceMouth(root, energy);
+      synchronizeVoiceIdle(root, energy);
+    }
+    renderVoiceLive2DFrame();
+    return true;
+  }
+
+  function releaseVoiceRendererInstrumentation() {
+    const pulse = runtime.voicePulse;
+    const renderer = pulse.instrumentedAudioRenderer;
+    if (
+      renderer
+      && pulse.instrumentedSetInputs
+      && renderer.setInputs === pulse.instrumentedSetInputs
+      && typeof pulse.originalSetInputs === "function"
+    ) {
+      try {
+        renderer.setInputs = pulse.originalSetInputs;
+      } catch {}
+    }
+    if (
+      renderer
+      && pulse.instrumentedSetPublishedAudioLevels
+      && renderer.setPublishedAudioLevels
+        === pulse.instrumentedSetPublishedAudioLevels
+      && typeof pulse.originalSetPublishedAudioLevels === "function"
+    ) {
+      try {
+        renderer.setPublishedAudioLevels =
+          pulse.originalSetPublishedAudioLevels;
+      } catch {}
+    }
+    pulse.instrumentedAudioRenderer = null;
+    pulse.instrumentedSetInputs = null;
+    pulse.originalSetInputs = null;
+    pulse.instrumentedSetPublishedAudioLevels = null;
+    pulse.originalSetPublishedAudioLevels = null;
+  }
+
+  function instrumentVoiceRenderer(renderer) {
+    const pulse = runtime.voicePulse;
+    if (!renderer || renderer === pulse.instrumentedAudioRenderer) return;
+    releaseVoiceRendererInstrumentation();
+    const originalSetInputs = renderer.setInputs;
+    const originalSetPublishedAudioLevels =
+      renderer.setPublishedAudioLevels;
+    let wrappedSetInputs = null;
+    let wrappedSetPublishedAudioLevels = null;
+    if (typeof originalSetInputs === "function") {
+      wrappedSetInputs = function setInputs(inputs) {
+        const result = Reflect.apply(originalSetInputs, this, [inputs]);
+        if (this === renderer) {
+          synchronizeRendererVoiceSession(renderer);
+          synchronizeRendererVoiceFrame(renderer);
+        }
+        return result;
+      };
+    }
+    if (typeof originalSetPublishedAudioLevels === "function") {
+      wrappedSetPublishedAudioLevels = function setPublishedAudioLevels(
+        levels,
+      ) {
+        const result = Reflect.apply(
+          originalSetPublishedAudioLevels,
+          this,
+          [levels],
+        );
+        if (this === renderer) synchronizeRendererVoiceFrame(renderer);
+        return result;
+      };
+    }
+    try {
+      if (wrappedSetInputs) renderer.setInputs = wrappedSetInputs;
+      if (wrappedSetPublishedAudioLevels) {
+        renderer.setPublishedAudioLevels = wrappedSetPublishedAudioLevels;
+      }
+      pulse.instrumentedAudioRenderer = renderer;
+      pulse.instrumentedSetInputs = wrappedSetInputs;
+      pulse.originalSetInputs = originalSetInputs;
+      pulse.instrumentedSetPublishedAudioLevels =
+        wrappedSetPublishedAudioLevels;
+      pulse.originalSetPublishedAudioLevels =
+        originalSetPublishedAudioLevels;
+    } catch {}
+    synchronizeRendererVoiceSession(renderer);
+    synchronizeRendererVoiceFrame(renderer);
   }
 
   function isVoiceRendererInstance(value, canvas) {
@@ -1747,6 +1954,7 @@
     const pulse = runtime.voicePulse;
     let renderer = pulse.publishedAudioRenderer;
     if (!isVoiceRendererInstance(renderer, canvas)) {
+      releaseVoiceRendererInstrumentation();
       renderer = null;
       pulse.publishedAudioRenderer = null;
       pulse.publishedAudioSnapshot = null;
@@ -1757,8 +1965,11 @@
       } else {
         renderer = reactVoiceRenderer(canvas);
         pulse.publishedAudioRenderer = renderer;
+        instrumentVoiceRenderer(renderer);
         pulse.publishedAudioSearchCountdown = 60;
       }
+    } else {
+      instrumentVoiceRenderer(renderer);
     }
 
     const levels = renderer?.publishedAudioLevels;
@@ -1883,11 +2094,15 @@
 
     const rootRect = root.getBoundingClientRect?.();
     const canvasRect = canvas.getBoundingClientRect?.();
+    const rootWidth = Number(root.offsetWidth) || Number(rootRect?.width);
+    const rootHeight = Number(root.offsetHeight) || Number(rootRect?.height);
     if (
       !rootRect
       || !canvasRect
-      || rootRect.width <= 0
-      || rootRect.height <= 0
+      || !Number.isFinite(rootWidth)
+      || !Number.isFinite(rootHeight)
+      || rootWidth <= 0
+      || rootHeight <= 0
       || canvasRect.width <= 0
       || canvasRect.height <= 0
     ) {
@@ -1923,15 +2138,19 @@
       "u_stateSpeak",
     );
     const renderer = runtime.voicePulse.publishedAudioRenderer;
-    const sessionPhase = String(renderer?.inputs?.phase || "");
-    if (sessionPhase) {
-      setVoiceSessionActive(sessionPhase === "active");
-    }
-    const rendererIsSpeaking = renderer?.inputs?.voiceActivity === "speaking";
-    const speakingAmount = Math.max(
-      clamp(stateSpeak, 0, 1),
-      rendererIsSpeaking ? 1 : 0,
-    );
+    synchronizeRendererVoiceSession(renderer);
+    const rendererActivity = String(
+      renderer?.inputs?.voiceActivity || "",
+    ).trim().toLowerCase();
+    const rendererHasActivity = rendererActivity.length > 0;
+    const rendererIsSpeaking = rendererActivity === "speaking";
+    // ChatGPT 26.727 can leave the WebGL stateSpeak uniform above zero after
+    // its renderer has already transitioned back to listening. When the
+    // renderer publishes an explicit voiceActivity, it is the authoritative
+    // lifecycle signal; otherwise the stale uniform reopens a closed mouth.
+    const speakingAmount = rendererHasActivity
+      ? (rendererIsSpeaking ? 1 : 0)
+      : clamp(stateSpeak, 0, 1);
     let speechEnergy = rawOutputLevel ?? outputLevel;
     const publishedOverall = Number(
       renderer?.publishedAudioLevels?.overall,
@@ -2003,10 +2222,14 @@
       + layoutRect.height * (0.5 - verticalDrift);
 
     return {
-      left: ((centerX - diameter / 2) / rootRect.width) * 100,
-      top: ((centerY - diameter / 2) / rootRect.height) * 100,
-      width: (diameter / rootRect.width) * 100,
-      height: (diameter / rootRect.height) * 100,
+      // Percentages are relative to the untransformed CSS layout box. During
+      // ChatGPT's Voice handoff the parent is animated with scale(), so using
+      // getBoundingClientRect() here mixes transformed and layout coordinates
+      // and produces values such as 146% at the end of a session.
+      left: ((centerX - diameter / 2) / rootWidth) * 100,
+      top: ((centerY - diameter / 2) / rootHeight) * 100,
+      width: (diameter / rootWidth) * 100,
+      height: (diameter / rootHeight) * 100,
       pulse: referenceRadius > 0 ? radius / referenceRadius : 1,
       speechEnergy,
     };
@@ -2236,10 +2459,16 @@
     });
   }
 
-  function detachVoicePulseRoot() {
+  function detachVoicePulseRoot(preserveLive2D = false) {
     const pulse = runtime.voicePulse;
-    setVoiceSessionActive(false);
-    destroyVoiceLive2D();
+    if (!preserveLive2D) {
+      setVoiceSessionActive(false);
+      pulse.sessionPhase = "inactive";
+      destroyVoiceLive2D();
+    } else {
+      pulse.root?.removeAttribute?.("data-codex-live2d-ready");
+      pulse.root?.removeAttribute?.("data-codex-live2d-loading");
+    }
     pulse.rootObserver?.disconnect?.();
     if (
       pulse.canvasFrameID != null
@@ -2255,6 +2484,7 @@
     pulse.analysisLoading = false;
     pulse.lastPosition = null;
     resetVoiceMouthDynamics(pulse);
+    releaseVoiceRendererInstrumentation();
     pulse.publishedAudioRenderer = null;
     pulse.publishedAudioSearchCountdown = 0;
     pulse.publishedAudioSnapshot = null;
@@ -2381,7 +2611,12 @@
         if (generation !== runtime.voicePulse.generation) return;
         const nextRoot = findRoot();
         if (nextRoot === runtime.voicePulse.root) return;
-        detachVoicePulseRoot();
+        const preserveLive2D = Boolean(
+          nextRoot
+          && voiceAvatarMode() === "live2D"
+          && runtime.live2D.model
+        );
+        detachVoicePulseRoot(preserveLive2D);
         if (nextRoot) attachVoicePulseRoot(nextRoot, generation);
       });
       runtime.voicePulse.domObserver.observe(document.documentElement, {
@@ -2768,6 +3003,11 @@
       voicePulseActive: runtime.voicePulse.active,
       live2DActive: Boolean(runtime.live2D.model),
       live2DError: runtime.live2D.error,
+      voiceSessionActive: runtime.voicePulse.sessionActive,
+      voiceSessionPhase: runtime.voicePulse.sessionPhase,
+      voiceRendererFound: Boolean(
+        runtime.voicePulse.publishedAudioRenderer,
+      ),
       current: runtime.current
         ? {
           themeID: runtime.current.themeID,
@@ -2831,6 +3071,11 @@
       preloadedVoiceImages: [],
       voiceImageWarmup: null,
       publishedAudioRenderer: null,
+      instrumentedAudioRenderer: null,
+      instrumentedSetInputs: null,
+      originalSetInputs: null,
+      instrumentedSetPublishedAudioLevels: null,
+      originalSetPublishedAudioLevels: null,
       publishedAudioSearchCountdown: 0,
       publishedAudioSnapshot: null,
       publishedAudioLevel: null,
@@ -2851,6 +3096,8 @@
       blinkStartedAt: 0,
       nextBlinkAt: 0,
       active: false,
+      sessionActive: false,
+      sessionPhase: "inactive",
     },
     live2D: {
       generation: 0,
@@ -2872,6 +3119,7 @@
       modelUpdateTarget: null,
       modelUpdateOriginal: null,
       modelUpdateWrapper: null,
+      applyParameters: null,
     },
     voicePulseCache: new Map(),
     begin,
