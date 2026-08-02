@@ -347,6 +347,11 @@ enum ThemeVoiceStyleCompiler {
         .codex-avatar-root[data-realtime-voice-orb]
         [data-codex-live2d-avatar],
         \(root)[data-codex-voice-session-active="false"]
+        [data-codex-voice-orb],
+        \(root)[data-codex-voice-session-active="false"]
+        [data-codex-voice-orb]
+        [data-codex-live2d-avatar],
+        \(root)[data-codex-voice-session-active="false"]
         .codex-avatar-root[data-realtime-voice-orb]::before,
         \(root)[data-codex-voice-session-active="false"]
         .codex-avatar-root[data-realtime-voice-orb]::after {
@@ -602,7 +607,10 @@ enum ThemeVoiceStyleCompiler {
 
         \(root) .codex-avatar-root[data-realtime-voice-orb][data-codex-live2d-loading="true"]::before,
         \(root) .codex-avatar-root[data-realtime-voice-orb][data-codex-live2d-loading="true"]::after,
-        \(root) .codex-avatar-root[data-realtime-voice-orb][data-codex-live2d-loading="true"] > canvas:not([data-codex-live2d-canvas]) {
+        \(root) .codex-avatar-root[data-realtime-voice-orb][data-codex-live2d-loading="true"] > canvas:not([data-codex-live2d-canvas]),
+        \(root) [data-codex-voice-orb][data-codex-live2d-loading="true"]::before,
+        \(root) [data-codex-voice-orb][data-codex-live2d-loading="true"]::after,
+        \(root) [data-codex-voice-orb][data-codex-live2d-loading="true"] > canvas:not([data-codex-live2d-canvas]) {
           opacity: 0 !important;
           visibility: hidden !important;
         }

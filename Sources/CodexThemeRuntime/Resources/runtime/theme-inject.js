@@ -5,13 +5,14 @@
   const STYLE_ID = "codex-theme-switcher-style";
   const STAGING_STYLE_ID = `${STYLE_ID}-staging`;
   const VOICE_SESSION_STYLE_ID = `${STYLE_ID}-voice-session`;
-  const VERSION = 50;
+  const VERSION = 54;
   const PUBLISHED_AUDIO_SMOOTHING = 0.86;
   // ChatGPT keeps its detachable Pet in another `.codex-avatar-root`.
   // Mounting the Voice renderer there makes a finished Voice session look
   // like it left a second, clickable Live2D avatar behind.
   const VOICE_ORB_SELECTOR = [
     ".codex-avatar-root[data-realtime-voice-orb]",
+    '[data-avatar-overlay-native-surface-id="voice-output"]',
     [
       ".codex-avatar-root:not([data-codex-pet-id]):has(",
       "canvas[data-avatar-overlay-placement]",
@@ -47,6 +48,7 @@
   const VOICE_BLINK_DURATION = "--cts-voice-orb-blink-duration-ms";
   const VOICE_BLINK_OPACITY = "--cts-voice-orb-blink-opacity";
   const VOICE_AVATAR_MODE = "--cts-voice-avatar-mode";
+  const VOICE_RENDERER_ROLE = "--cts-voice-renderer-role";
   const VOICE_LIVE2D_MANIFEST = "--cts-voice-live2d-manifest";
   const VOICE_LIVE2D_SCALE = "--cts-voice-live2d-scale";
   const VOICE_LIVE2D_POSITION_X = "--cts-voice-live2d-position-x";
@@ -55,6 +57,8 @@
   const VOICE_LIVE2D_ASSET_PROTOCOL = "codex-theme-live2d-asset:";
   const VOICE_SESSION_ACTIVE_ATTRIBUTE =
     "data-codex-voice-session-active";
+  const VOICE_PRESENTATION_ATTRIBUTE =
+    "data-codex-voice-presentation";
   const VOICE_ORB_LAYOUT_SHIFT = Object.freeze({
     x: "--cts-voice-orb-layout-shift-x",
     y: "--cts-voice-orb-layout-shift-y",
@@ -166,6 +170,14 @@
     return value === "live2D" || value === "native"
       ? value
       : "image";
+  }
+
+  function voiceRendererRole() {
+    return unquotedCustomProperty(VOICE_RENDERER_ROLE, "full");
+  }
+
+  function voiceRendererOwnsAvatar() {
+    return voiceRendererRole() !== "background";
   }
 
   function voicePulseIsEnabled() {
@@ -1402,6 +1414,7 @@
   async function mountVoiceLive2D(root, pulseGeneration) {
     if (
       voiceAvatarMode() !== "live2D"
+      || !voiceRendererOwnsAvatar()
       || !root
       || pulseGeneration !== runtime.voicePulse.generation
     ) {
@@ -1741,6 +1754,11 @@
           .codex-avatar-root[data-realtime-voice-orb],
         html:root[data-codex-voice-session-active="false"]
           .codex-avatar-root[data-realtime-voice-orb]
+          [data-codex-live2d-avatar],
+        html:root[data-codex-voice-session-active="false"]
+          [data-codex-voice-orb],
+        html:root[data-codex-voice-session-active="false"]
+          [data-codex-voice-orb]
           [data-codex-live2d-avatar] {
           opacity: 0 !important;
           visibility: hidden !important;
@@ -1758,6 +1776,11 @@
           pointer-events: none !important;
           visibility: hidden !important;
         }
+        html:root[data-codex-voice-session-active="true"]
+          [data-codex-voice-presentation] {
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
       `;
       (document.head || documentRoot).appendChild(style);
     }
@@ -1766,6 +1789,26 @@
       active ? "true" : "false",
     );
     runtime.voicePulse.sessionActive = Boolean(active);
+  }
+
+  function clearVoicePresentationAncestors() {
+    document.querySelectorAll?.(
+      `[${VOICE_PRESENTATION_ATTRIBUTE}]`,
+    )?.forEach?.((element) => {
+      element.removeAttribute?.(VOICE_PRESENTATION_ATTRIBUTE);
+    });
+  }
+
+  function markVoicePresentationAncestors(root) {
+    clearVoicePresentationAncestors();
+    let current = root?.parentElement || null;
+    for (let depth = 0; current && depth < 4; depth += 1) {
+      if (current.hasAttribute?.("data-avatar-overlay-content-frame")) {
+        break;
+      }
+      current.setAttribute?.(VOICE_PRESENTATION_ATTRIBUTE, "true");
+      current = current.parentElement;
+    }
   }
 
   function rendererVoiceSessionActive(renderer) {
@@ -2477,7 +2520,12 @@
       cancelAnimationFrame(pulse.canvasFrameID);
     }
     removeVoiceOrbLiveGeometry(pulse.root);
+    clearVoicePresentationAncestors();
+    if (pulse.rootMarkerOwned) {
+      pulse.root?.removeAttribute?.("data-codex-voice-orb");
+    }
     pulse.root = null;
+    pulse.rootMarkerOwned = false;
     pulse.rootObserver = null;
     pulse.canvasFrameID = null;
     pulse.analysis = null;
@@ -2499,13 +2547,44 @@
   function attachVoicePulseRoot(root, generation) {
     const pulse = runtime.voicePulse;
     if (!root || generation !== pulse.generation) return;
+    pulse.rootMarkerOwned = Boolean(
+      root.matches?.(
+        '[data-avatar-overlay-native-surface-id="voice-output"]',
+      )
+      && !root.hasAttribute?.("data-codex-voice-orb")
+    );
+    if (pulse.rootMarkerOwned) {
+      root.setAttribute("data-codex-voice-orb", "composition");
+    }
     pulse.root = root;
     pulse.active = true;
+    markVoicePresentationAncestors(root);
+    if (voiceRendererRole() === "foreground") {
+      // The native voice-output surface is created before its React audio
+      // renderer publishes the first `starting` phase. A previous Voice
+      // session can therefore leave the freshly mounted Live2D avatar under
+      // `session-active=false` until the user moves the overlay. Treat a new
+      // foreground surface as starting immediately, then let an available
+      // renderer override that provisional state (for example, when a
+      // stopping surface is only lingering during native handoff).
+      const renderer = reactVoiceRenderer(voiceCanvas(root));
+      if (renderer) {
+        synchronizeRendererVoiceSession(renderer);
+      } else {
+        pulse.sessionPhase = "starting";
+        setVoiceSessionActive(true);
+      }
+    }
     if (voiceAvatarMode() === "image" && !pulse.mouthSourcesReady) {
       pinVoiceMouthClosed(root);
     }
-    if (voiceAvatarMode() === "live2D") {
+    if (
+      voiceAvatarMode() === "live2D"
+      && voiceRendererOwnsAvatar()
+    ) {
       mountVoiceLive2D(root, generation);
+    } else if (voiceAvatarMode() === "live2D") {
+      destroyVoiceLive2D();
     }
 
     if (typeof MutationObserver === "function") {
@@ -3003,6 +3082,7 @@
       voicePulseActive: runtime.voicePulse.active,
       live2DActive: Boolean(runtime.live2D.model),
       live2DError: runtime.live2D.error,
+      voiceRendererRole: voiceRendererRole(),
       voiceSessionActive: runtime.voicePulse.sessionActive,
       voiceSessionPhase: runtime.voicePulse.sessionPhase,
       voiceRendererFound: Boolean(
@@ -3045,6 +3125,7 @@
     voicePulse: {
       generation: 0,
       root: null,
+      rootMarkerOwned: false,
       rootObserver: null,
       domObserver: null,
       appearanceObserver: null,

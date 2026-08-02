@@ -188,7 +188,7 @@ function isVoiceOrbSelector(selector) {
   );
 }
 
-test("VERSION=50 exposes transaction APIs and source evaluation is idempotent", () => {
+test("VERSION=54 exposes transaction APIs and source evaluation is idempotent", () => {
   const dom = install();
   const runtime = dom.window.__codexThemeSwitcherRuntime;
   const functions = [
@@ -200,7 +200,7 @@ test("VERSION=50 exposes transaction APIs and source evaluation is idempotent", 
     "__codexThemeSwitcherClear",
   ];
 
-  assert.equal(runtime.version, 50);
+  assert.equal(runtime.version, 54);
   for (const name of functions) {
     assert.equal(typeof dom.window[name], "function", name);
   }
@@ -213,6 +213,94 @@ test("VERSION=50 exposes transaction APIs and source evaluation is idempotent", 
   assert.equal(dom.window.__codexThemeSwitcherBegin, begin);
   assert.equal(dom.window.__codexThemeSwitcherStatus().digest, null);
   assert.equal(dom.window.__codexThemeSwitcherStatus().stylePresent, false);
+});
+
+test("a newly attached foreground Voice surface becomes visible immediately", () => {
+  const dom = install();
+  const presentationAttributes = new Map();
+  const contentFrame = {
+    hasAttribute(name) {
+      return name === "data-avatar-overlay-content-frame";
+    },
+  };
+  const presentation = {
+    parentElement: contentFrame,
+    hasAttribute(name) {
+      return presentationAttributes.has(name);
+    },
+    setAttribute(name, value) {
+      presentationAttributes.set(name, String(value));
+    },
+    removeAttribute(name) {
+      presentationAttributes.delete(name);
+    },
+  };
+  const rootAttributes = new Map([
+    ["data-avatar-overlay-native-surface-id", "voice-output"],
+  ]);
+  const root = {
+    parentElement: presentation,
+    style: { removeProperty() {} },
+    matches(selector) {
+      return String(selector).includes(
+        '[data-avatar-overlay-native-surface-id="voice-output"]',
+      );
+    },
+    hasAttribute(name) {
+      return rootAttributes.has(name);
+    },
+    setAttribute(name, value) {
+      rootAttributes.set(name, String(value));
+    },
+    removeAttribute(name) {
+      rootAttributes.delete(name);
+    },
+    querySelector() {
+      return null;
+    },
+    querySelectorAll() {
+      return [];
+    },
+  };
+  dom.document.querySelector = () => root;
+  dom.document.querySelectorAll = (selector) => (
+    String(selector).includes("data-codex-voice-presentation")
+      && presentationAttributes.has("data-codex-voice-presentation")
+      ? [presentation]
+      : []
+  );
+  dom.sandbox.getComputedStyle = (element) => ({
+    backgroundImage: "none",
+    getPropertyValue(name) {
+      if (element !== dom.document.documentElement) return "";
+      if (name === "--cts-voice-avatar-mode") return "live2D";
+      if (name === "--cts-voice-renderer-role") return "foreground";
+      return "";
+    },
+  });
+
+  dom.window.__codexThemeSwitcherRuntime.refreshVoicePulseSync();
+
+  assert.equal(
+    dom.document.documentElement.getAttribute(
+      "data-codex-voice-session-active",
+    ),
+    "true",
+  );
+  const status = dom.window.__codexThemeSwitcherStatus();
+  assert.equal(status.voiceSessionActive, true);
+  assert.equal(status.voiceSessionPhase, "starting");
+  assert.equal(rootAttributes.get("data-codex-voice-orb"), "composition");
+  assert.equal(
+    presentationAttributes.get("data-codex-voice-presentation"),
+    "true",
+  );
+  assert.match(
+    dom.document.getElementById(
+      "codex-theme-switcher-style-voice-session",
+    ).textContent,
+    /data-codex-voice-presentation[\s\S]*opacity: 1 !important/,
+  );
 });
 
 test("begin and commit atomically install CSS without assets", () => {

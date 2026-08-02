@@ -46,6 +46,30 @@ final class FileThemeRepositoryTests: XCTestCase {
         XCTAssertEqual(loadedMidnight, BuiltInThemes.midnight)
     }
 
+    func testListIgnoresBackupFileWithDuplicateThemeID() async throws {
+        let root = TestFixtures.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let repository = FileThemeRepository(rootDirectory: root)
+        let theme = TestFixtures.theme()
+        _ = try await repository.save(theme, collisionPolicy: .fail)
+
+        let themesDirectory = root.appendingPathComponent(
+            "Themes",
+            isDirectory: true
+        )
+        let canonicalURL = themesDirectory
+            .appendingPathComponent(theme.id.uuidString.lowercased())
+            .appendingPathExtension("json")
+        let backupURL = themesDirectory.appendingPathComponent(
+            "\(theme.id.uuidString.lowercased()).backup.json"
+        )
+        try Data(contentsOf: canonicalURL).write(to: backupURL)
+
+        let summaries = try await repository.list(includeBuiltIns: false)
+
+        XCTAssertEqual(summaries.map(\.id), [theme.id])
+    }
+
     func testCollisionPoliciesFailReplaceAndClone() async throws {
         let root = TestFixtures.temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }

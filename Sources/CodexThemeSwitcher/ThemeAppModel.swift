@@ -1923,7 +1923,11 @@ final class ThemeAppModel: ObservableObject {
         do {
             let summaries = try await repository.list()
             var loaded: [ThemeDocument] = []
+            var seenSummaryIDs = Set<UUID>()
             for summary in summaries {
+                guard seenSummaryIDs.insert(summary.id).inserted else {
+                    continue
+                }
                 loaded.append(try await repository.load(id: summary.id))
             }
             let loadedIDs = Set(loaded.map(\.id))

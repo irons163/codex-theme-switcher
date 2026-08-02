@@ -9,7 +9,7 @@ final class Live2DRuntimeTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(source.contains("const VERSION = 50;"))
+        XCTAssertTrue(source.contains("const VERSION = 54;"))
         XCTAssertTrue(
             source.contains(
                 ".codex-avatar-root[data-realtime-voice-orb]"
@@ -49,6 +49,13 @@ final class Live2DRuntimeTests: XCTestCase {
         XCTAssertTrue(source.contains("const maximumIndex = frameCount - 1"))
         XCTAssertTrue(source.contains("the exact mouth-frame steps"))
         XCTAssertTrue(source.contains("function setVoiceSessionActive("))
+        XCTAssertTrue(source.contains("VOICE_PRESENTATION_ATTRIBUTE"))
+        XCTAssertTrue(source.contains("function markVoicePresentationAncestors("))
+        XCTAssertTrue(source.contains("function clearVoicePresentationAncestors("))
+        XCTAssertTrue(
+            source.contains("voiceRendererRole() === \"foreground\"")
+        )
+        XCTAssertTrue(source.contains("pulse.sessionPhase = \"starting\""))
         XCTAssertTrue(source.contains("function rendererVoiceSessionActive("))
         XCTAssertTrue(source.contains("function instrumentVoiceRenderer("))
         XCTAssertTrue(source.contains("function releaseVoiceRendererInstrumentation("))
@@ -274,7 +281,7 @@ final class Live2DRuntimeTests: XCTestCase {
             JSONSerialization.jsonObject(with: result) as? [String: Any]
         )
 
-        XCTAssertEqual(object["version"] as? Int, 50)
+        XCTAssertEqual(object["version"] as? Int, 54)
 
         let nativeCompositionTest = """
         const runtime = require(\(javascriptString(injection.path)));
@@ -354,7 +361,22 @@ final class Live2DRuntimeTests: XCTestCase {
           flat: injection.preferredAvatarOverlayTargets(
             allOverlayTargets,
             { css: ".flat { display: block; }" }
-          ).map((target) => target.id)
+          ).map((target) => target.id),
+          legacyRole: injection.avatarOverlayTargetRole(
+            allOverlayTargets[0],
+            allOverlayTargets,
+            live2DTheme
+          ),
+          voiceRole: injection.avatarOverlayTargetRole(
+            allOverlayTargets[1],
+            allOverlayTargets,
+            live2DTheme
+          ),
+          soloLegacyRole: injection.avatarOverlayTargetRole(
+            allOverlayTargets[0],
+            [allOverlayTargets[0]],
+            live2DTheme
+          )
         }));
         """
         let targetData = try runNode(targetTest)
@@ -362,8 +384,14 @@ final class Live2DRuntimeTests: XCTestCase {
             JSONSerialization.jsonObject(with: targetData) as? [String: Any]
         )
         XCTAssertEqual(overlayTargets["all"] as? [String], ["legacy", "voice"])
-        XCTAssertEqual(overlayTargets["live2D"] as? [String], ["legacy"])
-        XCTAssertEqual(overlayTargets["flat"] as? [String], ["legacy", "voice"])
+        XCTAssertEqual(
+            overlayTargets["live2D"] as? [String],
+            ["legacy"]
+        )
+        XCTAssertEqual(overlayTargets["flat"] as? [String], ["legacy"])
+        XCTAssertEqual(overlayTargets["legacyRole"] as? String, "full")
+        XCTAssertEqual(overlayTargets["voiceRole"] as? String, "full")
+        XCTAssertEqual(overlayTargets["soloLegacyRole"] as? String, "full")
         XCTAssertEqual(object["live"] as? Bool, true)
         XCTAssertEqual(object["flat"] as? Bool, false)
     }

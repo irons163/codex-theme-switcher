@@ -379,6 +379,13 @@ function avatarPage(id = "avatar") {
   };
 }
 
+function voiceOutputPage(id = "voice-output") {
+  return {
+    ...page(id),
+    url: "app://-/avatar-overlay-composition-surface.html?surfaceId=voice-output",
+  };
+}
+
 test("poll status skips resending a matching digest and style", async (t) => {
   let targets = [page("main")];
   const { created, isolated } = await isolatedInjection(t, () => targets);
@@ -484,6 +491,49 @@ test("voice CSS is isolated to avatar-overlay and main CSS stays on main", async
     created[1].codexThemeTargetKind,
     isolated.TARGET_KIND_AVATAR_OVERLAY,
   );
+});
+
+test("legacy avatar overlay keeps ownership when voice-output control appears", async (t) => {
+  let targets = [page("main"), avatarPage()];
+  const { created, isolated } = await isolatedInjection(t, () => targets);
+  const payload = theme({
+    css: ":root{--main:true}",
+    avatarOverlayCSS:
+      ":root{--cts-voice-avatar-mode:live2D;--voice:true}",
+  });
+
+  const sessions = await isolated.injectRenderers(57340, payload);
+  const legacy = sessions.get("avatar");
+  assert.equal(legacy.codexThemeOverlayRole, "full");
+
+  targets = [...targets, voiceOutputPage()];
+  await isolated.injectRenderers(57340, payload, sessions);
+
+  assert.equal(sessions.has("voice-output"), false);
+  assert.equal(legacy.codexThemeOverlayRole, "full");
+  const voiceControl = created.find(({ id }) => id === "voice-output");
+  assert.ok(voiceControl);
+  assert.equal(voiceControl.closed, true);
+  assert.deepEqual(
+    voiceControl.calls.map(({ operation }) => operation),
+    ["clear"],
+  );
+  const legacyBegins = legacy.calls.filter(
+    ({ operation }) => operation === "begin",
+  );
+  assert.equal(legacyBegins.at(-1).payload.css, payload.avatarOverlayCSS);
+
+  targets = [page("main"), avatarPage()];
+  await isolated.injectRenderers(57340, payload, sessions);
+
+  assert.equal(sessions.has("voice-output"), false);
+  assert.equal(legacy.codexThemeOverlayRole, "full");
+  assert.equal(
+    legacy.calls.filter(({ operation }) => operation === "begin")
+      .at(-1).payload.css,
+    payload.avatarOverlayCSS,
+  );
+  assert.equal(created.length, 3);
 });
 
 test("avatar-overlay is untouched until a Voice style is enabled", async (t) => {

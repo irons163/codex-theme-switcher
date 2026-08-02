@@ -13,7 +13,7 @@ const {
 } = require("./cdp");
 
 const BASE64_CHUNK_CHARACTERS = 256 * 1024;
-const RENDERER_RUNTIME_VERSION = 50;
+const RENDERER_RUNTIME_VERSION = 54;
 const LIVE2D_CORE_URL =
   "https://cubism.live2d.com/sdk-web/core/06/live2dcubismcore.min.js";
 const LIVE2D_MARKER = "__codexThemeSwitcherLive2DReady";
@@ -22,6 +22,9 @@ const MAX_LIVE2D_CORE_CHARACTERS = 4 * 1024 * 1024;
 const LIVE2D_CORE_RETRY_DELAY_MILLISECONDS = 30_000;
 const TARGET_KIND_MAIN = "main";
 const TARGET_KIND_AVATAR_OVERLAY = "avatar-overlay";
+const OVERLAY_ROLE_FULL = "full";
+const OVERLAY_ROLE_BACKGROUND = "background";
+const OVERLAY_ROLE_FOREGROUND = "foreground";
 const AVATAR_OVERLAY_INDEX_PATTERN =
   /^app:\/\/-\/index\.html(?:[?#]|$)/;
 const VOICE_COMPOSITION_PATTERN =
@@ -154,37 +157,15 @@ async function reloadRenderer(session) {
 }
 
 async function configureLive2DNativeComposition(
-  session,
-  targetURL,
-  theme,
+  _session,
+  _targetURL,
+  _theme,
 ) {
-  // ChatGPT 26.727 reads the native-composition gate in the main renderer
-  // before it creates the detachable Voice surfaces. Installing the override
-  // only in the legacy overlay is too late and leaves two renderers competing
-  // for the same session. Keep the main and legacy index documents aligned.
-  if (!isCodexIndexURL(targetURL)) return false;
-  const shouldDisable = themeUsesLive2D(theme);
-  const scriptID = session.codexThemeLive2DNativeCompositionScriptID;
-  if (shouldDisable && !scriptID) {
-    const result = await session.send(
-      "Page.addScriptToEvaluateOnNewDocument",
-      { source: live2DNativeCompositionOverrideSource() },
-    );
-    session.codexThemeLive2DNativeCompositionScriptID =
-      result.identifier || true;
-    await reloadRenderer(session);
-    return true;
-  }
-  if (!shouldDisable && scriptID) {
-    if (typeof scriptID === "string") {
-      await session.send("Page.removeScriptToEvaluateOnNewDocument", {
-        identifier: scriptID,
-      });
-    }
-    session.codexThemeLive2DNativeCompositionScriptID = null;
-    await reloadRenderer(session);
-    return true;
-  }
+  // ChatGPT 26.727+ creates native-composition child surfaces independently
+  // of the renderer cache. In current builds `voice-output` is the 24 px
+  // output control, while the visible Voice presentation still belongs to the
+  // legacy avatar overlay. Do not alter the historical feature gate or reload
+  // ChatGPT; target selection below handles both layouts without mutation.
   return false;
 }
 
@@ -378,7 +359,16 @@ async function rendererUsesLive2D(session) {
       "      .trim()",
       "      .replace(/^[\\\"']|[\\\"']$/g, \"\")",
       "    : \"\";",
-      "  return { ok: true, active: value === \"live2D\" };",
+      "  const role = root && typeof getComputedStyle === \"function\"",
+      "    ? getComputedStyle(root)",
+      "      .getPropertyValue(\"--cts-voice-renderer-role\")",
+      "      .trim()",
+      "      .replace(/^[\\\"']|[\\\"']$/g, \"\")",
+      "    : \"\";",
+      "  return {",
+      "    ok: true,",
+      "    active: value === \"live2D\" && role !== \"background\",",
+      "  };",
       "})()",
     ].join("\n"),
     "check active Voice avatar mode",
@@ -433,6 +423,18 @@ function statusExpression() {
 
 function clearExpression() {
   return runtimeCallExpression(RUNTIME_GLOBALS.clear, undefined, false);
+}
+
+function clearIfPresentExpression() {
+  return [
+    "(async () => {",
+    `  const operation = window[${JSON.stringify(RUNTIME_GLOBALS.clear)}];`,
+    "  if (typeof operation !== \"function\") {",
+    "    return { ok: true, skipped: true };",
+    "  }",
+    "  return await operation();",
+    "})()",
+  ].join("\n");
 }
 
 // Kept as a compatibility export for callers that previously inspected the
@@ -743,20 +745,150 @@ function avatarOverlayTheme(theme) {
   };
 }
 
-function themeForTargetKind(theme, targetKind) {
+function avatarOverlayRoleCSS(role) {
+  const marker = `:root { --cts-voice-renderer-role: ${role}; }`;
+  if (role === OVERLAY_ROLE_BACKGROUND) {
+    return [
+      marker,
+      [
+        ":root[data-codex-theme-switcher-theme] :is(",
+        "  .codex-avatar-root[data-realtime-voice-orb],",
+        "  [data-codex-voice-orb],",
+        "  [data-avatar-overlay-native-surface-id=\"voice-output\"]",
+        ") {",
+        "  opacity: 0 !important;",
+        "  pointer-events: none !important;",
+        "  visibility: hidden !important;",
+        "}",
+      ].join("\n"),
+    ].join("\n");
+  }
+  if (role === OVERLAY_ROLE_FOREGROUND) {
+    return [
+      marker,
+      [
+        ":root[data-codex-theme-switcher-theme],",
+        ":root[data-codex-theme-switcher-theme] body {",
+        "  background-color: transparent !important;",
+        "}",
+        ":root[data-codex-theme-switcher-theme] body::before {",
+        "  content: none !important;",
+        "  display: none !important;",
+        "}",
+        [
+          ":root[data-codex-theme-switcher-theme]",
+          "[data-codex-voice-session-active=\"true\"] :is(",
+          "  .codex-avatar-root[data-realtime-voice-orb],",
+          "  [data-codex-voice-orb],",
+          "  [data-avatar-overlay-native-surface-id=\"voice-output\"]",
+          ") {",
+          "  opacity: 1 !important;",
+          "  visibility: visible !important;",
+          "}",
+        ].join("\n"),
+        [
+          ":root[data-codex-theme-switcher-theme]",
+          "[data-codex-voice-session-active=\"true\"]",
+          "[data-avatar-overlay-native-surface-id=\"voice-output\"]",
+          "[data-codex-live2d-avatar] {",
+          "  opacity: 1 !important;",
+          "  visibility: visible !important;",
+          "}",
+        ].join("\n"),
+      ].join("\n"),
+    ].join("\n");
+  }
+  return marker;
+}
+
+function avatarOverlayThemeForRole(theme, role = OVERLAY_ROLE_FULL) {
+  const overlay = avatarOverlayTheme(theme);
+  if (!overlay) return null;
+  const normalizedRole = [
+    OVERLAY_ROLE_BACKGROUND,
+    OVERLAY_ROLE_FOREGROUND,
+  ].includes(role) ? role : OVERLAY_ROLE_FULL;
+  if (normalizedRole === OVERLAY_ROLE_FULL) return overlay;
+  return {
+    ...overlay,
+    css: `${overlay.css}\n${avatarOverlayRoleCSS(normalizedRole)}\n`,
+    digest: `${overlay.digest}:${normalizedRole}`,
+  };
+}
+
+function themeForTargetKind(
+  theme,
+  targetKind,
+  overlayRole = OVERLAY_ROLE_FULL,
+) {
   return targetKind === TARGET_KIND_AVATAR_OVERLAY
-    ? avatarOverlayTheme(theme)
+    ? avatarOverlayThemeForRole(theme, overlayRole)
     : theme;
 }
 
 function preferredAvatarOverlayTargets(allOverlayTargets, overlayTheme) {
-  if (!themeUsesLive2D(overlayTheme)) return allOverlayTargets;
-  const legacyOverlayTargets = allOverlayTargets.filter(({ url }) => (
+  // ChatGPT 26.727 reuses `surfaceId=voice-output` for the 24 px mute/output
+  // control. The actual Voice orb and its draggable presentation remain in
+  // the legacy avatar-overlay renderer. Injecting an avatar into the control
+  // surface hides the real avatar and mounts Live2D on top of the speaker
+  // button instead. Prefer the legacy renderer whenever it is available.
+  // Keep the composition surface as a fallback for older builds that expose
+  // no legacy overlay at all.
+  const legacyTargets = allOverlayTargets.filter(({ url }) => (
     isAvatarOverlayIndexURL(url)
   ));
-  return legacyOverlayTargets.length > 0
-    ? legacyOverlayTargets
-    : allOverlayTargets;
+  return legacyTargets.length > 0 ? legacyTargets : allOverlayTargets;
+}
+
+function avatarOverlayTargetRole(target, allOverlayTargets, overlayTheme) {
+  return OVERLAY_ROLE_FULL;
+}
+
+function suppressedAvatarOverlayTargetIDs(sessions) {
+  if (!(sessions.codexThemeSuppressedTargetIDs instanceof Set)) {
+    Object.defineProperty(sessions, "codexThemeSuppressedTargetIDs", {
+      configurable: true,
+      value: new Set(),
+    });
+  }
+  return sessions.codexThemeSuppressedTargetIDs;
+}
+
+async function clearSuppressedAvatarOverlayTargets(
+  allOverlayTargets,
+  selectedOverlayTargets,
+  sessions,
+  logger,
+) {
+  const selectedIDs = new Set(selectedOverlayTargets.map(({ id }) => id));
+  const availableIDs = new Set(allOverlayTargets.map(({ id }) => id));
+  const suppressedIDs = suppressedAvatarOverlayTargetIDs(sessions);
+  for (const targetID of suppressedIDs) {
+    if (!availableIDs.has(targetID)) suppressedIDs.delete(targetID);
+  }
+  for (const target of allOverlayTargets) {
+    if (selectedIDs.has(target.id) || suppressedIDs.has(target.id)) continue;
+    let session = null;
+    try {
+      session = await CdpSession.connect(
+        targetWebSocket(target),
+        target.id,
+        logger,
+      );
+      await evaluateRuntime(
+        session,
+        clearIfPresentExpression(),
+        "clear suppressed avatar overlay",
+      );
+      suppressedIDs.add(target.id);
+    } catch (error) {
+      logger(
+        `clear suppressed target ${target.id} failed: ${error.message}`,
+      );
+    } finally {
+      session?.close();
+    }
+  }
 }
 
 async function injectRenderers(
@@ -772,19 +904,35 @@ async function injectRenderers(
   }));
   const overlayTheme = avatarOverlayTheme(theme);
   const allOverlayTargets = codexAvatarOverlayTargets(listedTargets);
-  // Live2D owns one renderer only. When the legacy overlay exists, prefer it
-  // and reject the transient voice-output surface which otherwise remounts a
-  // second Pixi app at a different size during the handoff animation.
+  // The legacy overlay owns the visual Voice presentation. Current
+  // `voice-output` composition targets are control buttons, so mounting the
+  // theme there would replace the wrong surface.
   const selectedOverlayTargets = preferredAvatarOverlayTargets(
     allOverlayTargets,
     overlayTheme,
+  );
+  await clearSuppressedAvatarOverlayTargets(
+    allOverlayTargets,
+    selectedOverlayTargets,
+    sessions,
+    logger,
   );
   const overlayTargets = selectedOverlayTargets
     .filter(({ id }) => overlayTheme || sessions.has(id))
     .map((target) => ({
       target,
       kind: TARGET_KIND_AVATAR_OVERLAY,
-    }));
+      overlayRole: avatarOverlayTargetRole(
+        target,
+        allOverlayTargets,
+        overlayTheme,
+      ),
+    }))
+    .sort((left, right) => (
+      left.overlayRole === OVERLAY_ROLE_FOREGROUND
+        ? -1
+        : right.overlayRole === OVERLAY_ROLE_FOREGROUND ? 1 : 0
+    ));
   const targets = [...mainTargets, ...overlayTargets];
   const selectedTargetIDs = new Set(
     [
@@ -806,11 +954,11 @@ async function injectRenderers(
   }
 
   let successful = 0;
-  for (const { target, kind } of targets) {
+  for (const { target, kind, overlayRole } of targets) {
     let session = sessions.get(target.id);
     const isNew = !session || session.closed;
     try {
-      const targetTheme = themeForTargetKind(theme, kind);
+      const targetTheme = themeForTargetKind(theme, kind, overlayRole);
       if (kind === TARGET_KIND_AVATAR_OVERLAY && !targetTheme) {
         if (session && !session.closed) {
           await reconcileExistingSession(session, null);
@@ -827,6 +975,7 @@ async function injectRenderers(
         );
         session.codexThemeTargetKind = kind;
         session.codexThemeTargetURL = String(target.url || "");
+        session.codexThemeOverlayRole = overlayRole || null;
         await configureLive2DNativeComposition(
           session,
           session.codexThemeTargetURL,
@@ -838,6 +987,7 @@ async function injectRenderers(
       } else {
         session.codexThemeTargetKind = kind;
         session.codexThemeTargetURL = String(target.url || "");
+        session.codexThemeOverlayRole = overlayRole || null;
         await configureLive2DNativeComposition(
           session,
           session.codexThemeTargetURL,
@@ -871,6 +1021,7 @@ async function broadcastTheme(sessions, theme, logger = () => {}) {
       const targetTheme = themeForTargetKind(
         theme,
         session.codexThemeTargetKind || TARGET_KIND_MAIN,
+        session.codexThemeOverlayRole || OVERLAY_ROLE_FULL,
       );
       await configureLive2DNativeComposition(
         session,
@@ -923,9 +1074,14 @@ module.exports = {
   RUNTIME_GLOBALS,
   TARGET_KIND_AVATAR_OVERLAY,
   TARGET_KIND_MAIN,
+  OVERLAY_ROLE_BACKGROUND,
+  OVERLAY_ROLE_FOREGROUND,
+  OVERLAY_ROLE_FULL,
   abortExpression,
   appendAssetExpression,
   avatarOverlayTheme,
+  avatarOverlayThemeForRole,
+  avatarOverlayTargetRole,
   applyExpression,
   applyTheme,
   base64Chunks,
