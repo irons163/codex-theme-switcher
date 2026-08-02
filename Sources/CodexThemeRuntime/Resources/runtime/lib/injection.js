@@ -29,7 +29,10 @@ const AVATAR_OVERLAY_INDEX_PATTERN =
   /^app:\/\/-\/index\.html(?:[?#]|$)/;
 const VOICE_COMPOSITION_PATTERN =
   /^app:\/\/-\/avatar-overlay-composition-surface\.html(?:[?#]|$)/;
-const LIVE2D_NATIVE_COMPOSITION_GATE = "620613358";
+const LIVE2D_FORCE_NON_NATIVE_RENDERING_KEY =
+  "avatar-overlay-force-non-native-rendering";
+const LIVE2D_NATIVE_COMPOSITION_TIMER_GLOBAL =
+  "__codexThemeSwitcherLive2DNativeCompositionTimers";
 const RUNTIME_GLOBALS = Object.freeze({
   begin: "__codexThemeSwitcherBegin",
   appendAsset: "__codexThemeSwitcherAppendAsset",
@@ -66,41 +69,42 @@ function isVoiceCompositionURL(url) {
     && /(?:[?&])surfaceId=voice-output(?:&|$)/.test(value);
 }
 
-function live2DNativeCompositionOverrideSource() {
+function live2DNativeCompositionOverrideSource(forceNonNative = true) {
+  const message = forceNonNative
+    ? {
+        type: "persisted-atom-updated",
+        key: LIVE2D_FORCE_NON_NATIVE_RENDERING_KEY,
+        value: true,
+        deleted: false,
+      }
+    : {
+        type: "persisted-atom-updated",
+        key: LIVE2D_FORCE_NON_NATIVE_RENDERING_KEY,
+        deleted: true,
+      };
   return [
     "(() => {",
-    "  const original = Storage.prototype.getItem;",
-    "  if (original.__codexThemeSwitcherNativeCompositionOverride) return;",
-    "  function getItem(key) {",
-    "    const value = original.call(this, key);",
-    "    if (",
-    "      typeof key !== \"string\"",
-    "      || !key.includes(\"statsig.cached.evaluations\")",
-    "      || typeof value !== \"string\"",
-    "    ) return value;",
-    "    try {",
-    "      const outer = JSON.parse(value);",
-    "      if (typeof outer.data !== \"string\") return value;",
-    "      const inner = JSON.parse(outer.data);",
-    `      const gate = inner.feature_gates?.[${JSON.stringify(
-      LIVE2D_NATIVE_COMPOSITION_GATE,
-    )}];`,
-    "      if (!gate || gate.value === false) return value;",
-    `      inner.feature_gates[${JSON.stringify(
-      LIVE2D_NATIVE_COMPOSITION_GATE,
-    )}] = { ...gate, value: false };`,
-    "      outer.data = JSON.stringify(inner);",
-    "      return JSON.stringify(outer);",
-    "    } catch {",
-    "      return value;",
-    "    }",
+    `  const timerKey = ${JSON.stringify(
+      LIVE2D_NATIVE_COMPOSITION_TIMER_GLOBAL,
+    )};`,
+    `  const message = ${JSON.stringify(message)};`,
+    "  const existing = globalThis[timerKey];",
+    "  if (Array.isArray(existing)) {",
+    "    for (const timer of existing) window.clearTimeout(timer);",
     "  }",
-    "  Object.defineProperty(",
-    "    getItem,",
-    "    \"__codexThemeSwitcherNativeCompositionOverride\",",
-    "    { value: true },",
+    "  const dispatch = () => {",
+    "    window.dispatchEvent(new MessageEvent(\"message\", {",
+    "      data: message,",
+    "      origin: window.location?.origin || \"\",",
+    "    }));",
+    "  };",
+    "  dispatch();",
+    "  globalThis[timerKey] = [50, 250, 1000, 4000].map((delay) =>",
+    "    window.setTimeout(dispatch, delay)",
     "  );",
-    "  Storage.prototype.getItem = getItem;",
+    `  return { ok: true, forceNonNative: ${JSON.stringify(
+      forceNonNative,
+    )} };`,
     "})();",
   ].join("\n");
 }
@@ -157,16 +161,38 @@ async function reloadRenderer(session) {
 }
 
 async function configureLive2DNativeComposition(
-  _session,
-  _targetURL,
-  _theme,
+  session,
+  targetURL,
+  theme,
 ) {
-  // ChatGPT 26.727+ creates native-composition child surfaces independently
-  // of the renderer cache. In current builds `voice-output` is the 24 px
-  // output control, while the visible Voice presentation still belongs to the
-  // legacy avatar overlay. Do not alter the historical feature gate or reload
-  // ChatGPT; target selection below handles both layouts without mutation.
-  return false;
+  // ChatGPT 26.727+ stages the legacy avatar window at roughly 1% opacity and
+  // extracts only its registered surfaces into native child windows. Live2D
+  // is an additional canvas, so it remains in the faded legacy window. The
+  // renderer already exposes a debug atom for opting out of that composition.
+  // Update the atom in this document only: using the host's persisted update
+  // would leave ChatGPT in legacy mode after Theme Switcher exits.
+  if (!isAvatarOverlayIndexURL(targetURL)) return false;
+
+  const forceNonNative = themeUsesLive2D(theme);
+  const hadKnownState =
+    typeof session.codexThemeLive2DForceNonNativeRendering === "boolean";
+  const wasForceNonNative =
+    session.codexThemeLive2DForceNonNativeRendering === true;
+
+  // Reassert the Live2D state on every poll because ChatGPT may resync its
+  // persisted atoms after a renderer lifecycle transition. For the native
+  // state one initial delete event is enough.
+  if (!hadKnownState || forceNonNative !== wasForceNonNative || forceNonNative) {
+    await evaluateRuntime(
+      session,
+      live2DNativeCompositionOverrideSource(forceNonNative),
+      forceNonNative
+        ? "show Live2D Voice renderer"
+        : "restore native Voice composition",
+    );
+  }
+  session.codexThemeLive2DForceNonNativeRendering = forceNonNative;
+  return !hadKnownState || forceNonNative !== wasForceNonNative;
 }
 
 function live2DVendorSource() {
@@ -961,6 +987,11 @@ async function injectRenderers(
       const targetTheme = themeForTargetKind(theme, kind, overlayRole);
       if (kind === TARGET_KIND_AVATAR_OVERLAY && !targetTheme) {
         if (session && !session.closed) {
+          await configureLive2DNativeComposition(
+            session,
+            session.codexThemeTargetURL || String(target.url || ""),
+            null,
+          );
           await reconcileExistingSession(session, null);
           session.close();
           sessions.delete(target.id);

@@ -16,6 +16,7 @@ const {
   broadcastTheme,
   checkedEvaluationValue,
   clearRenderers,
+  configureLive2DNativeComposition,
   reconcileExistingSession,
   rendererInjectionSource,
 } = require(injectionPath);
@@ -47,14 +48,32 @@ function evaluation(value) {
 
 function transactionSession(options = {}) {
   const calls = [];
+  const nativeCompositionEvents = [];
   const state = {
     digest: options.digest ?? null,
     stylePresent: options.stylePresent ?? false,
     runtimeVersion: options.runtimeVersion ?? RENDERER_RUNTIME_VERSION,
     pending: null,
   };
+  class FakeMessageEvent {
+    constructor(type, init = {}) {
+      this.type = type;
+      Object.assign(this, init);
+    }
+  }
   const sandbox = {
+    MessageEvent: FakeMessageEvent,
     window: {
+      location: { origin: "app://-" },
+      dispatchEvent(event) {
+        nativeCompositionEvents.push(event);
+        return true;
+      },
+      setTimeout(callback) {
+        callback();
+        return nativeCompositionEvents.length;
+      },
+      clearTimeout() {},
       __codexThemeSwitcherBegin(payload) {
         calls.push({ operation: "begin", payload });
         state.pending = payload;
@@ -112,6 +131,7 @@ function transactionSession(options = {}) {
     closed: false,
     closeCalls: 0,
     messages: [],
+    nativeCompositionEvents,
     state,
     async send(method, params = {}) {
       this.messages.push({ method, params });
@@ -140,6 +160,69 @@ function transactionSession(options = {}) {
     },
   };
 }
+
+test("Live2D uses ChatGPT's document-local non-native renderer state", async () => {
+  const session = transactionSession();
+  const url = "app://-/index.html?initialRoute=%2Favatar-overlay";
+
+  assert.equal(await configureLive2DNativeComposition(
+    session,
+    url,
+    theme({ css: ":root{--cts-voice-avatar-mode:live2D}" }),
+  ), true);
+
+  assert.equal(
+    session.messages.filter(
+      ({ method }) => method === "Page.addScriptToEvaluateOnNewDocument",
+    ).length,
+    0,
+  );
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(
+      session.nativeCompositionEvents.at(-1).data,
+    )),
+    {
+      type: "persisted-atom-updated",
+      key: "avatar-overlay-force-non-native-rendering",
+      value: true,
+      deleted: false,
+    },
+  );
+
+  assert.equal(await configureLive2DNativeComposition(
+    session,
+    url,
+    theme({ css: ":root{--cts-voice-avatar-mode:flat}" }),
+  ), true);
+  assert.equal(
+    session.messages.filter(
+      ({ method }) => method === "Page.removeScriptToEvaluateOnNewDocument",
+    ).length,
+    0,
+  );
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(
+      session.nativeCompositionEvents.at(-1).data,
+    )),
+    {
+      type: "persisted-atom-updated",
+      key: "avatar-overlay-force-non-native-rendering",
+      deleted: true,
+    },
+  );
+});
+
+test("non-avatar renderers never change Voice composition state", async () => {
+  const session = transactionSession();
+
+  assert.equal(await configureLive2DNativeComposition(
+    session,
+    "app://-/index.html",
+    theme({ css: ":root{--cts-voice-avatar-mode:live2D}" }),
+  ), false);
+  assert.equal(session.nativeCompositionEvents.length, 0);
+  assert.equal(session.messages.length, 0);
+});
 
 test("Begin transports CSS as data and omits asset base64", async () => {
   const payload = theme({

@@ -285,32 +285,38 @@ final class Live2DRuntimeTests: XCTestCase {
 
         let nativeCompositionTest = """
         const runtime = require(\(javascriptString(injection.path)));
-        class Storage {
-          constructor(values) { this.values = values; }
-          getItem(key) { return this.values[key] ?? null; }
-        }
-        global.Storage = Storage;
-        const gate = {
-          name: "620613358",
-          value: true,
-          rule_id: "enabled"
+        const events = [];
+        global.MessageEvent = class MessageEvent {
+          constructor(type, init) {
+            this.type = type;
+            Object.assign(this, init);
+          }
         };
-        const inner = { feature_gates: { "620613358": gate } };
-        const stored = JSON.stringify({ data: JSON.stringify(inner) });
-        const storage = new Storage({
-          "statsig.cached.evaluations.test": stored,
-          "unrelated": "unchanged"
-        });
-        eval(runtime.live2DNativeCompositionOverrideSource());
-        const returned = storage.getItem(
-          "statsig.cached.evaluations.test"
+        global.window = {
+          location: { origin: "app://-" },
+          dispatchEvent(event) {
+            events.push(event);
+            return true;
+          },
+          setTimeout(callback) {
+            callback();
+            return events.length;
+          },
+          clearTimeout() {}
+        };
+        const enabled = eval(
+          runtime.live2DNativeCompositionOverrideSource(true)
         );
-        const parsed = JSON.parse(JSON.parse(returned).data);
-        const original = JSON.parse(JSON.parse(stored).data);
+        const enabledMessage = events.at(-1).data;
+        const disabled = eval(
+          runtime.live2DNativeCompositionOverrideSource(false)
+        );
+        const disabledMessage = events.at(-1).data;
         process.stdout.write(JSON.stringify({
-          gate: parsed.feature_gates["620613358"].value,
-          original: original.feature_gates["620613358"].value,
-          unrelated: storage.getItem("unrelated"),
+          enabled: enabled.forceNonNative,
+          enabledMessage,
+          disabled: disabled.forceNonNative,
+          disabledMessage,
           overlay: runtime.isAvatarOverlayIndexURL(
             "app://-/index.html?initialRoute=%2Favatar-overlay"
           ),
@@ -328,11 +334,27 @@ final class Live2DRuntimeTests: XCTestCase {
         let nativeCompositionData = try runNode(nativeCompositionTest)
         let nativeComposition = try XCTUnwrap(
             JSONSerialization.jsonObject(with: nativeCompositionData)
-                as? [String: Any]
+            as? [String: Any]
         )
-        XCTAssertEqual(nativeComposition["gate"] as? Bool, false)
-        XCTAssertEqual(nativeComposition["original"] as? Bool, true)
-        XCTAssertEqual(nativeComposition["unrelated"] as? String, "unchanged")
+        XCTAssertEqual(nativeComposition["enabled"] as? Bool, true)
+        XCTAssertEqual(nativeComposition["disabled"] as? Bool, false)
+        let enabledMessage = try XCTUnwrap(
+            nativeComposition["enabledMessage"] as? [String: Any]
+        )
+        XCTAssertEqual(
+            enabledMessage["type"] as? String,
+            "persisted-atom-updated"
+        )
+        XCTAssertEqual(
+            enabledMessage["key"] as? String,
+            "avatar-overlay-force-non-native-rendering"
+        )
+        XCTAssertEqual(enabledMessage["value"] as? Bool, true)
+        XCTAssertEqual(enabledMessage["deleted"] as? Bool, false)
+        let disabledMessage = try XCTUnwrap(
+            nativeComposition["disabledMessage"] as? [String: Any]
+        )
+        XCTAssertEqual(disabledMessage["deleted"] as? Bool, true)
         XCTAssertEqual(nativeComposition["overlay"] as? Bool, true)
         XCTAssertEqual(nativeComposition["composition"] as? Bool, false)
         XCTAssertEqual(nativeComposition["mainIndex"] as? Bool, true)
