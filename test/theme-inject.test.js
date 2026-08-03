@@ -188,7 +188,51 @@ function isVoiceOrbSelector(selector) {
   );
 }
 
-test("VERSION=54 exposes transaction APIs and source evaluation is idempotent", () => {
+test("custom Voice activity tray follows native side without covering avatar center", () => {
+  const start = source.indexOf("  function voiceActivityTrayLayout(");
+  const end = source.indexOf(
+    "\n  function voiceActivityTrayIsVisible(",
+    start,
+  );
+  assert.ok(start >= 0 && end > start);
+  const sandbox = {};
+  vm.runInNewContext([
+    "const VOICE_ACTIVITY_EDGE_GAP = 8;",
+    source.slice(start, end),
+    "this.layout = voiceActivityTrayLayout;",
+  ].join("\n"), sandbox);
+
+  assert.deepEqual(
+    { ...sandbox.layout({
+      nativePlacement: "top",
+      mascotBounds: { top: 100, bottom: 200 },
+      trayHeight: 50,
+      viewportHeight: 400,
+    }) },
+    { placement: "top", top: 42 },
+  );
+  assert.deepEqual(
+    { ...sandbox.layout({
+      nativePlacement: "bottom",
+      mascotBounds: { top: 100, bottom: 200 },
+      trayHeight: 50,
+      viewportHeight: 400,
+    }) },
+    { placement: "bottom", top: 208 },
+  );
+  assert.deepEqual(
+    { ...sandbox.layout({
+      nativePlacement: "bottom",
+      mascotBounds: { top: 16, bottom: 384 },
+      trayHeight: 75,
+      viewportHeight: 400,
+    }) },
+    { placement: "top", top: 8 },
+    "a full-height avatar pins activity to the upper edge",
+  );
+});
+
+test("VERSION=67 exposes transaction APIs and source evaluation is idempotent", () => {
   const dom = install();
   const runtime = dom.window.__codexThemeSwitcherRuntime;
   const functions = [
@@ -200,7 +244,7 @@ test("VERSION=54 exposes transaction APIs and source evaluation is idempotent", 
     "__codexThemeSwitcherClear",
   ];
 
-  assert.equal(runtime.version, 54);
+  assert.equal(runtime.version, 67);
   for (const name of functions) {
     assert.equal(typeof dom.window[name], "function", name);
   }
@@ -929,6 +973,11 @@ test("custom Voice orb image follows native sprite frame size", async () => {
   const observers = [];
   let pulseEnabled = "1";
   const orb = {
+    offsetLeft: 0,
+    offsetTop: 0,
+    offsetWidth: 112,
+    offsetHeight: 121,
+    offsetParent: null,
     style: {
       backgroundImage: 'url("sprite:test")',
       backgroundPosition: "0% 0%",
@@ -1062,22 +1111,16 @@ test("custom Voice orb image follows native sprite frame size", async () => {
   );
   assert.ok(
     Math.abs(
-      178
-        + Number.parseFloat(
-          liveProperties.get("--cts-voice-orb-layout-shift-x"),
-        )
-        + 112 / 6
-        - 178
+      Number.parseFloat(
+        liveProperties.get("--cts-voice-orb-layout-shift-x"),
+      ) + 112 / 2
     ) < 0.14,
   );
   assert.ok(
     Math.abs(
-      160
-        + Number.parseFloat(
-          liveProperties.get("--cts-voice-orb-layout-shift-y"),
-        )
-        + 121 / 6
-        - 160
+      Number.parseFloat(
+        liveProperties.get("--cts-voice-orb-layout-shift-y"),
+      ) + 121 / 2
     ) < 0.14,
   );
   assert.equal(
@@ -1177,10 +1220,20 @@ test("custom Voice orb image follows native sprite frame size", async () => {
 
 test("custom Voice orb image follows the realtime WebGL canvas", () => {
   const dom = fakeDOM();
+  let voiceSessionAttributeWrites = 0;
+  const setDocumentAttribute = dom.document.documentElement.setAttribute
+    .bind(dom.document.documentElement);
+  dom.document.documentElement.setAttribute = (name, value) => {
+    if (name === "data-codex-voice-session-active") {
+      voiceSessionAttributeWrites += 1;
+    }
+    setDocumentAttribute(name, value);
+  };
   const liveProperties = new Map();
   const layoutProperties = new Map();
   const propertySetCounts = new Map();
   const computedPropertyReadCounts = new Map();
+  let transformedPresentationScale = 1;
   const observers = [];
   const uniforms = new Map([
     ["u_resolution", new Float32Array([228, 242])],
@@ -1270,8 +1323,8 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
             layoutProperties.get("--cts-voice-orb-layout-shift-y"),
           ) || 0
         ),
-        width: 112,
-        height: 121,
+        width: 112 * transformedPresentationScale,
+        height: 121 * transformedPresentationScale,
       };
     },
   };
@@ -1398,24 +1451,12 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
   assert.equal(liveProperties.get("--cts-voice-orb-live-pulse"), "1.0000");
   assert.ok(
     Math.abs(
-      178
-        + layoutNumber("--cts-voice-orb-layout-shift-x")
-        + (
-          number("--cts-voice-orb-live-left")
-          + number("--cts-voice-orb-live-width") / 2
-        ) * 1.12
-        - 178
+      layoutNumber("--cts-voice-orb-layout-shift-x") + 112 / 2
     ) < 0.14,
   );
   assert.ok(
     Math.abs(
-      160
-        + layoutNumber("--cts-voice-orb-layout-shift-y")
-        + (
-          number("--cts-voice-orb-live-top")
-          + number("--cts-voice-orb-live-height") / 2
-        ) * 1.21
-        - 160
+      layoutNumber("--cts-voice-orb-layout-shift-y") + 121 / 2
     ) < 0.14,
   );
   assert.equal(
@@ -1487,8 +1528,31 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
     const property = `--cts-voice-orb-mouth-frame-${index}`;
     return [property, computedPropertyReadCounts.get(property)];
   });
+  const sessionWritesBeforeStableFrame = voiceSessionAttributeWrites;
+  const stableLayoutShiftX = layoutProperties.get(
+    "--cts-voice-orb-layout-shift-x",
+  );
+  const stableLayoutShiftY = layoutProperties.get(
+    "--cts-voice-orb-layout-shift-y",
+  );
+  transformedPresentationScale = 0.5;
   now = 16;
   frameCallback();
+  assert.equal(
+    layoutProperties.get("--cts-voice-orb-layout-shift-x"),
+    stableLayoutShiftX,
+    "CSS transforms must not feed back into horizontal Voice positioning",
+  );
+  assert.equal(
+    layoutProperties.get("--cts-voice-orb-layout-shift-y"),
+    stableLayoutShiftY,
+    "CSS transforms must not feed back into vertical Voice positioning",
+  );
+  assert.equal(
+    voiceSessionAttributeWrites,
+    sessionWritesBeforeStableFrame,
+    "a stable Voice lifecycle must not invalidate the overlay every frame",
+  );
   for (const [property, count] of unchangedImageCounts) {
     assert.equal(propertySetCounts.get(property), count);
   }

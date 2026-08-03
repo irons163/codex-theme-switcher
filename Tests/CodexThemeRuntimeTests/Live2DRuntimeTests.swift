@@ -9,7 +9,12 @@ final class Live2DRuntimeTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(source.contains("const VERSION = 54;"))
+        XCTAssertTrue(source.contains("const VERSION = 67;"))
+        XCTAssertTrue(
+            source.contains(
+                "VOICE_SESSION_INACTIVE_GRACE_MILLISECONDS = 500"
+            )
+        )
         XCTAssertTrue(
             source.contains(
                 ".codex-avatar-root[data-realtime-voice-orb]"
@@ -63,6 +68,27 @@ final class Live2DRuntimeTests: XCTestCase {
         XCTAssertTrue(source.contains("function renderVoiceLive2DFrame("))
         XCTAssertTrue(source.contains("Prime Pixi immediately"))
         XCTAssertTrue(source.contains("renderVoiceLive2DFrame();"))
+        XCTAssertTrue(source.contains("preserveDrawingBuffer: true"))
+        XCTAssertTrue(source.contains("cleared back buffer"))
+        XCTAssertTrue(
+            source.contains("function copyLive2DPresentationFrame(")
+        )
+        XCTAssertTrue(
+            source.contains("function initializeLive2DPresentation(")
+        )
+        XCTAssertTrue(source.contains("getContext(\"2d\""))
+        XCTAssertFalse(source.contains("getContext(\"bitmaprenderer\""))
+        XCTAssertFalse(source.contains("transferFromImageBitmap(bitmap)"))
+        XCTAssertTrue(
+            source.contains("waitForLive2DPresentationFrame(")
+        )
+        XCTAssertTrue(
+            source.contains("function installLive2DPresentationMirror(")
+        )
+        XCTAssertTrue(source.contains("view: renderCanvas"))
+        XCTAssertTrue(source.contains("context.globalCompositeOperation = \"copy\""))
+        XCTAssertTrue(source.contains("gl.finish()"))
+        XCTAssertTrue(source.contains("copyLive2DPresentationFrame(state)"))
         XCTAssertTrue(source.contains("renderer.setInputs = wrappedSetInputs"))
         XCTAssertTrue(
             source.contains(
@@ -84,11 +110,53 @@ final class Live2DRuntimeTests: XCTestCase {
         XCTAssertTrue(source.contains("const rendererHasActivity"))
         XCTAssertTrue(source.contains("it is the authoritative"))
         XCTAssertTrue(source.contains("setVoiceSessionActive(false)"))
+        XCTAssertTrue(source.contains("function deferVoiceSessionDeactivation("))
+        XCTAssertTrue(source.contains("sessionDeactivationTimer"))
         XCTAssertTrue(source.contains("VOICE_SESSION_STYLE_ID"))
+        XCTAssertTrue(
+            source.contains("canvas[data-codex-live2d-canvas]")
+        )
+        XCTAssertTrue(source.contains("will-change: auto !important;"))
         XCTAssertTrue(source.contains("data-codex-pet-id"))
         XCTAssertTrue(source.contains("avatar-mascot-button"))
         XCTAssertTrue(source.contains("mascot-badge"))
         XCTAssertTrue(source.contains("VOICE_SESSION_ACTIVE_ATTRIBUTE"))
+        XCTAssertTrue(source.contains("VOICE_ACTIVITY_SHELF_ATTRIBUTE"))
+        XCTAssertFalse(source.contains("VOICE_ACTIVITY_BACKDROP_ATTRIBUTE"))
+        XCTAssertTrue(source.contains("VOICE_ACTIVITY_TRAY_HEIGHT"))
+        XCTAssertTrue(source.contains("VOICE_ACTIVITY_TRAY_TOP"))
+        XCTAssertTrue(source.contains("VOICE_ACTIVITY_PLACEMENT_ATTRIBUTE"))
+        XCTAssertTrue(source.contains("function voiceActivityVisibleSlots("))
+        XCTAssertTrue(source.contains("function voiceActivityTrayVisualHeight("))
+        XCTAssertFalse(source.contains("function voiceActivityReservedRowHeight("))
+        XCTAssertFalse(source.contains("const reservedRowHeight"))
+        XCTAssertTrue(source.contains("const trayVisualHeight"))
+        XCTAssertTrue(source.contains("function voiceActivityTrayLayout("))
+        XCTAssertTrue(source.contains("const nativePlacement"))
+        XCTAssertTrue(source.contains("activityShelfPresentationObserver"))
+        XCTAssertTrue(source.contains("function synchronizeVoiceActivityShelf("))
+        XCTAssertTrue(source.contains("function startVoiceActivityShelfSync("))
+        XCTAssertTrue(source.contains("function stopVoiceActivityShelfSync("))
+        XCTAssertFalse(
+            source.contains("VOICE_ACTIVITY_PRESENTATION_LEFT")
+        )
+        XCTAssertFalse(
+            source.contains("VOICE_ACTIVITY_PRESENTATION_SCALE")
+        )
+        XCTAssertTrue(source.contains("activityShelfTrayPositionObserver"))
+        XCTAssertTrue(
+            source.contains(
+                "const rootLayout = layoutRectWithin(root, layoutTarget)"
+            )
+        )
+        XCTAssertTrue(
+            source.contains("visible horizontal feedback loop")
+        )
+        XCTAssertTrue(
+            source.contains(
+                "data-avatar-overlay-native-surface-id^=\"activity-slot-\""
+            )
+        )
         XCTAssertTrue(source.contains("const rootWidth = Number(root.offsetWidth)"))
         XCTAssertTrue(source.contains("untransformed CSS layout box"))
         XCTAssertTrue(source.contains("voiceSessionActive:"))
@@ -116,6 +184,102 @@ final class Live2DRuntimeTests: XCTestCase {
                 "\(filename) should be bundled"
             )
         }
+    }
+
+    func testLive2DPresentationCopiesIntoOneStable2DSurface() throws {
+        let source = try String(
+            contentsOf: runtimeDirectory
+                .appendingPathComponent("theme-inject.js"),
+            encoding: .utf8
+        )
+        let start = try XCTUnwrap(
+            source.range(
+                of: "  function synchronizeLive2DPresentationCanvas("
+            )
+        )
+        let end = try XCTUnwrap(
+            source.range(
+                of: "\n  function ensureLive2DDrawOrderCompatibility(",
+                range: start.upperBound..<source.endIndex
+            )
+        )
+        let functions = String(source[start.lowerBound..<end.lowerBound])
+        let script = """
+        \(functions)
+        (async () => {
+          const copies = [];
+          const context = {
+            save() {},
+            restore() {},
+            setTransform() {},
+            drawImage(source) { copies.push(source.frame); },
+            globalCompositeOperation: "source-over"
+          };
+          const presentation = {
+            width: 300,
+            height: 150,
+            isConnected: true,
+            getContext(type) {
+              return type === "2d" ? context : null;
+            }
+          };
+          const renderCanvas = { width: 64, height: 64, frame: 0 };
+          let renders = 0;
+          let finishes = 0;
+          const renderer = {
+            gl: { finish() { finishes += 1; } },
+            render() {
+              renders += 1;
+              renderCanvas.frame = renders;
+              return renders;
+            }
+          };
+          const state = {
+            generation: 1,
+            canvas: presentation,
+            renderCanvas,
+            app: { renderer },
+            presentationContext: null,
+            presentationMode: "",
+            presentationCopyPending: false,
+            presentationLatestRequested: 0,
+            presentationCommittedSequence: 0,
+            presentationFrameReady: false,
+            presentationError: null
+          };
+          initializeLive2DPresentation(state);
+          installLive2DPresentationMirror(state);
+          renderer.render();
+          renderer.render();
+          renderer.render();
+          process.stdout.write(JSON.stringify({
+            mode: state.presentationMode,
+            copies,
+            finishes,
+            committed: state.presentationCommittedSequence,
+            ready: state.presentationFrameReady,
+            pending: state.presentationCopyPending,
+            width: presentation.width,
+            height: presentation.height
+          }));
+        })().catch((error) => {
+          console.error(error);
+          process.exitCode = 1;
+        });
+        """
+        let data = try runNode(script)
+        let result = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+
+        XCTAssertEqual(result["mode"] as? String, "2d")
+        XCTAssertEqual(result["copies"] as? [Int], [1, 2, 3])
+        XCTAssertEqual(result["finishes"] as? Int, 3)
+        XCTAssertEqual(result["committed"] as? Int, 3)
+        XCTAssertEqual(result["ready"] as? Bool, true)
+        XCTAssertEqual(result["pending"] as? Bool, false)
+        XCTAssertEqual(result["width"] as? Int, 64)
+        XCTAssertEqual(result["height"] as? Int, 64)
     }
 
     func testVoiceSessionVisibilityCoversUpdatedChatGPTPhases() throws {
@@ -150,6 +314,7 @@ final class Live2DRuntimeTests: XCTestCase {
           }
         };
         const transitions = [];
+        let deactivationPending = false;
         let synchronizedFrames = 0;
         function synchronizeVoiceCanvas() { return true; }
         function renderVoiceLive2DFrame() { synchronizedFrames += 1; }
@@ -158,8 +323,17 @@ final class Live2DRuntimeTests: XCTestCase {
         function synchronizeVoiceMouth() {}
         function synchronizeVoiceIdle() {}
         function setVoiceSessionActive(active) {
+          if (active) deactivationPending = false;
           runtime.voicePulse.sessionActive = Boolean(active);
           transitions.push(Boolean(active));
+        }
+        function deferVoiceSessionDeactivation() {
+          deactivationPending = true;
+        }
+        function flushVoiceSessionDeactivation() {
+          if (!deactivationPending) return;
+          deactivationPending = false;
+          setVoiceSessionActive(false);
         }
         const phase = (value) => rendererVoiceSessionActive({
           inputs: { phase: value, voiceActivity: "idle" },
@@ -186,13 +360,17 @@ final class Live2DRuntimeTests: XCTestCase {
         renderer.setInputs({ phase: "stopping", voiceActivity: "idle" });
         const instrumentedStopping = {
           active: runtime.voicePulse.sessionActive,
-          phase: runtime.voicePulse.sessionPhase
+          phase: runtime.voicePulse.sessionPhase,
+          pending: deactivationPending
         };
         renderer.setInputs({ phase: "inactive", voiceActivity: "idle" });
         const instrumentedInactive = {
           active: runtime.voicePulse.sessionActive,
-          phase: runtime.voicePulse.sessionPhase
+          phase: runtime.voicePulse.sessionPhase,
+          pending: deactivationPending
         };
+        flushVoiceSessionDeactivation();
+        const afterGrace = runtime.voicePulse.sessionActive;
         renderer.setPublishedAudioLevels({ overall: 0.42 });
         releaseVoiceRendererInstrumentation();
         process.stdout.write(JSON.stringify({
@@ -212,6 +390,7 @@ final class Live2DRuntimeTests: XCTestCase {
           instrumentedStarting,
           instrumentedStopping,
           instrumentedInactive,
+          afterGrace,
           restoredInputs: renderer.setInputs === originalSetInputs,
           restoredLevels: renderer.setPublishedAudioLevels
             === originalSetPublishedAudioLevels,
@@ -237,12 +416,15 @@ final class Live2DRuntimeTests: XCTestCase {
         XCTAssertEqual(instrumentedStarting?["phase"] as? String, "starting")
         let instrumentedStopping = result["instrumentedStopping"]
             as? [String: Any]
-        XCTAssertEqual(instrumentedStopping?["active"] as? Bool, false)
+        XCTAssertEqual(instrumentedStopping?["active"] as? Bool, true)
         XCTAssertEqual(instrumentedStopping?["phase"] as? String, "stopping")
+        XCTAssertEqual(instrumentedStopping?["pending"] as? Bool, true)
         let instrumentedInactive = result["instrumentedInactive"]
             as? [String: Any]
-        XCTAssertEqual(instrumentedInactive?["active"] as? Bool, false)
+        XCTAssertEqual(instrumentedInactive?["active"] as? Bool, true)
         XCTAssertEqual(instrumentedInactive?["phase"] as? String, "inactive")
+        XCTAssertEqual(instrumentedInactive?["pending"] as? Bool, true)
+        XCTAssertEqual(result["afterGrace"] as? Bool, false)
         XCTAssertEqual(result["restoredInputs"] as? Bool, true)
         XCTAssertEqual(result["restoredLevels"] as? Bool, true)
         XCTAssertGreaterThanOrEqual(result["synchronizedFrames"] as? Int ?? 0, 4)
@@ -281,7 +463,7 @@ final class Live2DRuntimeTests: XCTestCase {
             JSONSerialization.jsonObject(with: result) as? [String: Any]
         )
 
-        XCTAssertEqual(object["version"] as? Int, 54)
+        XCTAssertEqual(object["version"] as? Int, 67)
 
         let nativeCompositionTest = """
         const runtime = require(\(javascriptString(injection.path)));

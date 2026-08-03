@@ -142,9 +142,7 @@ enum ThemeVoiceStyleCompiler {
           position: fixed !important;
           right: auto !important;
           top: 50vh !important;
-          translate:
-            var(--cts-voice-orb-layout-shift-x, 0px)
-            var(--cts-voice-orb-layout-shift-y, 0px) !important;
+          translate: -50% -50% !important;
           will-change: left, top, translate;
         }
         """
@@ -189,9 +187,14 @@ enum ThemeVoiceStyleCompiler {
         let usesImageAvatar =
             variant.avatarMode == .image
             && variant.orbBackgroundAssetID != nil
+        let usesCustomAvatar =
+            usesImageAvatar || variant.avatarMode == .live2D
         let overlayMascotHeight = ceil(
             variant.overlayMascotWidth * 208 / 192
         )
+        let customControlDockingRule = usesCustomAvatar
+            ? customAvatarControlDockingRule(selector: selector)
+            : ""
 
         return """
         \(selector) {
@@ -208,6 +211,8 @@ enum ThemeVoiceStyleCompiler {
           --cts-voice-background-inset: \(insetValue);
           --cts-voice-overlay-mascot-width: \(number(variant.overlayMascotWidth))px;
           --cts-voice-overlay-mascot-height: \(number(overlayMascotHeight))px;
+          --cts-voice-overlay-anchor-width: min(113px, \(number(variant.overlayMascotWidth))px);
+          --cts-voice-overlay-anchor-height: min(122px, \(number(overlayMascotHeight))px);
           --cts-voice-orb-background-image: \(orbImage);
           --cts-voice-orb-background-size: \(orbSizing.size);
           --cts-voice-orb-background-repeat: \(orbSizing.repeatMode);
@@ -216,6 +221,7 @@ enum ThemeVoiceStyleCompiler {
           --cts-voice-orb-background-blur: \(number(variant.orbBackgroundImageBlur))px;
           --cts-voice-orb-background-inset: \(number(variant.orbBackgroundInset))px;
           --cts-voice-orb-image-enabled: \(usesImageAvatar ? "1" : "0");
+          --cts-voice-orb-lock-center: \(variant.orbLocksToOverlayCenter ? "1" : "0");
           --cts-voice-orb-pulse-enabled: \(variant.avatarMode != .native && variant.orbBackgroundFollowsVoicePulse ? "1" : "0");
           --cts-voice-orb-pulse-strength: \(number(variant.orbBackgroundPulseStrength));
           --cts-voice-orb-mouth-frame-count: \(mouthFrameIDs.count);
@@ -250,6 +256,36 @@ enum ThemeVoiceStyleCompiler {
               variant.backdropColor,
               variant.backdropOpacity
           ));
+        }
+
+        \(customControlDockingRule)
+        """
+    }
+
+    private static func customAvatarControlDockingRule(
+        selector: String
+    ) -> String {
+        """
+        /*
+         * ChatGPT positions these wrappers with inline top values measured
+         * against the stock 113 x 122 orb. A custom image or Live2D avatar
+         * has an independent visual area, so dock the controls to that
+         * area's real bottom without changing the stock logical anchor used
+         * by the native notification tray placement algorithm.
+         */
+        \(selector)[data-codex-theme-switcher-theme]
+        [data-avatar-overlay-hit-region="mascot"]
+        :is(
+          :has(> [data-avatar-overlay-native-surface-id="voice-microphone"]),
+          :has(> [data-avatar-overlay-native-surface-id="voice-output"])
+        ) {
+          top: calc(100% - 41px) !important;
+        }
+
+        \(selector)[data-codex-theme-switcher-theme]
+        [data-avatar-overlay-hit-region="mascot"]
+        :has(> [data-avatar-overlay-native-surface-id="voice-controls"]) {
+          top: calc(100% - 26px) !important;
         }
         """
     }
@@ -290,6 +326,7 @@ enum ThemeVoiceStyleCompiler {
           --cts-voice-orb-background-blur: \(number(variant.orbBackgroundImageBlur))px;
           --cts-voice-orb-background-inset: \(number(variant.orbBackgroundInset))px;
           --cts-voice-orb-image-enabled: \(usesImageAvatar ? "1" : "0");
+          --cts-voice-orb-lock-center: \(variant.orbLocksToOverlayCenter ? "1" : "0");
           --cts-voice-orb-pulse-enabled: \(variant.avatarMode != .native && variant.orbBackgroundFollowsVoicePulse ? "1" : "0");
           --cts-voice-orb-pulse-strength: \(number(variant.orbBackgroundPulseStrength));
           --cts-voice-orb-mouth-frame-count: \(mouthFrameIDs.count);
@@ -372,12 +409,35 @@ enum ThemeVoiceStyleCompiler {
           visibility: hidden !important;
         }
 
+        \(root)[data-codex-voice-session-active="true"]
+        :is(
+          .codex-avatar-root[data-realtime-voice-orb],
+          [data-avatar-overlay-native-surface-id="voice-output"],
+          [data-codex-voice-orb]
+        )[data-codex-live2d-ready="true"],
+        \(root)[data-codex-voice-session-active="true"]
+        :is(
+          .codex-avatar-root[data-realtime-voice-orb],
+          [data-avatar-overlay-native-surface-id="voice-output"],
+          [data-codex-voice-orb]
+        )[data-codex-live2d-ready="true"]
+        [data-codex-live2d-avatar] {
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+
         \(root) body::before {
           background-image: var(--cts-voice-background-image);
           background-position: var(--cts-voice-background-position);
           background-repeat: var(--cts-voice-background-repeat);
           background-size: var(--cts-voice-background-size);
           content: "";
+          clip-path: inset(
+            var(--cts-voice-activity-visual-clip-top, 0px)
+            0
+            var(--cts-voice-activity-visual-clip-bottom, 0px)
+            0
+          );
           filter: blur(var(--cts-voice-background-blur));
           inset: var(--cts-voice-background-inset);
           opacity: var(--cts-voice-background-opacity);
@@ -388,6 +448,15 @@ enum ThemeVoiceStyleCompiler {
           z-index: 0;
         }
 
+        \(root)[data-codex-voice-activity-shelf="true"]
+        [data-avatar-overlay-hit-region="notification-tray"] {
+          height: var(--cts-voice-activity-tray-height) !important;
+          overflow: visible !important;
+          pointer-events: auto !important;
+          top: var(--cts-voice-activity-tray-top) !important;
+          z-index: 30 !important;
+        }
+
         \(root) #root {
           background-color: transparent !important;
           min-height: 100%;
@@ -396,7 +465,23 @@ enum ThemeVoiceStyleCompiler {
         }
 
         \(root) [data-avatar-overlay-size="mascot"] {
+          height: var(--cts-voice-overlay-anchor-height) !important;
+          width: var(--cts-voice-overlay-anchor-width) !important;
+        }
+
+        /*
+         * ChatGPT measures the empty size node above to choose whether the
+         * native task tray belongs above or below the mascot. Keep that
+         * logical anchor at the stock size while letting the custom visual
+         * occupy the independently configured avatar area.
+         */
+        \(root) [data-avatar-overlay-hit-region="mascot"] {
           height: var(--cts-voice-overlay-mascot-height) !important;
+          left: 50% !important;
+          overflow: visible !important;
+          position: absolute !important;
+          top: 50% !important;
+          translate: -50% -50% !important;
           width: var(--cts-voice-overlay-mascot-width) !important;
         }
 
@@ -580,7 +665,7 @@ enum ThemeVoiceStyleCompiler {
             scale(var(--cts-voice-scale));
           transform-origin: center;
           width: var(--cts-voice-orb-live-width, 69.2708%);
-          will-change: left, top, width, height, transform;
+          will-change: auto;
           z-index: 4;
         }
 
@@ -596,6 +681,7 @@ enum ThemeVoiceStyleCompiler {
           opacity: 1 !important;
           position: absolute !important;
           scale: 1 !important;
+          will-change: auto !important;
           width: 100% !important;
         }
 

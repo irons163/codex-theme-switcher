@@ -774,7 +774,88 @@ final class ThemeCompilerTests: XCTestCase {
         )
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
+                "--cts-voice-overlay-anchor-width: min(113px, 339px);"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-overlay-anchor-height: min(122px, 368px);"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-lock-center: 0;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "data-codex-voice-activity-shelf"
+            )
+        )
+        XCTAssertFalse(
+            compiled.avatarOverlayCSS.contains(
+                "data-codex-voice-activity-backdrop"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "data-avatar-overlay-hit-region=\"notification-tray\""
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "height: var(--cts-voice-activity-tray-height) !important;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "top: var(--cts-voice-activity-tray-top) !important;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "var(--cts-voice-activity-visual-clip-top, 0px)"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "var(--cts-voice-activity-visual-clip-bottom, 0px)"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "pointer-events: auto !important;"
+            )
+        )
+        XCTAssertFalse(compiled.avatarOverlayCSS.contains("top: 8px !important;"))
+        XCTAssertFalse(
+            compiled.avatarOverlayCSS.contains(
+                "calc(100vh - var(--cts-voice-activity-shelf-height) - 8px)"
+            )
+        )
+        XCTAssertFalse(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-activity-presentation-left"
+            )
+        )
+        XCTAssertFalse(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-activity-presentation-scale"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
                 "[data-avatar-overlay-size=\"mascot\"]"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "height: var(--cts-voice-overlay-anchor-height) !important;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "[data-avatar-overlay-hit-region=\"mascot\"]"
             )
         )
         XCTAssertTrue(compiled.css.contains(".codex-avatar-root"))
@@ -838,7 +919,7 @@ final class ThemeCompilerTests: XCTestCase {
                 "top: 50vh !important;"
             )
         )
-        XCTAssertFalse(
+        XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
                 "[data-avatar-overlay-hit-region=\"mascot\"]"
             )
@@ -856,6 +937,50 @@ final class ThemeCompilerTests: XCTestCase {
                   scale: var(--cts-voice-scale) !important;
                 """
             )
+        )
+    }
+
+    func testCustomVoiceAvatarControlsDockToVisualBottom() throws {
+        let portrait = TestFixtures.imageAsset(
+            name: "portrait.png",
+            bytes: [1, 2, 3]
+        )
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.avatarMode = .image
+        voice.light.orbBackgroundAssetID = portrait.id
+        voice.dark.avatarMode = .native
+        voice.dark.orbBackgroundAssetID = nil
+        var theme = TestFixtures.theme(assets: [portrait])
+        theme.voiceStyle = voice
+
+        let css = try ThemeCompiler().compile(theme).avatarOverlayCSS
+
+        XCTAssertTrue(
+            css.contains(
+                ":has(> [data-avatar-overlay-native-surface-id=\"voice-microphone\"]),"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                ":has(> [data-avatar-overlay-native-surface-id=\"voice-output\"])"
+            )
+        )
+        XCTAssertTrue(css.contains("top: calc(100% - 41px) !important;"))
+        XCTAssertTrue(
+            css.contains(
+                ":has(> [data-avatar-overlay-native-surface-id=\"voice-controls\"])"
+            )
+        )
+        XCTAssertTrue(css.contains("top: calc(100% - 26px) !important;"))
+        XCTAssertEqual(
+            css.components(separatedBy: "top: calc(100% - 41px) !important;")
+                .count - 1,
+            2
+        )
+        XCTAssertEqual(
+            css.components(separatedBy: "top: calc(100% - 26px) !important;")
+                .count - 1,
+            2
         )
     }
 
