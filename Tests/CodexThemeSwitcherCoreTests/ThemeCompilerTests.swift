@@ -984,6 +984,94 @@ final class ThemeCompilerTests: XCTestCase {
         )
     }
 
+    func testCustomVoiceAvatarReportsVisualSizeToNativeOverlayLayout() throws {
+        let portrait = TestFixtures.imageAsset(
+            name: "portrait.png",
+            bytes: [1, 2, 3]
+        )
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.avatarMode = .image
+        voice.light.orbBackgroundAssetID = portrait.id
+        voice.light.overlayMascotWidth = 339
+        voice.dark.avatarMode = .native
+        voice.dark.orbBackgroundAssetID = nil
+        var theme = TestFixtures.theme(assets: [portrait])
+        theme.voiceStyle = voice
+
+        let css = try ThemeCompiler().compile(theme).avatarOverlayCSS
+
+        // The node ChatGPT measures must match the custom visual. This is
+        // what makes the native overlay window reserve space for its task
+        // cards instead of placing them over the avatar.
+        XCTAssertTrue(
+            css.contains("--cts-voice-overlay-anchor-width: 339px;")
+        )
+        XCTAssertTrue(
+            css.contains("--cts-voice-overlay-anchor-height: 368px;")
+        )
+        XCTAssertTrue(
+            css.contains(
+                "height: var(--cts-voice-overlay-anchor-height) !important;"
+            )
+        )
+        XCTAssertFalse(
+            css.contains("--cts-voice-overlay-anchor-width: min(113px, 339px);")
+        )
+    }
+
+    func testCustomVoiceAvatarMeasurementIncludesVisualScale() throws {
+        let portrait = TestFixtures.imageAsset(
+            name: "portrait-scaled.png",
+            bytes: [1, 2, 3]
+        )
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.avatarMode = .image
+        voice.light.orbBackgroundAssetID = portrait.id
+        voice.light.overlayMascotWidth = 113
+        voice.light.orbScale = 2
+        voice.dark.avatarMode = .native
+        voice.dark.orbBackgroundAssetID = nil
+        var theme = TestFixtures.theme(assets: [portrait])
+        theme.voiceStyle = voice
+
+        let css = try ThemeCompiler().compile(theme).avatarOverlayCSS
+
+        // The custom image is transformed inside the mascot node. The size
+        // node reported to ChatGPT must include that transform, otherwise
+        // the host window clips the image back to the stock orb size.
+        XCTAssertTrue(
+            css.contains("--cts-voice-overlay-anchor-width: 226px;")
+        )
+        XCTAssertTrue(
+            css.contains("--cts-voice-overlay-anchor-height: 246px;")
+        )
+    }
+
+    func testCustomVoiceAvatarSupportsIndependentHeightScale() throws {
+        let portrait = TestFixtures.imageAsset(
+            name: "portrait-tall.png",
+            bytes: [1, 2, 3]
+        )
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.avatarMode = .image
+        voice.light.orbBackgroundAssetID = portrait.id
+        voice.light.overlayMascotWidth = 113
+        voice.light.overlayMascotHeightScale = 1.5
+        voice.dark.avatarMode = .native
+        voice.dark.orbBackgroundAssetID = nil
+        var theme = TestFixtures.theme(assets: [portrait])
+        theme.voiceStyle = voice
+
+        let css = try ThemeCompiler().compile(theme).avatarOverlayCSS
+
+        XCTAssertTrue(
+            css.contains("--cts-voice-overlay-anchor-width: 113px;")
+        )
+        XCTAssertTrue(
+            css.contains("--cts-voice-overlay-anchor-height: 185px;")
+        )
+    }
+
     func testVoiceOverlayCenteringFollowsExplicitAppearanceSetting() throws {
         let background = TestFixtures.imageAsset(
             name: "voice-background.png",

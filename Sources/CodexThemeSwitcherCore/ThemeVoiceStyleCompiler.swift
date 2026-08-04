@@ -189,9 +189,46 @@ enum ThemeVoiceStyleCompiler {
             && variant.orbBackgroundAssetID != nil
         let usesCustomAvatar =
             usesImageAvatar || variant.avatarMode == .live2D
-        let overlayMascotHeight = ceil(
+        let baseOverlayMascotHeight = ceil(
             variant.overlayMascotWidth * 208 / 192
         )
+        // The custom Voice window contains both the backdrop and avatar. Keep
+        // its height independent from the width so tall portraits can grow
+        // vertically without forcing a wider window.
+        let overlayMascotHeight = usesCustomAvatar
+            ? ceil(baseOverlayMascotHeight * variant.overlayMascotHeightScale)
+            : baseOverlayMascotHeight
+        // `orbScale` (and the optional Live2D model scale) is a visual
+        // transform applied inside the mascot node.  ChatGPT sizes its
+        // transparent overlay window from the separate measurement node, so
+        // reporting only the unscaled 113px area clips the enlarged artwork
+        // at the window edge and makes it look compressed.  Reserve the
+        // transformed bounds for custom avatars while keeping scales below
+        // 1× from shrinking the interaction/layout area.
+        let customAvatarVisualScale: Double = {
+            guard usesCustomAvatar else { return 1 }
+            let modelScale = variant.avatarMode == .live2D
+                ? (variant.live2DModel?.scale ?? 1)
+                : 1
+            return max(1, variant.orbScale * modelScale)
+        }()
+        let overlayVisualWidth =
+            variant.overlayMascotWidth * customAvatarVisualScale
+        let overlayVisualHeight =
+            ceil(overlayMascotHeight * customAvatarVisualScale)
+        // The native Voice overlay measures this node and sends the result to
+        // the ChatGPT main process.  Keeping the stock 113×122 measurement
+        // while drawing a larger avatar makes the notification tray believe
+        // the avatar is still tiny, so task cards are laid over the custom
+        // artwork.  Custom image/Live2D avatars must report their actual
+        // visual dimensions; the native layout can then choose the same
+        // outside/above placement it uses for its own mascot.
+        let overlayAnchorWidth = usesCustomAvatar
+            ? "\(number(overlayVisualWidth))px"
+            : "min(113px, \(number(variant.overlayMascotWidth))px)"
+        let overlayAnchorHeight = usesCustomAvatar
+            ? "\(number(overlayVisualHeight))px"
+            : "min(122px, \(number(baseOverlayMascotHeight))px)"
         let customControlDockingRule = usesCustomAvatar
             ? customAvatarControlDockingRule(selector: selector)
             : ""
@@ -211,8 +248,8 @@ enum ThemeVoiceStyleCompiler {
           --cts-voice-background-inset: \(insetValue);
           --cts-voice-overlay-mascot-width: \(number(variant.overlayMascotWidth))px;
           --cts-voice-overlay-mascot-height: \(number(overlayMascotHeight))px;
-          --cts-voice-overlay-anchor-width: min(113px, \(number(variant.overlayMascotWidth))px);
-          --cts-voice-overlay-anchor-height: min(122px, \(number(overlayMascotHeight))px);
+          --cts-voice-overlay-anchor-width: \(overlayAnchorWidth);
+          --cts-voice-overlay-anchor-height: \(overlayAnchorHeight);
           --cts-voice-orb-background-image: \(orbImage);
           --cts-voice-orb-background-size: \(orbSizing.size);
           --cts-voice-orb-background-repeat: \(orbSizing.repeatMode);
@@ -270,8 +307,8 @@ enum ThemeVoiceStyleCompiler {
          * ChatGPT positions these wrappers with inline top values measured
          * against the stock 113 x 122 orb. A custom image or Live2D avatar
          * has an independent visual area, so dock the controls to that
-         * area's real bottom without changing the stock logical anchor used
-         * by the native notification tray placement algorithm.
+         * area's real bottom while the measured mascot node reports the
+         * same custom dimensions to the native notification tray algorithm.
          */
         \(selector)[data-codex-theme-switcher-theme]
         [data-avatar-overlay-hit-region="mascot"]
@@ -470,10 +507,11 @@ enum ThemeVoiceStyleCompiler {
         }
 
         /*
-         * ChatGPT measures the empty size node above to choose whether the
-         * native task tray belongs above or below the mascot. Keep that
-         * logical anchor at the stock size while letting the custom visual
-         * occupy the independently configured avatar area.
+         * ChatGPT measures the size node above to choose the native Voice
+         * window bounds and task-tray placement. For a custom avatar the
+         * measurement is intentionally the same size as the visual area;
+         * this lets the host make room for the task cards instead of laying
+         * them over the artwork.
          */
         \(root) [data-avatar-overlay-hit-region="mascot"] {
           height: var(--cts-voice-overlay-mascot-height) !important;

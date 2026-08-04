@@ -155,6 +155,10 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
     /// ChatGPT derives the native overlay window height from this measurement,
     /// so increasing it gives large portraits and Live2D models more room.
     public var overlayMascotWidth: Double
+    /// Independent height multiplier for the custom Voice background/avatar
+    /// area. This lets a portrait or Live2D model have more vertical room
+    /// without making the whole area wider.
+    public var overlayMascotHeightScale: Double
     /// Keeps the draggable Voice mascot anchored to the overlay center.
     ///
     /// When disabled, ChatGPT's native positioning can move the orb to screen
@@ -222,6 +226,7 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         backgroundImageOpacity: Double = 1,
         backgroundImageBlur: Double = 0,
         overlayMascotWidth: Double = 113,
+        overlayMascotHeightScale: Double = 1,
         orbLocksToOverlayCenter: Bool = true,
         orbBackgroundAssetID: UUID? = nil,
         orbBackgroundImageFit: ThemeSkinImageFit = .cover,
@@ -269,6 +274,7 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         self.backgroundImageOpacity = backgroundImageOpacity
         self.backgroundImageBlur = backgroundImageBlur
         self.overlayMascotWidth = overlayMascotWidth
+        self.overlayMascotHeightScale = overlayMascotHeightScale
         self.orbLocksToOverlayCenter = orbLocksToOverlayCenter
         self.orbBackgroundAssetID = orbBackgroundAssetID
         self.orbBackgroundImageFit = orbBackgroundImageFit
@@ -370,6 +376,7 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         case backgroundImageOpacity
         case backgroundImageBlur
         case overlayMascotWidth
+        case overlayMascotHeightScale
         case orbLocksToOverlayCenter
         case orbBackgroundAssetID
         case orbBackgroundImageFit
@@ -458,6 +465,10 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
             Double.self,
             forKey: .overlayMascotWidth
         ) ?? defaults.overlayMascotWidth
+        overlayMascotHeightScale = try values.decodeIfPresent(
+            Double.self,
+            forKey: .overlayMascotHeightScale
+        ) ?? defaults.overlayMascotHeightScale
         orbLocksToOverlayCenter = try values.decodeIfPresent(
             Bool.self,
             forKey: .orbLocksToOverlayCenter

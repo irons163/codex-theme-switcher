@@ -147,12 +147,22 @@ struct ThemeVoiceEditorView: View {
                         "\(Int(($0 / 113 * 100).rounded()))%"
                     }
                 )
+                VoiceValueSlider(
+                    title: L10n.text(
+                        "中間區域高度",
+                        "Middle area height"
+                    ),
+                    value: variantBinding(\.overlayMascotHeightScale),
+                    range: 0.5...3,
+                    step: 0.01,
+                    format: { String(format: "%.2f×", $0) }
+                )
             }
 
             Text(
                 L10n.text(
-                    "會連同 ChatGPT 原生 Voice 視窗一起放大；大型或全身 Live2D 被裁切時可調高。",
-                    "Expands ChatGPT's native Voice window with the avatar. Increase it when a large or full-body Live2D model is clipped."
+                    "寬度控制整體大小；高度可單獨放大中間背景與人物區，避免高身材或全身 Live2D 被裁切。",
+                    "Width controls the overall area; height independently expands the middle background/avatar region so tall or full-body Live2D models are not clipped."
                 )
             )
             .font(.caption2)

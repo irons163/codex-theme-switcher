@@ -499,6 +499,13 @@
           "default": 113,
           "description": "Width of ChatGPT's measured Voice avatar area in CSS pixels. Increasing it expands the native overlay window so large portraits and full-body Live2D models are not clipped."
         },
+        "overlayMascotHeightScale": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 3,
+          "default": 1,
+          "description": "Independent height multiplier for the custom Voice background/avatar area."
+        },
         "orbLocksToOverlayCenter": {
           "type": "boolean",
           "default": true,

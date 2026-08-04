@@ -809,6 +809,11 @@ public struct ThemeValidator: Sendable {
                         variant.overlayMascotWidth,
                         80...339
                     ),
+                    (
+                        "overlayMascotHeightScale",
+                        variant.overlayMascotHeightScale,
+                        0.5...3
+                    ),
                     ("orbScale", variant.orbScale, 0.5...3),
                     ("brightness", variant.brightness, 0...3),
                     ("contrast", variant.contrast, 0...3),
