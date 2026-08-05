@@ -229,6 +229,18 @@ enum ThemeVoiceStyleCompiler {
         let overlayAnchorHeight = usesCustomAvatar
             ? "\(number(overlayVisualHeight))px"
             : "min(122px, \(number(baseOverlayMascotHeight))px)"
+        // Native Voice's canvas geometry describes only the visible portion
+        // of its sprite (roughly 79% of the mascot width). Custom image and
+        // Live2D avatars are complete square visuals, so use the full mascot
+        // width and center that square in the measured mascot area.
+        let customAvatarFrame = usesCustomAvatar
+            ? """
+              --cts-voice-orb-custom-frame-width: min(var(--cts-voice-overlay-mascot-width), var(--cts-voice-overlay-mascot-height));
+              --cts-voice-orb-custom-frame-height: var(--cts-voice-orb-custom-frame-width);
+              --cts-voice-orb-custom-frame-left: calc((var(--cts-voice-overlay-mascot-width) - var(--cts-voice-orb-custom-frame-width)) / 2);
+              --cts-voice-orb-custom-frame-top: calc((var(--cts-voice-overlay-mascot-height) - var(--cts-voice-orb-custom-frame-height)) / 2);
+              """
+            : ""
         let customControlDockingRule = usesCustomAvatar
             ? customAvatarControlDockingRule(selector: selector)
             : ""
@@ -250,6 +262,7 @@ enum ThemeVoiceStyleCompiler {
           --cts-voice-overlay-mascot-height: \(number(overlayMascotHeight))px;
           --cts-voice-overlay-anchor-width: \(overlayAnchorWidth);
           --cts-voice-overlay-anchor-height: \(overlayAnchorHeight);
+        \(customAvatarFrame)
           --cts-voice-orb-background-image: \(orbImage);
           --cts-voice-orb-background-size: \(orbSizing.size);
           --cts-voice-orb-background-repeat: \(orbSizing.repeatMode);
@@ -593,23 +606,29 @@ enum ThemeVoiceStyleCompiler {
           content: "";
           filter: blur(var(--cts-voice-orb-background-blur));
           height: calc(
-            var(--cts-voice-orb-live-height, 68.2692%)
+            var(--cts-voice-orb-custom-frame-height,
+              var(--cts-voice-orb-live-height, 68.2692%))
             - var(--cts-voice-orb-background-inset)
             - var(--cts-voice-orb-background-inset)
           );
-          left: calc(
-            var(--cts-voice-orb-live-left, 15.625%)
-            + var(--cts-voice-orb-background-inset)
+          left: var(--cts-voice-orb-custom-frame-left,
+            calc(
+              var(--cts-voice-orb-live-left, 15.625%)
+              + var(--cts-voice-orb-background-inset)
+            )
           );
           overflow: hidden;
           pointer-events: none;
           position: absolute;
-          top: calc(
-            var(--cts-voice-orb-live-top, 14.9038%)
-            + var(--cts-voice-orb-background-inset)
+          top: var(--cts-voice-orb-custom-frame-top,
+            calc(
+              var(--cts-voice-orb-live-top, 14.9038%)
+              + var(--cts-voice-orb-background-inset)
+            )
           );
           width: calc(
-            var(--cts-voice-orb-live-width, 69.2708%)
+            var(--cts-voice-orb-custom-frame-width,
+              var(--cts-voice-orb-live-width, 69.2708%))
             - var(--cts-voice-orb-background-inset)
             - var(--cts-voice-orb-background-inset)
           );
@@ -619,7 +638,8 @@ enum ThemeVoiceStyleCompiler {
               var(--cts-voice-orb-idle-y, 0px)
             )
             rotate(var(--cts-voice-orb-idle-rotation, 0deg))
-            scale(var(--cts-voice-scale));
+            scale(var(--cts-voice-effective-scale,
+              var(--cts-voice-scale)));
           transform-origin: center;
           will-change: left, top, width, height, opacity, transform;
           z-index: 2;
@@ -660,20 +680,26 @@ enum ThemeVoiceStyleCompiler {
         \(root) .codex-avatar-root[data-realtime-voice-orb]::before,
         \(root) .codex-avatar-root[data-realtime-voice-orb]::after {
           height: calc(
-            var(--cts-voice-orb-live-height, 73%)
+            var(--cts-voice-orb-custom-frame-height,
+              var(--cts-voice-orb-live-height, 73%))
             - var(--cts-voice-orb-background-inset)
             - var(--cts-voice-orb-background-inset)
           );
-          left: calc(
-            var(--cts-voice-orb-live-left, -7.5%)
-            + var(--cts-voice-orb-background-inset)
+          left: var(--cts-voice-orb-custom-frame-left,
+            calc(
+              var(--cts-voice-orb-live-left, -7.5%)
+              + var(--cts-voice-orb-background-inset)
+            )
           );
-          top: calc(
-            var(--cts-voice-orb-live-top, 30%)
-            + var(--cts-voice-orb-background-inset)
+          top: var(--cts-voice-orb-custom-frame-top,
+            calc(
+              var(--cts-voice-orb-live-top, 30%)
+              + var(--cts-voice-orb-background-inset)
+            )
           );
           width: calc(
-            var(--cts-voice-orb-live-width, 79%)
+            var(--cts-voice-orb-custom-frame-width,
+              var(--cts-voice-orb-live-width, 79%))
             - var(--cts-voice-orb-background-inset)
             - var(--cts-voice-orb-background-inset)
           );
@@ -688,8 +714,10 @@ enum ThemeVoiceStyleCompiler {
         ) [data-codex-live2d-avatar] {
           border-radius: 50%;
           clip-path: circle(50%);
-          height: var(--cts-voice-orb-live-height, 68.2692%);
-          left: var(--cts-voice-orb-live-left, 15.625%);
+          height: var(--cts-voice-orb-custom-frame-height,
+            var(--cts-voice-orb-live-height, 68.2692%));
+          left: var(--cts-voice-orb-custom-frame-left,
+            var(--cts-voice-orb-live-left, 15.625%));
           overflow: hidden;
           pointer-events: none;
           position: absolute;
@@ -700,9 +728,11 @@ enum ThemeVoiceStyleCompiler {
               var(--cts-voice-orb-idle-y, 0px)
             )
             rotate(var(--cts-voice-orb-idle-rotation, 0deg))
-            scale(var(--cts-voice-scale));
+            scale(var(--cts-voice-effective-scale,
+              var(--cts-voice-scale)));
           transform-origin: center;
-          width: var(--cts-voice-orb-live-width, 69.2708%);
+          width: var(--cts-voice-orb-custom-frame-width,
+            var(--cts-voice-orb-live-width, 69.2708%));
           will-change: auto;
           z-index: 4;
         }

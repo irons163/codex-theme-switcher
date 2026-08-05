@@ -896,7 +896,7 @@ final class ThemeCompilerTests: XCTestCase {
         )
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
-                "scale(var(--cts-voice-scale));"
+                "scale(var(--cts-voice-effective-scale,"
             )
         )
         XCTAssertFalse(
@@ -1012,6 +1012,21 @@ final class ThemeCompilerTests: XCTestCase {
         XCTAssertTrue(
             css.contains(
                 "height: var(--cts-voice-overlay-anchor-height) !important;"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "--cts-voice-orb-custom-frame-width: min(var(--cts-voice-overlay-mascot-width), var(--cts-voice-overlay-mascot-height));"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "--cts-voice-orb-custom-frame-top: calc((var(--cts-voice-overlay-mascot-height) - var(--cts-voice-orb-custom-frame-height)) / 2);"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "scale(var(--cts-voice-effective-scale,"
             )
         )
         XCTAssertFalse(

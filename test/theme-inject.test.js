@@ -232,7 +232,7 @@ test("custom Voice activity tray follows native side without covering avatar cen
   );
 });
 
-test("VERSION=67 exposes transaction APIs and source evaluation is idempotent", () => {
+test("VERSION=71 exposes transaction APIs and source evaluation is idempotent", () => {
   const dom = install();
   const runtime = dom.window.__codexThemeSwitcherRuntime;
   const functions = [
@@ -244,7 +244,7 @@ test("VERSION=67 exposes transaction APIs and source evaluation is idempotent", 
     "__codexThemeSwitcherClear",
   ];
 
-  assert.equal(runtime.version, 67);
+  assert.equal(runtime.version, 71);
   for (const name of functions) {
     assert.equal(typeof dom.window[name], "function", name);
   }
@@ -261,14 +261,46 @@ test("VERSION=67 exposes transaction APIs and source evaluation is idempotent", 
 
 test("a newly attached foreground Voice surface becomes visible immediately", () => {
   const dom = install();
+  const mutationObservers = [];
+  dom.sandbox.MutationObserver = class FakeMutationObserver {
+    constructor(callback) {
+      this.callback = callback;
+      mutationObservers.push(this);
+    }
+
+    observe() {}
+
+    disconnect() {}
+  };
   const presentationAttributes = new Map();
   const contentFrame = {
+    parentElement: null,
     hasAttribute(name) {
       return name === "data-avatar-overlay-content-frame";
     },
   };
-  const presentation = {
+  const handoffTargetAttributes = new Map([
+    ["data-realtime-voice-handoff-target", "global-overlay"],
+  ]);
+  const handoffTarget = {
     parentElement: contentFrame,
+    style: { opacity: "1" },
+    hasAttribute(name) {
+      return handoffTargetAttributes.has(name);
+    },
+    getAttribute(name) {
+      return handoffTargetAttributes.get(name) ?? null;
+    },
+    setAttribute(name, value) {
+      handoffTargetAttributes.set(name, String(value));
+    },
+    removeAttribute(name) {
+      handoffTargetAttributes.delete(name);
+    },
+  };
+  const presentation = {
+    parentElement: handoffTarget,
+    style: { opacity: "1" },
     hasAttribute(name) {
       return presentationAttributes.has(name);
     },
@@ -339,11 +371,35 @@ test("a newly attached foreground Voice surface becomes visible immediately", ()
     presentationAttributes.get("data-codex-voice-presentation"),
     "true",
   );
-  assert.match(
+  assert.doesNotMatch(
     dom.document.getElementById(
       "codex-theme-switcher-style-voice-session",
     ).textContent,
     /data-codex-voice-presentation[\s\S]*opacity: 1 !important/,
+  );
+
+  presentation.style.opacity = "0";
+  mutationObservers.forEach((observer) => observer.callback([
+    { type: "attributes", target: presentation },
+  ]));
+  assert.equal(
+    dom.document.documentElement.getAttribute(
+      "data-codex-voice-session-active",
+    ),
+    "false",
+    "native handoff opacity clears the old overlay backdrop",
+  );
+
+  presentation.style.opacity = "1";
+  mutationObservers.forEach((observer) => observer.callback([
+    { type: "attributes", target: presentation },
+  ]));
+  assert.equal(
+    dom.document.documentElement.getAttribute(
+      "data-codex-voice-session-active",
+    ),
+    "true",
+    "the foreground surface can resume after the handoff animation",
   );
 });
 
@@ -1288,6 +1344,9 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
     inputs: { voiceActivity: "listening" },
     outputLevel: 0,
     publishedAudioLevels: null,
+    setInputs(inputs) {
+      this.inputs = inputs;
+    },
     setPublishedAudioLevels(levels) {
       this.publishedAudioLevels = levels;
     },
@@ -1435,6 +1494,16 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
     ].join("\n"),
   }));
   dom.window.__codexThemeSwitcherCommit({ transactionID: "transaction-1" });
+
+  voiceRenderer.setInputs({
+    phase: "inactive",
+    voiceActivity: "listening",
+  });
+  assert.equal(
+    dom.window.__codexThemeSwitcherRuntime.voicePulse.sessionActive,
+    true,
+    "explicit Voice activity keeps the overlay visible during an inactive phase handoff",
+  );
 
   const number = (name) => Number.parseFloat(liveProperties.get(name));
   const layoutNumber = (name) => Number.parseFloat(

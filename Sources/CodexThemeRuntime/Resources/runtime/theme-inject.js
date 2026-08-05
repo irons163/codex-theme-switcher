@@ -5,7 +5,7 @@
   const STYLE_ID = "codex-theme-switcher-style";
   const STAGING_STYLE_ID = `${STYLE_ID}-staging`;
   const VOICE_SESSION_STYLE_ID = `${STYLE_ID}-voice-session`;
-  const VERSION = 67;
+  const VERSION = 71;
   const PUBLISHED_AUDIO_SMOOTHING = 0.86;
   const VOICE_SESSION_INACTIVE_GRACE_MILLISECONDS = 500;
   // ChatGPT keeps its detachable Pet in another `.codex-avatar-root`.
@@ -24,6 +24,7 @@
   const VOICE_PULSE_STRENGTH = "--cts-voice-orb-pulse-strength";
   const VOICE_PULSE_LIVE_SCALE = "--cts-voice-orb-live-pulse";
   const VOICE_ORB_IMAGE_ENABLED = "--cts-voice-orb-image-enabled";
+  const VOICE_EFFECTIVE_SCALE = "--cts-voice-effective-scale";
   const VOICE_MOUTH_ACTIVE_IMAGE = "--cts-voice-orb-active-image";
   const VOICE_MOUTH_FRAME_COUNT = "--cts-voice-orb-mouth-frame-count";
   const VOICE_MOUTH_FRAME_PREFIX = "--cts-voice-orb-mouth-frame-";
@@ -60,6 +61,9 @@
     "data-codex-voice-session-active";
   const VOICE_PRESENTATION_ATTRIBUTE =
     "data-codex-voice-presentation";
+  const VOICE_HANDOFF_TARGET_ATTRIBUTE =
+    "data-realtime-voice-handoff-target";
+  const VOICE_HANDOFF_OPACITY_THRESHOLD = 0.02;
   const VOICE_ACTIVITY_SHELF_ATTRIBUTE =
     "data-codex-voice-activity-shelf";
   const VOICE_ACTIVITY_PLACEMENT_ATTRIBUTE =
@@ -223,6 +227,62 @@
       customProperty(document.documentElement, name),
     );
     return Number.isFinite(value) ? value : fallback;
+  }
+
+  function presentationScale(root) {
+    const presentation = root?.closest?.(
+      `[${VOICE_PRESENTATION_ATTRIBUTE}]`,
+    ) || root?.parentElement || null;
+    const transform = computedStyle(presentation)?.transform || "";
+    if (!transform || transform === "none") return 1;
+
+    let scaleX = 1;
+    let scaleY = 1;
+    try {
+      if (typeof DOMMatrixReadOnly === "function") {
+        const matrix = new DOMMatrixReadOnly(transform);
+        scaleX = Math.hypot(Number(matrix.a) || 0, Number(matrix.b) || 0);
+        scaleY = Math.hypot(Number(matrix.c) || 0, Number(matrix.d) || 0);
+      } else {
+        const values = transform.match(/^matrix(?:3d)?\(([^)]+)\)$/i)?.[1]
+          ?.split(",")
+          .map((value) => Number.parseFloat(value.trim())) || [];
+        if (values.length >= 16) {
+          scaleX = Math.hypot(values[0] || 0, values[1] || 0);
+          scaleY = Math.hypot(values[4] || 0, values[5] || 0);
+        } else if (values.length >= 6) {
+          scaleX = Math.hypot(values[0] || 0, values[1] || 0);
+          scaleY = Math.hypot(values[2] || 0, values[3] || 0);
+        }
+      }
+    } catch {
+      return 1;
+    }
+    const scale = Math.sqrt(scaleX * scaleY);
+    return Number.isFinite(scale) && scale > 0.01
+      ? clamp(scale, 0.25, 4)
+      : 1;
+  }
+
+  function synchronizeVoiceEffectiveScale(root) {
+    if (!root?.style?.setProperty) return;
+    if (voiceAvatarMode() === "native") {
+      root.style.removeProperty?.(VOICE_EFFECTIVE_SCALE);
+      return;
+    }
+    const configured = clamp(
+      numericCustomProperty("--cts-voice-scale", 1),
+      0.01,
+      10,
+    );
+    const effective = configured / presentationScale(root);
+    const formatted = effective.toFixed(4);
+    if (
+      root.style.getPropertyValue?.(VOICE_EFFECTIVE_SCALE)
+      !== formatted
+    ) {
+      root.style.setProperty(VOICE_EFFECTIVE_SCALE, formatted);
+    }
   }
 
   function booleanCustomProperty(name) {
@@ -1949,11 +2009,6 @@
           visibility: hidden !important;
         }
         html:root[data-codex-voice-session-active="true"]
-          [data-codex-voice-presentation] {
-          opacity: 1 !important;
-          visibility: visible !important;
-        }
-        html:root[data-codex-voice-session-active="true"]
           :is(
             .codex-avatar-root[data-realtime-voice-orb],
             [data-avatar-overlay-native-surface-id="voice-output"],
@@ -1997,6 +2052,14 @@
 
   function deferVoiceSessionDeactivation() {
     const pulse = runtime.voicePulse;
+    if (typeof setTimeout !== "function") {
+      // The production overlay always has timers. Test/embedded documents can
+      // omit them; fall back to the deterministic inactive state instead of
+      // throwing while replacing a stylesheet.
+      pulse.sessionPhase = "inactive";
+      setVoiceSessionActive(false);
+      return;
+    }
     if (pulse.sessionDeactivationTimer != null) return;
     const generation = pulse.generation;
     pulse.sessionDeactivationDeadline = Date.now()
@@ -2004,7 +2067,14 @@
     pulse.sessionDeactivationTimer = setTimeout(() => {
       pulse.sessionDeactivationTimer = null;
       pulse.sessionDeactivationDeadline = 0;
-      if (generation !== pulse.generation || !pulse.root) return;
+      if (generation !== pulse.generation) return;
+      if (!pulse.root) {
+        // A root that was removed and never recreated is a completed Voice
+        // session, not a reason to leave the detachable window opaque.
+        pulse.sessionPhase = "inactive";
+        setVoiceSessionActive(false);
+        return;
+      }
       const renderer = pulse.publishedAudioRenderer
         || pulse.instrumentedAudioRenderer;
       if (rendererVoiceSessionActive(renderer) === true) {
@@ -2021,6 +2091,87 @@
     )?.forEach?.((element) => {
       element.removeAttribute?.(VOICE_PRESENTATION_ATTRIBUTE);
     });
+  }
+
+  function voicePresentationAncestors(root) {
+    const ancestors = [];
+    let current = root?.parentElement || null;
+    for (let depth = 0; current && depth < 8; depth += 1) {
+      ancestors.push(current);
+      if (current.hasAttribute?.("data-avatar-overlay-content-frame")) {
+        break;
+      }
+      current = current.parentElement;
+    }
+    return ancestors;
+  }
+
+  function voicePresentationIsStaged(root) {
+    const ancestors = voicePresentationAncestors(root);
+    const handoffTarget = ancestors.find((element) => (
+      element.getAttribute?.(VOICE_HANDOFF_TARGET_ATTRIBUTE)
+    ));
+    if (!handoffTarget) return false;
+
+    // During the native handoff ChatGPT leaves the old legacy overlay mounted
+    // and animates its presentation wrapper to opacity 0. The body backdrop
+    // is outside that wrapper, so it remains as a rectangular "corpse" unless
+    // the theme runtime also marks the Voice session inactive.
+    return ancestors.some((element) => {
+      const inlineOpacity = Number.parseFloat(
+        element.style?.opacity,
+      );
+      return Number.isFinite(inlineOpacity)
+        && inlineOpacity <= VOICE_HANDOFF_OPACITY_THRESHOLD;
+    });
+  }
+
+  function synchronizeVoicePresentationVisibility(root = runtime.voicePulse.root) {
+    const pulse = runtime.voicePulse;
+    if (!root || !voiceRendererOwnsAvatar()) return;
+    if (voicePresentationIsStaged(root)) {
+      pulse.voiceHandoffStaged = true;
+      setVoiceSessionActive(false);
+      return;
+    }
+    if (!pulse.voiceHandoffStaged) return;
+
+    pulse.voiceHandoffStaged = false;
+    const renderer = pulse.publishedAudioRenderer
+      || pulse.instrumentedAudioRenderer;
+    const active = rendererVoiceSessionActive(renderer);
+    const phase = String(pulse.sessionPhase || "")
+      .trim()
+      .toLowerCase();
+    if (
+      active === true
+      || (active == null && (phase === "starting" || phase === "active"))
+    ) {
+      setVoiceSessionActive(true);
+    }
+  }
+
+  function observeVoicePresentation(root) {
+    const pulse = runtime.voicePulse;
+    pulse.handoffObserver?.disconnect?.();
+    pulse.handoffObserver = null;
+    if (typeof MutationObserver !== "function") return;
+    const ancestors = voicePresentationAncestors(root);
+    if (ancestors.length === 0) return;
+    pulse.handoffObserver = new MutationObserver(() => {
+      synchronizeVoicePresentationVisibility(root);
+    });
+    for (const ancestor of ancestors) {
+      pulse.handoffObserver.observe(ancestor, {
+        attributes: true,
+        attributeFilter: [
+          "style",
+          "class",
+          "aria-hidden",
+          VOICE_HANDOFF_TARGET_ATTRIBUTE,
+        ],
+      });
+    }
   }
 
   function markVoicePresentationAncestors(root) {
@@ -2429,18 +2580,24 @@
     const phase = String(renderer?.inputs?.phase || "")
       .trim()
       .toLowerCase();
-    if (phase) {
-      // ChatGPT 26.727 keeps the renderer mounted while inactive and uses
-      // starting before the first visible Voice frame. Its stopping phase can
-      // linger after the native handoff has already returned to Pet; keeping
-      // it visible is what leaves a second miniature avatar on the composer.
-      return phase === "starting" || phase === "active";
-    }
     const activity = String(renderer?.inputs?.voiceActivity || "")
       .trim()
       .toLowerCase();
+    // Newer ChatGPT builds can publish `phase=inactive` for one or more
+    // frames while the Voice surface is already listening/speaking. Treat
+    // an explicit activity state as authoritative; otherwise the session
+    // style hides the complete transparent overlay, which looks like the
+    // middle background/avatar disappearing until the next interaction.
     if (activity && activity !== "idle") return true;
+    if (phase) {
+      // ChatGPT keeps the renderer mounted while inactive and uses starting
+      // before the first visible Voice frame. Its stopping phase can linger
+      // after the native handoff has already returned to Pet; keeping it
+      // visible in that phase leaves a second miniature avatar behind.
+      return phase === "starting" || phase === "active";
+    }
     if (renderer?.publishedAudioLevels != null) return true;
+    if (activity === "idle") return false;
     return null;
   }
 
@@ -2970,6 +3127,7 @@
   function synchronizeVoiceCanvas() {
     const pulse = runtime.voicePulse;
     if (!pulse.root) return false;
+    synchronizeVoiceEffectiveScale(pulse.root);
     return setVoiceOrbLiveGeometry(
       pulse.root,
       voiceCanvasGeometry(pulse.root),
@@ -3072,6 +3230,7 @@
 
   function removeVoiceOrbLiveGeometry(root) {
     root?.style?.removeProperty?.(VOICE_PULSE_LIVE_SCALE);
+    root?.style?.removeProperty?.(VOICE_EFFECTIVE_SCALE);
     clearVoiceMouth(root);
     root?.style?.removeProperty?.(VOICE_IDLE_X);
     root?.style?.removeProperty?.(VOICE_IDLE_Y);
@@ -3120,17 +3279,29 @@
     });
   }
 
-  function detachVoicePulseRoot(preserveLive2D = false) {
+  function detachVoicePulseRoot(
+    preserveLive2D = false,
+    deferSessionDeactivation = false,
+  ) {
     const pulse = runtime.voicePulse;
     if (!preserveLive2D) {
-      setVoiceSessionActive(false);
-      pulse.sessionPhase = "inactive";
+      if (deferSessionDeactivation && pulse.root) {
+        // React can remove and recreate the native Voice root while moving
+        // the detachable surface. Keep the backdrop alive until the new root
+        // is attached, otherwise the transparent window flashes through to
+        // the desktop for a frame (or longer on a throttled overlay).
+        deferVoiceSessionDeactivation();
+      } else {
+        setVoiceSessionActive(false);
+        pulse.sessionPhase = "inactive";
+      }
       destroyVoiceLive2D();
     } else {
       pulse.root?.removeAttribute?.("data-codex-live2d-ready");
       pulse.root?.removeAttribute?.("data-codex-live2d-loading");
     }
     pulse.rootObserver?.disconnect?.();
+    pulse.handoffObserver?.disconnect?.();
     if (
       pulse.canvasFrameID != null
       && typeof cancelAnimationFrame === "function"
@@ -3146,6 +3317,8 @@
     pulse.root = null;
     pulse.rootMarkerOwned = false;
     pulse.rootObserver = null;
+    pulse.handoffObserver = null;
+    pulse.voiceHandoffStaged = false;
     pulse.canvasFrameID = null;
     pulse.analysis = null;
     pulse.analysisLoading = false;
@@ -3178,8 +3351,9 @@
     pulse.root = root;
     pulse.active = true;
     markVoicePresentationAncestors(root);
+    observeVoicePresentation(root);
     scheduleVoiceActivityShelfSync();
-    if (voiceRendererRole() === "foreground") {
+    if (voiceRendererOwnsAvatar()) {
       // The native voice-output surface is created before its React audio
       // renderer publishes the first `starting` phase. A previous Voice
       // session can therefore leave the freshly mounted Live2D avatar under
@@ -3195,6 +3369,7 @@
         setVoiceSessionActive(true);
       }
     }
+    synchronizeVoicePresentationVisibility(root);
     if (voiceAvatarMode() === "image" && !pulse.mouthSourcesReady) {
       pinVoiceMouthClosed(root);
     }
@@ -3237,7 +3412,7 @@
     }
   }
 
-  function stopVoicePulseSync() {
+  function stopVoicePulseSync({ deferSessionDeactivation = false } = {}) {
     const pulse = runtime.voicePulse;
     if (!pulse) return;
     pulse.generation += 1;
@@ -3248,7 +3423,7 @@
       "change",
       pulse.colorSchemeListener,
     );
-    detachVoicePulseRoot();
+    detachVoicePulseRoot(false, deferSessionDeactivation);
     stopVoiceActivityShelfSync();
     resetVoiceImagePreparation(pulse);
     pulse.domObserver = null;
@@ -3258,7 +3433,10 @@
   }
 
   function refreshVoicePulseSync() {
-    stopVoicePulseSync();
+    // Rebuilding the Voice observers is expected when the appearance class
+    // changes. Do not hide the whole overlay while the same surface is being
+    // rebound; the root can be recreated within the same event turn.
+    stopVoicePulseSync({ deferSessionDeactivation: true });
     if (!voicePulseIsConfigured()) {
       return;
     }
@@ -3312,12 +3490,20 @@
         if (generation !== runtime.voicePulse.generation) return;
         scheduleVoiceActivityShelfSync();
         const nextRoot = findRoot();
-        if (nextRoot === runtime.voicePulse.root) return;
+        if (nextRoot === runtime.voicePulse.root) {
+          synchronizeVoicePresentationVisibility(nextRoot);
+          return;
+        }
         const preserveLive2D = Boolean(
           nextRoot
           && voiceAvatarMode() === "live2D"
           && runtime.live2D.model
         );
+        // A native handoff can leave the old Voice surface in the overlay
+        // window for a short time after its root is removed. Do not apply the
+        // stylesheet-rebuild grace period here: it would keep that old
+        // surface's background image visible as a small stale rectangle while
+        // the replacement root is already on screen.
         detachVoicePulseRoot(preserveLive2D);
         if (nextRoot) attachVoicePulseRoot(nextRoot, generation);
       });
@@ -3758,6 +3944,7 @@
       root: null,
       rootMarkerOwned: false,
       rootObserver: null,
+      handoffObserver: null,
       domObserver: null,
       appearanceObserver: null,
       colorSchemeQuery: null,
@@ -3821,6 +4008,7 @@
       sessionPhase: "inactive",
       sessionDeactivationTimer: null,
       sessionDeactivationDeadline: 0,
+      voiceHandoffStaged: false,
     },
     live2D: {
       generation: 0,

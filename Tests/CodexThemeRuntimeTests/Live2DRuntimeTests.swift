@@ -9,7 +9,9 @@ final class Live2DRuntimeTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(source.contains("const VERSION = 67;"))
+        XCTAssertTrue(source.contains("const VERSION = 71;"))
+        XCTAssertTrue(source.contains("function presentationScale("))
+        XCTAssertTrue(source.contains("function synchronizeVoiceEffectiveScale("))
         XCTAssertTrue(
             source.contains(
                 "VOICE_SESSION_INACTIVE_GRACE_MILLISECONDS = 500"
@@ -58,7 +60,7 @@ final class Live2DRuntimeTests: XCTestCase {
         XCTAssertTrue(source.contains("function markVoicePresentationAncestors("))
         XCTAssertTrue(source.contains("function clearVoicePresentationAncestors("))
         XCTAssertTrue(
-            source.contains("voiceRendererRole() === \"foreground\"")
+            source.contains("voiceRendererOwnsAvatar()")
         )
         XCTAssertTrue(source.contains("pulse.sessionPhase = \"starting\""))
         XCTAssertTrue(source.contains("function rendererVoiceSessionActive("))
