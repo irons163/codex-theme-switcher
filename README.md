@@ -69,10 +69,11 @@ Agent-generated previews are close approximations. Always verify advanced CSS an
 
 - Set a Voice background and a separate image inside the animated orb.
 - Add a closed-mouth portrait and up to eight mouth frames, or import a 2×2 / 3×3 sprite sheet.
+- Or import a Cubism `.model3.json` package for rigged Live2D motion and continuous audio-driven mouth movement. Your flat-image setup remains available when you switch modes.
 - Tune sensitivity, noise gate, mouth opening and closing speed, blinking, idle motion, pulse, and native-orb visibility.
 - Mouth animation follows audio intensity; it is not phoneme-level lip sync.
 
-Voice styling depends on ChatGPT's internal renderer and may need updates after a Codex / ChatGPT release.
+Voice styling depends on ChatGPT's internal renderer and may need updates after a Codex / ChatGPT release. Live2D needs internet access to load the official Cubism Core when its renderer starts; confirm the model, character, and Cubism SDK publication rights before distributing an app or theme.
 
 ## Import and Export
 

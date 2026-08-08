@@ -4,13 +4,27 @@
   const GLOBAL_KEY = "__codexThemeSwitcherRuntime";
   const STYLE_ID = "codex-theme-switcher-style";
   const STAGING_STYLE_ID = `${STYLE_ID}-staging`;
-  const VERSION = 23;
+  const VOICE_SESSION_STYLE_ID = `${STYLE_ID}-voice-session`;
+  const VERSION = 71;
   const PUBLISHED_AUDIO_SMOOTHING = 0.86;
-  const VOICE_ORB_SELECTOR = ".codex-avatar-root";
+  const VOICE_SESSION_INACTIVE_GRACE_MILLISECONDS = 500;
+  // ChatGPT keeps its detachable Pet in another `.codex-avatar-root`.
+  // Mounting the Voice renderer there makes a finished Voice session look
+  // like it left a second, clickable Live2D avatar behind.
+  const VOICE_ORB_SELECTOR = [
+    ".codex-avatar-root[data-realtime-voice-orb]",
+    '[data-avatar-overlay-native-surface-id="voice-output"]',
+    [
+      ".codex-avatar-root:not([data-codex-pet-id]):has(",
+      "canvas[data-avatar-overlay-placement]",
+      ")",
+    ].join(""),
+  ].join(", ");
   const VOICE_PULSE_ENABLED = "--cts-voice-orb-pulse-enabled";
   const VOICE_PULSE_STRENGTH = "--cts-voice-orb-pulse-strength";
   const VOICE_PULSE_LIVE_SCALE = "--cts-voice-orb-live-pulse";
   const VOICE_ORB_IMAGE_ENABLED = "--cts-voice-orb-image-enabled";
+  const VOICE_EFFECTIVE_SCALE = "--cts-voice-effective-scale";
   const VOICE_MOUTH_ACTIVE_IMAGE = "--cts-voice-orb-active-image";
   const VOICE_MOUTH_FRAME_COUNT = "--cts-voice-orb-mouth-frame-count";
   const VOICE_MOUTH_FRAME_PREFIX = "--cts-voice-orb-mouth-frame-";
@@ -35,6 +49,34 @@
   const VOICE_BLINK_INTERVAL = "--cts-voice-orb-blink-interval-ms";
   const VOICE_BLINK_DURATION = "--cts-voice-orb-blink-duration-ms";
   const VOICE_BLINK_OPACITY = "--cts-voice-orb-blink-opacity";
+  const VOICE_AVATAR_MODE = "--cts-voice-avatar-mode";
+  const VOICE_RENDERER_ROLE = "--cts-voice-renderer-role";
+  const VOICE_LIVE2D_MANIFEST = "--cts-voice-live2d-manifest";
+  const VOICE_LIVE2D_SCALE = "--cts-voice-live2d-scale";
+  const VOICE_LIVE2D_POSITION_X = "--cts-voice-live2d-position-x";
+  const VOICE_LIVE2D_POSITION_Y = "--cts-voice-live2d-position-y";
+  const VOICE_LIVE2D_PARAMETER_PREFIX = "--cts-voice-live2d-";
+  const VOICE_LIVE2D_ASSET_PROTOCOL = "codex-theme-live2d-asset:";
+  const VOICE_SESSION_ACTIVE_ATTRIBUTE =
+    "data-codex-voice-session-active";
+  const VOICE_PRESENTATION_ATTRIBUTE =
+    "data-codex-voice-presentation";
+  const VOICE_HANDOFF_TARGET_ATTRIBUTE =
+    "data-realtime-voice-handoff-target";
+  const VOICE_HANDOFF_OPACITY_THRESHOLD = 0.02;
+  const VOICE_ACTIVITY_SHELF_ATTRIBUTE =
+    "data-codex-voice-activity-shelf";
+  const VOICE_ACTIVITY_PLACEMENT_ATTRIBUTE =
+    "data-codex-voice-activity-placement";
+  const VOICE_ACTIVITY_TRAY_HEIGHT =
+    "--cts-voice-activity-tray-height";
+  const VOICE_ACTIVITY_TRAY_TOP =
+    "--cts-voice-activity-tray-top";
+  const VOICE_ACTIVITY_VISUAL_CLIP_TOP =
+    "--cts-voice-activity-visual-clip-top";
+  const VOICE_ACTIVITY_VISUAL_CLIP_BOTTOM =
+    "--cts-voice-activity-visual-clip-bottom";
+  const VOICE_ACTIVITY_EDGE_GAP = 8;
   const VOICE_ORB_LAYOUT_SHIFT = Object.freeze({
     x: "--cts-voice-orb-layout-shift-x",
     y: "--cts-voice-orb-layout-shift-y",
@@ -124,6 +166,38 @@
     return computedStyle(element)?.getPropertyValue?.(name)?.trim() || "";
   }
 
+  function unquotedCustomProperty(name, fallback = "") {
+    let value = customProperty(document.documentElement, name);
+    if (
+      value.length >= 2
+      && (
+        (value.startsWith("\"") && value.endsWith("\""))
+        || (value.startsWith("'") && value.endsWith("'"))
+      )
+    ) {
+      value = value.slice(1, -1);
+    }
+    return value || fallback;
+  }
+
+  function voiceAvatarMode() {
+    const value = unquotedCustomProperty(
+      VOICE_AVATAR_MODE,
+      "image",
+    );
+    return value === "live2D" || value === "native"
+      ? value
+      : "image";
+  }
+
+  function voiceRendererRole() {
+    return unquotedCustomProperty(VOICE_RENDERER_ROLE, "full");
+  }
+
+  function voiceRendererOwnsAvatar() {
+    return voiceRendererRole() !== "background";
+  }
+
   function voicePulseIsEnabled() {
     const value = customProperty(
       document.documentElement,
@@ -133,10 +207,11 @@
   }
 
   function voicePulseIsConfigured() {
-    return customProperty(
-      document.documentElement,
-      VOICE_ORB_IMAGE_ENABLED,
-    ) !== "";
+    return customProperty(document.documentElement, VOICE_AVATAR_MODE) !== ""
+      || customProperty(
+        document.documentElement,
+        VOICE_ORB_IMAGE_ENABLED,
+      ) !== "";
   }
 
   function voiceOrbImageIsEnabled() {
@@ -154,6 +229,62 @@
     return Number.isFinite(value) ? value : fallback;
   }
 
+  function presentationScale(root) {
+    const presentation = root?.closest?.(
+      `[${VOICE_PRESENTATION_ATTRIBUTE}]`,
+    ) || root?.parentElement || null;
+    const transform = computedStyle(presentation)?.transform || "";
+    if (!transform || transform === "none") return 1;
+
+    let scaleX = 1;
+    let scaleY = 1;
+    try {
+      if (typeof DOMMatrixReadOnly === "function") {
+        const matrix = new DOMMatrixReadOnly(transform);
+        scaleX = Math.hypot(Number(matrix.a) || 0, Number(matrix.b) || 0);
+        scaleY = Math.hypot(Number(matrix.c) || 0, Number(matrix.d) || 0);
+      } else {
+        const values = transform.match(/^matrix(?:3d)?\(([^)]+)\)$/i)?.[1]
+          ?.split(",")
+          .map((value) => Number.parseFloat(value.trim())) || [];
+        if (values.length >= 16) {
+          scaleX = Math.hypot(values[0] || 0, values[1] || 0);
+          scaleY = Math.hypot(values[4] || 0, values[5] || 0);
+        } else if (values.length >= 6) {
+          scaleX = Math.hypot(values[0] || 0, values[1] || 0);
+          scaleY = Math.hypot(values[2] || 0, values[3] || 0);
+        }
+      }
+    } catch {
+      return 1;
+    }
+    const scale = Math.sqrt(scaleX * scaleY);
+    return Number.isFinite(scale) && scale > 0.01
+      ? clamp(scale, 0.25, 4)
+      : 1;
+  }
+
+  function synchronizeVoiceEffectiveScale(root) {
+    if (!root?.style?.setProperty) return;
+    if (voiceAvatarMode() === "native") {
+      root.style.removeProperty?.(VOICE_EFFECTIVE_SCALE);
+      return;
+    }
+    const configured = clamp(
+      numericCustomProperty("--cts-voice-scale", 1),
+      0.01,
+      10,
+    );
+    const effective = configured / presentationScale(root);
+    const formatted = effective.toFixed(4);
+    if (
+      root.style.getPropertyValue?.(VOICE_EFFECTIVE_SCALE)
+      !== formatted
+    ) {
+      root.style.setProperty(VOICE_EFFECTIVE_SCALE, formatted);
+    }
+  }
+
   function booleanCustomProperty(name) {
     const value = customProperty(
       document.documentElement,
@@ -162,12 +293,16 @@
     return value === "1" || value === "true";
   }
 
-  function voiceMouthFrameSources() {
-    const count = Math.round(clamp(
+  function voiceMouthFrameCount() {
+    return Math.round(clamp(
       numericCustomProperty(VOICE_MOUTH_FRAME_COUNT, 0),
       0,
       9,
     ));
+  }
+
+  function voiceMouthFrameSources() {
+    const count = voiceMouthFrameCount();
     const sources = [];
     for (let index = 0; index < count; index += 1) {
       const source = customProperty(
@@ -178,6 +313,14 @@
       sources.push(source);
     }
     return sources;
+  }
+
+  function steppedVoiceMouthLevel(level) {
+    const continuous = clamp(Number(level) || 0, 0, 1);
+    const frameCount = voiceMouthFrameCount();
+    if (frameCount < 2) return continuous;
+    const maximumIndex = frameCount - 1;
+    return Math.round(continuous * maximumIndex) / maximumIndex;
   }
 
   function voiceBlinkSource() {
@@ -339,7 +482,76 @@
     });
   }
 
+  function clearVoiceImageWarmup(pulse) {
+    pulse.voiceImageWarmup?.remove?.();
+    pulse.voiceImageWarmup = null;
+  }
+
+  function warmVoiceImageSources(sources, generation, key) {
+    const pulse = runtime.voicePulse;
+    clearVoiceImageWarmup(pulse);
+    const host = document.body || document.documentElement;
+    if (
+      sources.length === 0
+      || typeof document.createElement !== "function"
+      || typeof host?.appendChild !== "function"
+      || typeof requestAnimationFrame !== "function"
+    ) {
+      return Promise.resolve(true);
+    }
+
+    let container;
+    try {
+      container = document.createElement("div");
+      container.dataset.codexThemeVoiceImageWarmup = "true";
+      Object.assign(container.style, {
+        position: "fixed",
+        inset: "0 auto auto 0",
+        width: "1px",
+        height: "1px",
+        overflow: "hidden",
+        opacity: "0.001",
+        pointerEvents: "none",
+        zIndex: "2147483647",
+      });
+      for (const source of sources) {
+        const frame = document.createElement("span");
+        Object.assign(frame.style, {
+          position: "absolute",
+          inset: "0",
+          width: "1px",
+          height: "1px",
+          backgroundImage: source,
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+          backgroundSize: "cover",
+          transform: "translateZ(0)",
+        });
+        container.appendChild(frame);
+      }
+      host.appendChild(container);
+      container.getBoundingClientRect?.();
+      pulse.voiceImageWarmup = container;
+    } catch {
+      container?.remove?.();
+      return Promise.resolve(true);
+    }
+
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          resolve(
+            generation === runtime.voicePulse.generation
+              && key === runtime.voicePulse.mouthSourcesKey
+              && container.parentNode != null,
+          );
+        });
+      });
+    });
+  }
+
   function resetVoiceImagePreparation(pulse) {
+    clearVoiceImageWarmup(pulse);
     pulse.mouthSourcesKey = "";
     pulse.mouthSources = [];
     pulse.mouthSourcesReady = false;
@@ -380,13 +592,27 @@
         return;
       }
       const current = runtime.voicePulse;
-      current.mouthImagesPreparing = false;
       current.preloadedVoiceImages = results
         .map(({ image }) => image)
         .filter(Boolean);
       current.mouthImagesFailed = results.some(({ ready }) => !ready);
-      current.mouthSourcesReady = !current.mouthImagesFailed;
       pinVoiceMouthClosed(current.root);
+      if (current.mouthImagesFailed) {
+        current.mouthImagesPreparing = false;
+        return;
+      }
+      warmVoiceImageSources(imageSources, generation, key).then((painted) => {
+        if (
+          generation !== runtime.voicePulse.generation
+          || key !== runtime.voicePulse.mouthSourcesKey
+        ) {
+          return;
+        }
+        const prepared = runtime.voicePulse;
+        prepared.mouthImagesPreparing = false;
+        prepared.mouthSourcesReady = painted;
+        pinVoiceMouthClosed(prepared.root);
+      });
     });
   }
 
@@ -538,12 +764,13 @@
 
   function synchronizeVoiceMouth(root, rawEnergy) {
     const pulse = runtime.voicePulse;
-    if (!pulse.mouthSourcesReady) {
+    const usesLive2D = voiceAvatarMode() === "live2D";
+    if (!pulse.mouthSourcesReady && !usesLive2D) {
       pinVoiceMouthClosed(root);
       return;
     }
     const sources = pulse.mouthSources;
-    if (!root || sources.length < 2) {
+    if (!root || (sources.length < 2 && !usesLive2D)) {
       clearVoiceMouth(root);
       resetVoiceMouthDynamics(pulse);
       return;
@@ -674,7 +901,13 @@
     }
     pulse.mouthLastTimestamp = now;
     pulse.mouthRawLevel = raw;
+    runtime.live2D.mouthLevel = pulse.mouthLevel;
+    runtime.live2D.rawEnergy = raw;
 
+    if (usesLive2D) {
+      clearVoiceMouth(root);
+      return;
+    }
     const scaled = pulse.mouthLevel * (sources.length - 1);
     pulse.mouthFrameIndex = Math.min(
       Math.round(scaled),
@@ -739,6 +972,814 @@
       url = url.slice(1, -1);
     }
     return url || null;
+  }
+
+  function decodeLive2DManifest() {
+    const source = unquotedCustomProperty(VOICE_LIVE2D_MANIFEST);
+    if (!source) return null;
+    try {
+      const binary = atob(source);
+      const bytes = Uint8Array.from(
+        binary,
+        (character) => character.charCodeAt(0),
+      );
+      const text = typeof TextDecoder === "function"
+        ? new TextDecoder().decode(bytes)
+        : decodeURIComponent(
+          Array.from(bytes)
+            .map((value) => `%${value.toString(16).padStart(2, "0")}`)
+            .join(""),
+        );
+      const manifest = JSON.parse(text);
+      if (
+        !manifest
+        || typeof manifest.modelSettingsPath !== "string"
+        || !Array.isArray(manifest.resources)
+      ) {
+        return null;
+      }
+      return manifest;
+    } catch {
+      return null;
+    }
+  }
+
+  function live2DConfiguration() {
+    const manifest = decodeLive2DManifest();
+    if (!manifest) return null;
+    const parameter = (suffix, fallback) => unquotedCustomProperty(
+      `${VOICE_LIVE2D_PARAMETER_PREFIX}${suffix}-parameter`,
+      fallback,
+    );
+    return {
+      manifest,
+      scale: clamp(
+        numericCustomProperty(VOICE_LIVE2D_SCALE, 1),
+        0.25,
+        3,
+      ),
+      positionX: clamp(
+        numericCustomProperty(VOICE_LIVE2D_POSITION_X, 0.5),
+        0,
+        1,
+      ),
+      positionY: clamp(
+        numericCustomProperty(VOICE_LIVE2D_POSITION_Y, 0.5),
+        0,
+        1,
+      ),
+      parameters: {
+        mouth: parameter("mouth", "ParamMouthOpenY"),
+        angleX: parameter("angle-x", "ParamAngleX"),
+        angleY: parameter("angle-y", "ParamAngleY"),
+        angleZ: parameter("angle-z", "ParamAngleZ"),
+        bodyAngleX: parameter(
+          "body-angle-x",
+          "ParamBodyAngleX",
+        ),
+      },
+    };
+  }
+
+  function live2DAsset(assetID) {
+    if (typeof assetID !== "string" || !assetID) return null;
+    return runtime.assets.get(assetID.toLowerCase()) || null;
+  }
+
+  function live2DAssetURL(assetID) {
+    if (!live2DAsset(assetID)) return null;
+    return extractCSSURL(customProperty(
+      document.documentElement,
+      `--cts-voice-asset-${assetID.toLowerCase()}`,
+    ));
+  }
+
+  function destroyVoiceLive2D() {
+    const state = runtime.live2D;
+    state.generation += 1;
+    if (
+      state.modelUpdateTarget
+      && state.modelUpdateOriginal
+      && state.modelUpdateWrapper
+      && state.modelUpdateTarget.update === state.modelUpdateWrapper
+    ) {
+      state.modelUpdateTarget.update = state.modelUpdateOriginal;
+    }
+    state.modelUpdateTarget = null;
+    state.modelUpdateOriginal = null;
+    state.modelUpdateWrapper = null;
+    if (
+      state.rendererRenderTarget
+      && state.rendererRenderOriginal
+      && state.rendererRenderWrapper
+      && state.rendererRenderTarget.render === state.rendererRenderWrapper
+    ) {
+      state.rendererRenderTarget.render = state.rendererRenderOriginal;
+    }
+    state.rendererRenderTarget = null;
+    state.rendererRenderOriginal = null;
+    state.rendererRenderWrapper = null;
+    state.resizeObserver?.disconnect?.();
+    state.resizeObserver = null;
+    const root = state.root;
+    root?.removeAttribute?.("data-codex-live2d-ready");
+    root?.removeAttribute?.("data-codex-live2d-loading");
+    root?.removeAttribute?.("data-codex-live2d-error");
+    try {
+      state.app?.destroy?.(true, {
+        children: true,
+        texture: false,
+        baseTexture: false,
+      });
+    } catch {
+      try {
+        state.model?.destroy?.();
+      } catch {}
+    }
+    state.container?.remove?.();
+    state.root = null;
+    state.container = null;
+    state.canvas = null;
+    state.renderCanvas = null;
+    state.presentationContext = null;
+    state.presentationMode = "";
+    state.presentationCopyPending = false;
+    state.presentationLatestRequested = 0;
+    state.presentationCommittedSequence = 0;
+    state.presentationFrameReady = false;
+    state.presentationError = null;
+    state.app = null;
+    state.model = null;
+    state.configurationKey = "";
+    state.loading = false;
+    state.error = null;
+    state.mouthLevel = 0;
+    state.rawEnergy = 0;
+    state.eyeBlinkStartedAt = 0;
+    state.eyeBlinkNextAt = 0;
+    state.eyeBlinkAmount = 0;
+    state.eyeBlinkLastTimestamp = 0;
+    state.applyParameters = null;
+  }
+
+  function live2DParameterHandle(coreModel, requested, fallback) {
+    const candidates = coreModel?._parameterIds;
+    if (Array.isArray(candidates)) {
+      const match = candidates.find((candidate) => {
+        try {
+          return String(candidate?.getString?.()?.s ?? candidate)
+            === requested;
+        } catch {
+          return false;
+        }
+      });
+      if (match) return match;
+    }
+    return fallback || null;
+  }
+
+  function configureLive2DParameters(model, configuration) {
+    const internal = model?.internalModel;
+    const coreModel = internal?.coreModel;
+    if (!internal || !coreModel) return;
+    const lipSyncIDs = internal.motionManager?.lipSyncIds || [];
+    const eyeBlinkIDs = internal.eyeBlink?.getParameterIds?.()
+      || internal.motionManager?.eyeBlinkIds
+      || [];
+    const handles = {
+      mouth: live2DParameterHandle(
+        coreModel,
+        configuration.parameters.mouth,
+        lipSyncIDs[0],
+      ),
+      eyeLeft: live2DParameterHandle(
+        coreModel,
+        "ParamEyeLOpen",
+        eyeBlinkIDs[0],
+      ),
+      eyeRight: live2DParameterHandle(
+        coreModel,
+        "ParamEyeROpen",
+        eyeBlinkIDs[1],
+      ),
+      angleX: live2DParameterHandle(
+        coreModel,
+        configuration.parameters.angleX,
+        internal.idParamAngleX,
+      ),
+      angleY: live2DParameterHandle(
+        coreModel,
+        configuration.parameters.angleY,
+        internal.idParamAngleY,
+      ),
+      angleZ: live2DParameterHandle(
+        coreModel,
+        configuration.parameters.angleZ,
+        internal.idParamAngleZ,
+      ),
+      bodyAngleX: live2DParameterHandle(
+        coreModel,
+        configuration.parameters.bodyAngleX,
+        internal.idParamBodyAngleX,
+      ),
+    };
+    const set = (handle, value, weight = 1) => {
+      if (!handle || !Number.isFinite(value)) return;
+      try {
+        coreModel.setParameterValueById(handle, value, weight);
+      } catch {}
+    };
+    const applyParameters = () => {
+      const state = runtime.live2D;
+      if (state.model !== model) return;
+      // Use the same discrete energy-to-frame mapping as the proven flat
+      // renderer. A Live2D model still receives ParamMouthOpenY, but its
+      // openness now advances through the exact mouth-frame steps retained by
+      // the theme instead of smoothing them into one nearly static blend.
+      const mouth = steppedVoiceMouthLevel(state.mouthLevel);
+      // Mouth openness is an absolute voice envelope. Adding zero after
+      // speech does not undo the last non-zero Cubism value, which leaves the
+      // character visibly stuck with an open mouth. Set it on every frame so
+      // silence always returns ParamMouthOpenY to its closed value.
+      set(handles.mouth, mouth, 1);
+
+      // Cubism normally owns EyeBlink, but a motion or expression can
+      // temporarily suppress that effect. Keep a small deterministic blink
+      // driver here so a model with a valid EyeBlink group always animates.
+      if (handles.eyeLeft || handles.eyeRight) {
+        const now = typeof performance !== "undefined"
+          && typeof performance.now === "function"
+          ? performance.now()
+          : Date.now();
+        const interval = clamp(
+          numericCustomProperty(VOICE_BLINK_INTERVAL, 3800),
+          1000,
+          12000,
+        );
+        const duration = clamp(
+          numericCustomProperty(VOICE_BLINK_DURATION, 160),
+          80,
+          600,
+        );
+        if (!(state.eyeBlinkNextAt > 0)) {
+          state.eyeBlinkNextAt = now + interval;
+        }
+        if (
+          state.eyeBlinkStartedAt <= 0
+          && now >= state.eyeBlinkNextAt
+        ) {
+          state.eyeBlinkStartedAt = now;
+        }
+        let blinkAmount = 0;
+        if (state.eyeBlinkStartedAt > 0) {
+          const progress = clamp(
+            (now - state.eyeBlinkStartedAt) / duration,
+            0,
+            1,
+          );
+          blinkAmount = Math.sin(progress * Math.PI) ** 2;
+          if (progress >= 1) {
+            state.eyeBlinkStartedAt = 0;
+            state.eyeBlinkNextAt = now + interval;
+            blinkAmount = 0;
+          }
+        }
+        const eyeOpen = 1 - blinkAmount;
+        if (handles.eyeLeft) {
+          try {
+            coreModel.setParameterValueById(handles.eyeLeft, eyeOpen);
+          } catch {}
+        }
+        if (handles.eyeRight) {
+          try {
+            coreModel.setParameterValueById(handles.eyeRight, eyeOpen);
+          } catch {}
+        }
+        state.eyeBlinkAmount = blinkAmount;
+        state.eyeBlinkLastTimestamp = now;
+      }
+
+      const idleEnabled = booleanCustomProperty(VOICE_IDLE_ENABLED);
+      const idleStrength = idleEnabled
+        ? clamp(
+          numericCustomProperty(VOICE_IDLE_STRENGTH, 0.35),
+          0,
+          2,
+        ) * (1 - smoothstep(0.015, 0.12, mouth))
+        : 0;
+      const period = clamp(
+        numericCustomProperty(VOICE_IDLE_PERIOD, 4800),
+        1500,
+        12000,
+      );
+      const now = typeof performance !== "undefined"
+        && typeof performance.now === "function"
+        ? performance.now()
+        : Date.now();
+      const phase = now / period * Math.PI * 2;
+      // These are absolute idle poses, not deltas. Repeatedly adding the
+      // same small offset makes Cubism parameters accumulate until they hit
+      // their min/max values (for example ParamAngleX = -30), which can push
+      // a model outside its authored deformation range.
+      set(handles.angleX, Math.sin(phase) * 4.2 * idleStrength);
+      set(
+        handles.angleY,
+        Math.sin(phase * 0.63 + 1.1) * 2.8 * idleStrength,
+      );
+      set(
+        handles.angleZ,
+        Math.sin(phase * 0.82 - 0.4) * 2.2 * idleStrength,
+      );
+      set(
+        handles.bodyAngleX,
+        Math.sin(phase * 0.71 + 0.3) * 1.6 * idleStrength,
+      );
+    };
+    runtime.live2D.applyParameters = applyParameters;
+
+    // Cubism's update() saves parameters, emits beforeModelUpdate, then
+    // restores the saved values after the event. Applying our values in that
+    // event makes the state look correct but the rendered model stay open.
+    // Wrap update() so the final values are written after Cubism restores its
+    // parameters and immediately before Pixi draws the model.
+    const originalUpdate = internal.update;
+    if (typeof originalUpdate === "function") {
+      const wrappedUpdate = function (...args) {
+        const result = originalUpdate.apply(this, args);
+        applyParameters();
+        // Cubism's internal update has already computed drawable vertices by
+        // this point. Recompute them after our final parameter writes so the
+        // values are visible in the frame that Pixi draws next.
+        try {
+          coreModel.update?.();
+        } catch {}
+        return result;
+      };
+      wrappedUpdate.__codexThemeSwitcherLive2DUpdate = true;
+      internal.update = wrappedUpdate;
+      runtime.live2D.modelUpdateTarget = internal;
+      runtime.live2D.modelUpdateOriginal = originalUpdate;
+      runtime.live2D.modelUpdateWrapper = wrappedUpdate;
+    } else {
+      internal.on?.("beforeModelUpdate", applyParameters);
+    }
+  }
+
+  function renderVoiceLive2DFrame() {
+    const state = runtime.live2D;
+    const coreModel = state.model?.internalModel?.coreModel;
+    if (
+      !state.model
+      || !state.app
+      || !coreModel
+      || typeof state.applyParameters !== "function"
+    ) {
+      return false;
+    }
+    try {
+      state.applyParameters();
+      coreModel.update?.();
+      state.app.renderer?.render?.(state.app.stage);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function synchronizeLive2DPresentationCanvas(state) {
+    const source = state.renderCanvas;
+    const presentation = state.canvas;
+    if (!source || !presentation || source === presentation) return false;
+    const width = Math.max(Number(source.width) || 0, 1);
+    const height = Math.max(Number(source.height) || 0, 1);
+    if (presentation.width !== width) presentation.width = width;
+    if (presentation.height !== height) presentation.height = height;
+    return true;
+  }
+
+  function initializeLive2DPresentation(state) {
+    const presentation = state.canvas;
+    if (!presentation?.getContext) return false;
+    // Keep one persistent 2D backing surface attached to the DOM. Chromium's
+    // bitmaprenderer replaces the canvas backing image on every
+    // transferFromImageBitmap(). In ChatGPT's transparent macOS overlay that
+    // replacement is observable by the window compositor as an empty layer,
+    // even though JavaScript reads fully opaque pixels before and afterwards.
+    // A synchronous 2D copy updates the existing surface in one task instead.
+    const context = presentation.getContext("2d", {
+      alpha: true,
+      desynchronized: false,
+    });
+    if (!context) return false;
+    state.presentationContext = context;
+    state.presentationMode = "2d";
+    return true;
+  }
+
+  function copyLive2DPresentationFrame(state) {
+    const source = state.renderCanvas;
+    const presentation = state.canvas;
+    if (!source || !presentation || source === presentation) return false;
+    const context = state.presentationContext;
+    if (!context) return false;
+    const sequence = state.presentationLatestRequested + 1;
+    state.presentationLatestRequested = sequence;
+    try {
+      // finish() is intentional here: drawImage() must never read the WebGL
+      // canvas while Pixi is between clear and draw on the GPU command queue.
+      // The model is small and this deterministic handoff is cheaper than
+      // repeatedly replacing the visible canvas backing store.
+      const gl = state.app?.renderer?.gl;
+      if (typeof gl?.finish === "function") gl.finish();
+      else gl?.flush?.();
+      synchronizeLive2DPresentationCanvas(state);
+      context.save?.();
+      context.setTransform?.(1, 0, 0, 1, 0, 0);
+      context.globalCompositeOperation = "copy";
+      context.drawImage(source, 0, 0);
+      context.restore?.();
+      state.presentationCommittedSequence = sequence;
+      state.presentationFrameReady = true;
+      state.presentationError = null;
+      return true;
+    } catch (error) {
+      try {
+        context.restore?.();
+      } catch {}
+      state.presentationError = error?.message || String(error);
+      return false;
+    }
+  }
+
+  async function waitForLive2DPresentationFrame(
+    state,
+    sequence,
+    generation,
+  ) {
+    return generation === state.generation
+      && state.presentationCommittedSequence >= sequence
+      && state.presentationFrameReady === true;
+  }
+
+  function installLive2DPresentationMirror(state) {
+    const renderer = state.app?.renderer;
+    if (!renderer || typeof renderer.render !== "function") return false;
+    const originalRender = renderer.render;
+    const wrappedRender = function (...args) {
+      const result = originalRender.apply(this, args);
+      copyLive2DPresentationFrame(state);
+      return result;
+    };
+    renderer.render = wrappedRender;
+    state.rendererRenderTarget = renderer;
+    state.rendererRenderOriginal = originalRender;
+    state.rendererRenderWrapper = wrappedRender;
+    return true;
+  }
+
+  function ensureLive2DDrawOrderCompatibility(model) {
+    const coreModel = model?.internalModel?.coreModel;
+    const drawables = coreModel?.getModel?.()?.drawables;
+    if (!coreModel || !drawables) return;
+    let renderOrders = null;
+    try {
+      renderOrders = coreModel.getDrawableRenderOrders?.();
+    } catch {}
+    if (
+      renderOrders
+      || !drawables.drawOrders
+      || typeof coreModel.getDrawableRenderOrders !== "function"
+    ) {
+      return;
+    }
+    const drawableCount = Math.max(
+      Number(drawables.count) || 0,
+      Number(drawables.drawOrders.length) || 0,
+    );
+    const drawableIndices = Array.from(
+      { length: drawableCount },
+      (_, index) => index,
+    );
+    const normalizedOrders = new Int32Array(drawableCount);
+    coreModel.getDrawableRenderOrders = () => {
+      drawableIndices.sort((left, right) => (
+        (Number(drawables.drawOrders[left]) || 0)
+        - (Number(drawables.drawOrders[right]) || 0)
+        // Cubism assigns the same draw order to aligned full-canvas layers.
+        // Their drawable indices follow the PSD stack from foreground to
+        // background, so equal-order layers must be drawn in reverse index
+        // order. Otherwise the neutral base is drawn last and hides blinking
+        // and lip-sync overlays even though their parameters change.
+        || right - left
+      ));
+      drawableIndices.forEach((drawableIndex, order) => {
+        normalizedOrders[drawableIndex] = order;
+      });
+      return normalizedOrders;
+    };
+  }
+
+  function ensureLive2DBlobLoader() {
+    const loaders = window.PIXI?.live2d?.Live2DLoader?.middlewares;
+    if (!Array.isArray(loaders)) {
+      throw new Error("Live2D resource loader is not installed.");
+    }
+    if (loaders.some((loader) => (
+      loader?.codexThemeSwitcherBlobLoader === true
+    ))) {
+      return;
+    }
+    const loader = async (context, next) => {
+      const resolved = context.settings?.resolveURL
+        ? context.settings.resolveURL(context.url)
+        : context.url;
+      if (
+        typeof resolved !== "string"
+        || !resolved.startsWith(VOICE_LIVE2D_ASSET_PROTOCOL)
+      ) {
+        return next();
+      }
+      const assetID = resolved.slice(VOICE_LIVE2D_ASSET_PROTOCOL.length);
+      const asset = window[GLOBAL_KEY]?.assets?.get?.(assetID);
+      if (!asset?.blob) {
+        throw new Error(`Live2D resource is unavailable: ${assetID}`);
+      }
+      if (context.type === "json") {
+        context.result = JSON.parse(await asset.blob.text());
+      } else if (context.type === "text") {
+        context.result = await asset.blob.text();
+      } else if (context.type === "blob") {
+        context.result = asset.blob;
+      } else {
+        context.result = await asset.blob.arrayBuffer();
+      }
+    };
+    loader.codexThemeSwitcherBlobLoader = true;
+    loaders.unshift(loader);
+  }
+
+  async function live2DSettings(configuration) {
+    const resources = configuration.manifest.resources;
+    const resourcesByPath = new Map();
+    for (const resource of resources) {
+      if (
+        !resource
+        || typeof resource.path !== "string"
+        || typeof resource.assetID !== "string"
+      ) {
+        throw new Error("Live2D manifest contains an invalid resource.");
+      }
+      const asset = live2DAsset(resource.assetID);
+      if (!asset?.blob) {
+        throw new Error(`Live2D resource is unavailable: ${resource.path}`);
+      }
+      resourcesByPath.set(resource.path, {
+        asset,
+        assetID: resource.assetID.toLowerCase(),
+      });
+    }
+    const settingsResource = resourcesByPath.get(
+      configuration.manifest.modelSettingsPath,
+    );
+    if (!settingsResource) {
+      throw new Error("Live2D model settings resource is unavailable.");
+    }
+    const settingsJSON = JSON.parse(await settingsResource.asset.blob.text());
+    settingsJSON.url = configuration.manifest.modelSettingsPath;
+    const Settings = window.PIXI?.live2d?.Cubism4ModelSettings;
+    if (typeof Settings !== "function") {
+      throw new Error("Live2D Cubism 4 settings loader is unavailable.");
+    }
+    const settings = new Settings(settingsJSON);
+    settings.resolveURL = (path) => {
+      let decodedPath = path;
+      try {
+        decodedPath = decodeURI(path);
+      } catch {}
+      const resource = resourcesByPath.get(decodedPath);
+      if (!resource) {
+        throw new Error(`Live2D resource is unavailable: ${path}`);
+      }
+      if (resource.asset.mediaType?.startsWith?.("image/")) {
+        return resource.asset.url;
+      }
+      return `${VOICE_LIVE2D_ASSET_PROTOCOL}${resource.assetID}`;
+    };
+    ensureLive2DBlobLoader();
+    return settings;
+  }
+
+  function resizeLive2DModel(state, configuration) {
+    const container = state.container;
+    const app = state.app;
+    const model = state.model;
+    if (!container || !app || !model) return;
+    const width = Math.max(Math.round(container.clientWidth), 64);
+    const height = Math.max(Math.round(container.clientHeight), 64);
+    app.renderer.resize(width, height);
+    model.scale.set(1);
+    const bounds = model.getLocalBounds?.();
+    const modelWidth = Math.max(Number(bounds?.width) || model.width, 1);
+    const modelHeight = Math.max(
+      Number(bounds?.height) || model.height,
+      1,
+    );
+    const scale = Math.min(
+      width / modelWidth,
+      height / modelHeight,
+    ) * configuration.scale;
+    model.scale.set(scale);
+    model.x = width * configuration.positionX;
+    model.y = height * configuration.positionY;
+  }
+
+  async function mountVoiceLive2D(root, pulseGeneration) {
+    if (
+      voiceAvatarMode() !== "live2D"
+      || !voiceRendererOwnsAvatar()
+      || !root
+      || pulseGeneration !== runtime.voicePulse.generation
+    ) {
+      return;
+    }
+    const configuration = live2DConfiguration();
+    if (!configuration) return;
+    const key = JSON.stringify(configuration);
+    const state = runtime.live2D;
+    if (
+      state.root === root
+      && state.configurationKey === key
+      && (state.loading || state.model)
+    ) {
+      return;
+    }
+    if (
+      state.configurationKey === key
+      && state.model
+      && state.container
+    ) {
+      state.root?.removeAttribute?.("data-codex-live2d-ready");
+      state.root?.removeAttribute?.("data-codex-live2d-loading");
+      state.root = root;
+      root.querySelectorAll?.("[data-codex-live2d-avatar]")
+        ?.forEach?.((element) => {
+          if (element !== state.container) element.remove?.();
+        });
+      root.appendChild(state.container);
+      state.resizeObserver?.disconnect?.();
+      if (typeof ResizeObserver === "function") {
+        state.resizeObserver = new ResizeObserver(() => {
+          resizeLive2DModel(state, configuration);
+        });
+        state.resizeObserver.observe(state.container);
+      }
+      resizeLive2DModel(state, configuration);
+      root.setAttribute("data-codex-live2d-ready", "true");
+      root.removeAttribute("data-codex-live2d-loading");
+      root.removeAttribute("data-codex-live2d-error");
+      return;
+    }
+    destroyVoiceLive2D();
+    root.querySelectorAll?.("[data-codex-live2d-avatar]")
+      ?.forEach?.((element) => element.remove?.());
+    const generation = runtime.live2D.generation;
+    state.root = root;
+    state.configurationKey = key;
+    state.loading = true;
+    root.setAttribute("data-codex-live2d-loading", "true");
+    root.removeAttribute("data-codex-live2d-ready");
+    root.removeAttribute("data-codex-live2d-error");
+    let container = null;
+    let app = null;
+    let model = null;
+
+    try {
+      if (
+        !window.PIXI?.Application
+        || !window.PIXI?.live2d?.Live2DModel
+      ) {
+        throw new Error("Live2D renderer is not installed.");
+      }
+      const settings = await live2DSettings(configuration);
+      if (
+        generation !== runtime.live2D.generation
+        || pulseGeneration !== runtime.voicePulse.generation
+        || root !== runtime.voicePulse.root
+      ) {
+        return;
+      }
+
+      container = document.createElement("div");
+      container.dataset.codexLive2dAvatar = "true";
+      const renderCanvas = document.createElement("canvas");
+      const canvas = document.createElement("canvas");
+      canvas.dataset.codexLive2dCanvas = "true";
+      container.appendChild(canvas);
+      root.appendChild(container);
+      state.container = container;
+      state.canvas = canvas;
+      state.renderCanvas = renderCanvas;
+      if (!initializeLive2DPresentation(state)) {
+        throw new Error("Live2D presentation canvas is unavailable.");
+      }
+
+      app = new window.PIXI.Application({
+        // Pixi renders off-DOM. Completed frames are copied onto one stable
+        // DOM 2D canvas so macOS never sees a replaced or cleared layer.
+        view: renderCanvas,
+        width: Math.max(container.clientWidth, 64),
+        height: Math.max(container.clientHeight, 64),
+        antialias: true,
+        autoDensity: true,
+        backgroundAlpha: 0,
+        // The avatar overlay is a transparent Electron window. Without a
+        // preserved WebGL buffer, macOS may composite the cleared back buffer
+        // between Pixi frames, making the entire model flash transparent even
+        // though Cubism still contains and renders every drawable.
+        preserveDrawingBuffer: true,
+        resolution: Math.min(Number(window.devicePixelRatio) || 1, 2),
+      });
+      state.app = app;
+      if (!installLive2DPresentationMirror(state)) {
+        throw new Error("Live2D presentation mirror is unavailable.");
+      }
+      model = await window.PIXI.live2d.Live2DModel.from(
+        settings,
+        { autoInteract: false },
+      );
+      if (
+        generation !== runtime.live2D.generation
+        || pulseGeneration !== runtime.voicePulse.generation
+        || root !== runtime.voicePulse.root
+      ) {
+        model.destroy?.();
+        app.destroy?.(true);
+        container.remove();
+        return;
+      }
+      ensureLive2DDrawOrderCompatibility(model);
+      model.anchor?.set?.(0.5, 0.5);
+      app.stage.addChild(model);
+      state.model = model;
+      state.loading = false;
+      configureLive2DParameters(model, configuration);
+      resizeLive2DModel(state, configuration);
+      if (typeof ResizeObserver === "function") {
+        state.resizeObserver = new ResizeObserver(() => {
+          resizeLive2DModel(state, configuration);
+        });
+        state.resizeObserver.observe(container);
+      }
+      // The inactive overlay is background-throttled, so an rAF scheduled
+      // here may not run until the user opens Voice. Prime Pixi immediately
+      // and publish readiness now; otherwise the first visible frame is the
+      // native orb (or an empty canvas) and the portrait appears only later.
+      renderVoiceLive2DFrame();
+      const firstPresentationSequence =
+        state.presentationLatestRequested;
+      if (!await waitForLive2DPresentationFrame(
+        state,
+        firstPresentationSequence,
+        generation,
+      )) {
+        throw new Error("Live2D first presentation frame timed out.");
+      }
+      if (state.model === model && root === runtime.voicePulse.root) {
+        root.setAttribute("data-codex-live2d-ready", "true");
+        root.removeAttribute("data-codex-live2d-loading");
+        root.removeAttribute("data-codex-live2d-error");
+      }
+    } catch (error) {
+      try {
+        app?.destroy?.(true, {
+          children: true,
+          texture: false,
+          baseTexture: false,
+        });
+      } catch {}
+      container?.remove?.();
+      if (generation !== runtime.live2D.generation) return;
+      state.container = null;
+      state.canvas = null;
+      state.renderCanvas = null;
+      state.presentationContext = null;
+      state.presentationMode = "";
+      state.presentationCopyPending = false;
+      state.presentationLatestRequested = 0;
+      state.presentationCommittedSequence = 0;
+      state.presentationFrameReady = false;
+      state.presentationError = null;
+      state.rendererRenderTarget = null;
+      state.rendererRenderOriginal = null;
+      state.rendererRenderWrapper = null;
+      state.app = null;
+      state.model = null;
+      state.loading = false;
+      state.error = error?.message || String(error);
+      root.removeAttribute("data-codex-live2d-loading");
+      root.setAttribute("data-codex-live2d-error", "true");
+      console.warn("Codex Theme Live2D:", error);
+    }
   }
 
   function spriteGrid(root) {
@@ -914,6 +1955,773 @@
     ) || null;
   }
 
+  function cancelVoiceSessionDeactivation() {
+    const pulse = runtime.voicePulse;
+    if (pulse.sessionDeactivationTimer != null) {
+      clearTimeout(pulse.sessionDeactivationTimer);
+    }
+    pulse.sessionDeactivationTimer = null;
+    pulse.sessionDeactivationDeadline = 0;
+  }
+
+  function setVoiceSessionActive(active) {
+    const documentRoot = document.documentElement;
+    if (!documentRoot) return;
+    const normalizedActive = Boolean(active);
+    cancelVoiceSessionDeactivation();
+    const attributeValue = normalizedActive ? "true" : "false";
+    const changed = runtime.voicePulse.sessionActive !== normalizedActive
+      || documentRoot.getAttribute?.(VOICE_SESSION_ACTIVE_ATTRIBUTE)
+        !== attributeValue;
+    if (!document.getElementById(VOICE_SESSION_STYLE_ID)) {
+      const style = document.createElement("style");
+      style.id = VOICE_SESSION_STYLE_ID;
+      style.textContent = `
+        html:root[data-codex-voice-session-active="false"],
+        html:root[data-codex-voice-session-active="false"] body {
+          background-color: transparent !important;
+        }
+        html:root[data-codex-voice-session-active="false"] body::before,
+        html:root[data-codex-voice-session-active="false"]
+          .codex-avatar-root[data-realtime-voice-orb],
+        html:root[data-codex-voice-session-active="false"]
+          .codex-avatar-root[data-realtime-voice-orb]
+          [data-codex-live2d-avatar],
+        html:root[data-codex-voice-session-active="false"]
+          [data-codex-voice-orb],
+        html:root[data-codex-voice-session-active="false"]
+          [data-codex-voice-orb]
+          [data-codex-live2d-avatar] {
+          opacity: 0 !important;
+          visibility: hidden !important;
+          pointer-events: none !important;
+        }
+        html:root[data-codex-voice-session-active="true"]
+          .codex-avatar-root[data-codex-pet-id],
+        html:root[data-codex-voice-session-active="true"]
+          [data-testid="avatar-mascot-button"]:has(
+            .codex-avatar-root[data-codex-pet-id]
+          ),
+        html:root[data-codex-voice-session-active="true"]
+          [data-avatar-overlay-hit-region="mascot-badge"] {
+          opacity: 0 !important;
+          pointer-events: none !important;
+          visibility: hidden !important;
+        }
+        html:root[data-codex-voice-session-active="true"]
+          :is(
+            .codex-avatar-root[data-realtime-voice-orb],
+            [data-avatar-overlay-native-surface-id="voice-output"],
+            [data-codex-voice-orb]
+          )[data-codex-live2d-ready="true"],
+        html:root[data-codex-voice-session-active="true"]
+          :is(
+            .codex-avatar-root[data-realtime-voice-orb],
+            [data-avatar-overlay-native-surface-id="voice-output"],
+            [data-codex-voice-orb]
+          )[data-codex-live2d-ready="true"]
+          [data-codex-live2d-avatar] {
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+        html:root [data-codex-live2d-avatar],
+        html:root canvas[data-codex-live2d-canvas] {
+          will-change: auto !important;
+        }
+      `;
+      (document.head || documentRoot).appendChild(style);
+    }
+    // This function is reached from the realtime Voice animation loop. Even
+    // assigning the same attribute value creates a DOM mutation and forces
+    // Chromium to invalidate the transparent avatar overlay. On macOS that
+    // can present the canvas-free intermediate layer for one compositor
+    // frame, making the complete Live2D model flash on and off. Only mutate
+    // the document when the lifecycle value actually changes.
+    if (
+      documentRoot.getAttribute?.(VOICE_SESSION_ACTIVE_ATTRIBUTE)
+        !== attributeValue
+    ) {
+      documentRoot.setAttribute(
+        VOICE_SESSION_ACTIVE_ATTRIBUTE,
+        attributeValue,
+      );
+    }
+    runtime.voicePulse.sessionActive = normalizedActive;
+    if (changed) scheduleVoiceActivityShelfSync();
+  }
+
+  function deferVoiceSessionDeactivation() {
+    const pulse = runtime.voicePulse;
+    if (typeof setTimeout !== "function") {
+      // The production overlay always has timers. Test/embedded documents can
+      // omit them; fall back to the deterministic inactive state instead of
+      // throwing while replacing a stylesheet.
+      pulse.sessionPhase = "inactive";
+      setVoiceSessionActive(false);
+      return;
+    }
+    if (pulse.sessionDeactivationTimer != null) return;
+    const generation = pulse.generation;
+    pulse.sessionDeactivationDeadline = Date.now()
+      + VOICE_SESSION_INACTIVE_GRACE_MILLISECONDS;
+    pulse.sessionDeactivationTimer = setTimeout(() => {
+      pulse.sessionDeactivationTimer = null;
+      pulse.sessionDeactivationDeadline = 0;
+      if (generation !== pulse.generation) return;
+      if (!pulse.root) {
+        // A root that was removed and never recreated is a completed Voice
+        // session, not a reason to leave the detachable window opaque.
+        pulse.sessionPhase = "inactive";
+        setVoiceSessionActive(false);
+        return;
+      }
+      const renderer = pulse.publishedAudioRenderer
+        || pulse.instrumentedAudioRenderer;
+      if (rendererVoiceSessionActive(renderer) === true) {
+        setVoiceSessionActive(true);
+        return;
+      }
+      setVoiceSessionActive(false);
+    }, VOICE_SESSION_INACTIVE_GRACE_MILLISECONDS);
+  }
+
+  function clearVoicePresentationAncestors() {
+    document.querySelectorAll?.(
+      `[${VOICE_PRESENTATION_ATTRIBUTE}]`,
+    )?.forEach?.((element) => {
+      element.removeAttribute?.(VOICE_PRESENTATION_ATTRIBUTE);
+    });
+  }
+
+  function voicePresentationAncestors(root) {
+    const ancestors = [];
+    let current = root?.parentElement || null;
+    for (let depth = 0; current && depth < 8; depth += 1) {
+      ancestors.push(current);
+      if (current.hasAttribute?.("data-avatar-overlay-content-frame")) {
+        break;
+      }
+      current = current.parentElement;
+    }
+    return ancestors;
+  }
+
+  function voicePresentationIsStaged(root) {
+    const ancestors = voicePresentationAncestors(root);
+    const handoffTarget = ancestors.find((element) => (
+      element.getAttribute?.(VOICE_HANDOFF_TARGET_ATTRIBUTE)
+    ));
+    if (!handoffTarget) return false;
+
+    // During the native handoff ChatGPT leaves the old legacy overlay mounted
+    // and animates its presentation wrapper to opacity 0. The body backdrop
+    // is outside that wrapper, so it remains as a rectangular "corpse" unless
+    // the theme runtime also marks the Voice session inactive.
+    return ancestors.some((element) => {
+      const inlineOpacity = Number.parseFloat(
+        element.style?.opacity,
+      );
+      return Number.isFinite(inlineOpacity)
+        && inlineOpacity <= VOICE_HANDOFF_OPACITY_THRESHOLD;
+    });
+  }
+
+  function synchronizeVoicePresentationVisibility(root = runtime.voicePulse.root) {
+    const pulse = runtime.voicePulse;
+    if (!root || !voiceRendererOwnsAvatar()) return;
+    if (voicePresentationIsStaged(root)) {
+      pulse.voiceHandoffStaged = true;
+      setVoiceSessionActive(false);
+      return;
+    }
+    if (!pulse.voiceHandoffStaged) return;
+
+    pulse.voiceHandoffStaged = false;
+    const renderer = pulse.publishedAudioRenderer
+      || pulse.instrumentedAudioRenderer;
+    const active = rendererVoiceSessionActive(renderer);
+    const phase = String(pulse.sessionPhase || "")
+      .trim()
+      .toLowerCase();
+    if (
+      active === true
+      || (active == null && (phase === "starting" || phase === "active"))
+    ) {
+      setVoiceSessionActive(true);
+    }
+  }
+
+  function observeVoicePresentation(root) {
+    const pulse = runtime.voicePulse;
+    pulse.handoffObserver?.disconnect?.();
+    pulse.handoffObserver = null;
+    if (typeof MutationObserver !== "function") return;
+    const ancestors = voicePresentationAncestors(root);
+    if (ancestors.length === 0) return;
+    pulse.handoffObserver = new MutationObserver(() => {
+      synchronizeVoicePresentationVisibility(root);
+    });
+    for (const ancestor of ancestors) {
+      pulse.handoffObserver.observe(ancestor, {
+        attributes: true,
+        attributeFilter: [
+          "style",
+          "class",
+          "aria-hidden",
+          VOICE_HANDOFF_TARGET_ATTRIBUTE,
+        ],
+      });
+    }
+  }
+
+  function markVoicePresentationAncestors(root) {
+    clearVoicePresentationAncestors();
+    let current = root?.parentElement || null;
+    for (let depth = 0; current && depth < 4; depth += 1) {
+      if (current.hasAttribute?.("data-avatar-overlay-content-frame")) {
+        break;
+      }
+      current.setAttribute?.(VOICE_PRESENTATION_ATTRIBUTE, "true");
+      current = current.parentElement;
+    }
+  }
+
+  function voiceActivityPresentation() {
+    const presentation = document.querySelector?.(
+      `[${VOICE_PRESENTATION_ATTRIBUTE}]:has(`
+        + '> [data-avatar-overlay-hit-region="mascot"]'
+        + ")",
+    ) || null;
+    return presentation?.hasAttribute?.(VOICE_PRESENTATION_ATTRIBUTE)
+      ? presentation
+      : null;
+  }
+
+  function voiceActivityTray() {
+    const selector = '[data-avatar-overlay-size="notification-tray"]';
+    const tray = document.querySelector?.(selector) || null;
+    if (!tray) return null;
+    if (tray.matches?.(selector)) return tray;
+    return tray.getAttribute?.("data-avatar-overlay-size")
+      === "notification-tray"
+      ? tray
+      : null;
+  }
+
+  function voiceActivityTrayContainer(tray) {
+    if (!tray) return null;
+    return tray.closest?.(
+      '[data-avatar-overlay-hit-region="notification-tray"]',
+    ) || tray.parentElement || tray;
+  }
+
+  function voiceActivityMascot(presentation) {
+    if (!presentation) return null;
+    return presentation.querySelector?.(
+      ':scope > [data-avatar-overlay-hit-region="mascot"]',
+    ) || presentation.querySelector?.(
+      '[data-avatar-overlay-hit-region="mascot"]',
+    ) || null;
+  }
+
+  function inlinePixelValue(element, property) {
+    const value = element?.style?.getPropertyValue?.(property)
+      || element?.style?.[property]
+      || "";
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function voiceActivityNativePlacement(trayContainer, presentation) {
+    const trayTop = inlinePixelValue(trayContainer, "top");
+    const mascotTop = inlinePixelValue(presentation, "top");
+    const mascotHeight = inlinePixelValue(presentation, "height");
+    if (
+      trayTop != null
+      && mascotTop != null
+      && mascotHeight != null
+    ) {
+      return trayTop >= mascotTop + mascotHeight / 2
+        ? "bottom"
+        : "top";
+    }
+    const trayBounds = trayContainer?.getBoundingClientRect?.();
+    const mascotBounds = presentation?.getBoundingClientRect?.();
+    if (!trayBounds || !mascotBounds) return "top";
+    return trayBounds.top + trayBounds.height / 2
+      >= mascotBounds.top + mascotBounds.height / 2
+      ? "bottom"
+      : "top";
+  }
+
+  function voiceActivityTrayLayout({
+    nativePlacement,
+    mascotBounds,
+    trayHeight,
+    viewportHeight,
+  }) {
+    const edge = VOICE_ACTIVITY_EDGE_GAP;
+    const height = Math.max(0, trayHeight);
+    const maximumTop = Math.max(edge, viewportHeight - edge - height);
+    const above = mascotBounds.top - edge - height;
+    const below = mascotBounds.bottom + edge;
+    const aboveFits = above >= edge;
+    const belowFits = below + height <= viewportHeight - edge;
+
+    if (nativePlacement === "bottom" && belowFits) {
+      return { placement: "bottom", top: below };
+    }
+    if (nativePlacement === "top" && aboveFits) {
+      return { placement: "top", top: above };
+    }
+    if (aboveFits) return { placement: "top", top: above };
+    if (belowFits) return { placement: "bottom", top: below };
+
+    // A large custom avatar can occupy almost the complete 400 pt overlay.
+    // The native 122 pt mascot always leaves room for its tray, but the
+    // custom visual does not. Keep the tray at a viewport edge instead of
+    // shrinking the avatar or covering its center. Prefer the upper edge on
+    // equal overlap because Voice controls are docked at the lower edge.
+    const topCandidate = edge;
+    const bottomCandidate = maximumTop;
+    const overlap = (top) => Math.max(
+      0,
+      Math.min(top + height, mascotBounds.bottom)
+        - Math.max(top, mascotBounds.top),
+    );
+    const topOverlap = overlap(topCandidate);
+    const bottomOverlap = overlap(bottomCandidate);
+    return bottomOverlap < topOverlap
+      ? { placement: "bottom", top: bottomCandidate }
+      : { placement: "top", top: topCandidate };
+  }
+
+  function voiceActivityTrayIsVisible(tray) {
+    return voiceActivityVisibleSlots(tray).length > 0;
+  }
+
+  function voiceActivityVisibleSlots(tray) {
+    if (!tray) return [];
+    const activities = tray.querySelectorAll?.(
+      '[data-avatar-overlay-native-surface-id^="activity-slot-"]',
+    ) || [];
+    return [...activities].filter((activity) => {
+      const style = computedStyle(activity);
+      if (
+        style?.display === "none"
+        || style?.visibility === "hidden"
+      ) {
+        return false;
+      }
+      const bounds = activity.getBoundingClientRect?.();
+      return Boolean(bounds && bounds.width > 0 && bounds.height > 0);
+    });
+  }
+
+  function voiceActivityTrayVisualHeight(tray, trayBounds) {
+    const visibleBounds = voiceActivityVisibleSlots(tray)
+      .map((activity) => activity.getBoundingClientRect?.())
+      .filter(Boolean);
+    if (visibleBounds.length === 0) {
+      return Math.max(0, Math.ceil(trayBounds.height));
+    }
+    const visualTop = Math.min(
+      trayBounds.top,
+      ...visibleBounds.map((bounds) => bounds.top),
+    );
+    const visualBottom = Math.max(
+      trayBounds.bottom,
+      ...visibleBounds.map((bounds) => bounds.bottom),
+    );
+    return Math.max(0, Math.ceil(visualBottom - visualTop));
+  }
+
+  function clearVoiceActivityShelfLayout() {
+    const root = document.documentElement;
+    root?.removeAttribute?.(VOICE_ACTIVITY_SHELF_ATTRIBUTE);
+    root?.removeAttribute?.(VOICE_ACTIVITY_PLACEMENT_ATTRIBUTE);
+    root?.style?.removeProperty?.(VOICE_ACTIVITY_TRAY_HEIGHT);
+    root?.style?.removeProperty?.(VOICE_ACTIVITY_TRAY_TOP);
+    root?.style?.removeProperty?.(VOICE_ACTIVITY_VISUAL_CLIP_TOP);
+    root?.style?.removeProperty?.(VOICE_ACTIVITY_VISUAL_CLIP_BOTTOM);
+    runtime.voicePulse.activityShelfLastLayout = null;
+  }
+
+  function synchronizeVoiceActivityShelfObservers(tray, presentation) {
+    const pulse = runtime.voicePulse;
+    const trayContainer = voiceActivityTrayContainer(tray);
+    if (pulse.activityShelfTray !== tray) {
+      pulse.activityShelfResizeObserver?.disconnect?.();
+      pulse.activityShelfResizeObserver = null;
+      pulse.activityShelfTray = tray;
+      if (typeof ResizeObserver === "function" && tray) {
+        pulse.activityShelfResizeObserver = new ResizeObserver(() => {
+          scheduleVoiceActivityShelfSync();
+        });
+        pulse.activityShelfResizeObserver.observe(tray);
+      }
+    }
+    if (pulse.activityShelfTrayContainer !== trayContainer) {
+      pulse.activityShelfTrayPositionObserver?.disconnect?.();
+      pulse.activityShelfTrayPositionObserver = null;
+      pulse.activityShelfTrayContainer = trayContainer;
+      if (typeof MutationObserver === "function" && trayContainer) {
+        pulse.activityShelfTrayPositionObserver = new MutationObserver(() => {
+          scheduleVoiceActivityShelfSync();
+        });
+        pulse.activityShelfTrayPositionObserver.observe(trayContainer, {
+          attributes: true,
+          attributeFilter: ["style"],
+        });
+      }
+    }
+    if (pulse.activityShelfPresentation !== presentation) {
+      pulse.activityShelfPresentationObserver?.disconnect?.();
+      pulse.activityShelfPresentationObserver = null;
+      pulse.activityShelfPresentation = presentation;
+      if (typeof MutationObserver === "function" && presentation) {
+        pulse.activityShelfPresentationObserver = new MutationObserver(() => {
+          scheduleVoiceActivityShelfSync();
+        });
+        pulse.activityShelfPresentationObserver.observe(presentation, {
+          attributes: true,
+          attributeFilter: ["style"],
+        });
+      }
+    }
+  }
+
+  function synchronizeVoiceActivityShelf() {
+    const pulse = runtime.voicePulse;
+    const root = document.documentElement;
+    const tray = voiceActivityTray();
+    const presentation = voiceActivityPresentation();
+    synchronizeVoiceActivityShelfObservers(tray, presentation);
+    const sessionActive = root?.getAttribute?.(
+      VOICE_SESSION_ACTIVE_ATTRIBUTE,
+    ) === "true";
+    if (
+      !sessionActive
+      || !presentation
+      || !voiceActivityTrayIsVisible(tray)
+    ) {
+      clearVoiceActivityShelfLayout();
+      return false;
+    }
+
+    const trayBounds = tray.getBoundingClientRect();
+    const trayVisualHeight = voiceActivityTrayVisualHeight(
+      tray,
+      trayBounds,
+    );
+    const trayContainer = voiceActivityTrayContainer(tray);
+    const mascot = voiceActivityMascot(presentation);
+    const mascotBounds = mascot?.getBoundingClientRect?.();
+    if (!trayContainer || !mascotBounds) {
+      clearVoiceActivityShelfLayout();
+      return false;
+    }
+    const viewportHeight = Math.max(
+      0,
+      Number(window.innerHeight) || 0,
+      Number(root?.clientHeight) || 0,
+    );
+    const nativePlacement = voiceActivityNativePlacement(
+      trayContainer,
+      presentation,
+    );
+    const layout = voiceActivityTrayLayout({
+      nativePlacement,
+      mascotBounds,
+      trayHeight: trayVisualHeight,
+      viewportHeight,
+    });
+    const trayHeightValue = `${trayVisualHeight}px`;
+    const trayTopValue = `${Math.round(layout.top * 100) / 100}px`;
+    const visualClipTop = layout.placement === "top"
+      ? Math.min(
+        viewportHeight,
+        Math.max(0, layout.top + trayVisualHeight + VOICE_ACTIVITY_EDGE_GAP),
+      )
+      : 0;
+    const visualClipBottom = layout.placement === "bottom"
+      ? Math.min(
+        viewportHeight,
+        Math.max(0, viewportHeight - layout.top + VOICE_ACTIVITY_EDGE_GAP),
+      )
+      : 0;
+    const visualClipTopValue = `${Math.round(visualClipTop * 100) / 100}px`;
+    const visualClipBottomValue = `${Math.round(visualClipBottom * 100) / 100}px`;
+    if (
+      root.style.getPropertyValue(VOICE_ACTIVITY_TRAY_HEIGHT)
+        !== trayHeightValue
+    ) {
+      root.style.setProperty(
+        VOICE_ACTIVITY_TRAY_HEIGHT,
+        trayHeightValue,
+      );
+    }
+    if (
+      root.style.getPropertyValue(VOICE_ACTIVITY_TRAY_TOP)
+        !== trayTopValue
+    ) {
+      root.style.setProperty(VOICE_ACTIVITY_TRAY_TOP, trayTopValue);
+    }
+    if (
+      root.style.getPropertyValue(VOICE_ACTIVITY_VISUAL_CLIP_TOP)
+        !== visualClipTopValue
+    ) {
+      root.style.setProperty(
+        VOICE_ACTIVITY_VISUAL_CLIP_TOP,
+        visualClipTopValue,
+      );
+    }
+    if (
+      root.style.getPropertyValue(VOICE_ACTIVITY_VISUAL_CLIP_BOTTOM)
+        !== visualClipBottomValue
+    ) {
+      root.style.setProperty(
+        VOICE_ACTIVITY_VISUAL_CLIP_BOTTOM,
+        visualClipBottomValue,
+      );
+    }
+    if (root.getAttribute(VOICE_ACTIVITY_SHELF_ATTRIBUTE) !== "true") {
+      root.setAttribute(VOICE_ACTIVITY_SHELF_ATTRIBUTE, "true");
+    }
+    if (
+      root.getAttribute(VOICE_ACTIVITY_PLACEMENT_ATTRIBUTE)
+        !== layout.placement
+    ) {
+      root.setAttribute(
+        VOICE_ACTIVITY_PLACEMENT_ATTRIBUTE,
+        layout.placement,
+      );
+    }
+    pulse.activityShelfLastLayout = {
+      nativePlacement,
+      placement: layout.placement,
+      trayHeight: trayVisualHeight,
+      trayTop: layout.top,
+      visualClipTop,
+      visualClipBottom,
+    };
+    return true;
+  }
+
+  function scheduleVoiceActivityShelfSync() {
+    const pulse = runtime.voicePulse;
+    if (pulse.activityShelfFrameID != null) return;
+    if (
+      !voiceActivityTray()
+      && document.documentElement?.getAttribute?.(
+        VOICE_ACTIVITY_SHELF_ATTRIBUTE,
+      ) !== "true"
+    ) {
+      return;
+    }
+    const synchronize = () => {
+      pulse.activityShelfFrameID = null;
+      synchronizeVoiceActivityShelf();
+    };
+    if (typeof requestAnimationFrame === "function") {
+      pulse.activityShelfFrameID = requestAnimationFrame(synchronize);
+    } else if (typeof setTimeout === "function") {
+      pulse.activityShelfFrameID = setTimeout(synchronize, 0);
+    } else {
+      synchronize();
+    }
+  }
+
+  function startVoiceActivityShelfSync() {
+    const pulse = runtime.voicePulse;
+    if (!pulse.activityShelfWindowListener) {
+      pulse.activityShelfWindowListener = () => {
+        scheduleVoiceActivityShelfSync();
+      };
+      window.addEventListener?.(
+        "resize",
+        pulse.activityShelfWindowListener,
+      );
+    }
+    scheduleVoiceActivityShelfSync();
+  }
+
+  function stopVoiceActivityShelfSync() {
+    const pulse = runtime.voicePulse;
+    if (pulse.activityShelfFrameID != null) {
+      if (typeof cancelAnimationFrame === "function") {
+        cancelAnimationFrame(pulse.activityShelfFrameID);
+      } else if (typeof clearTimeout === "function") {
+        clearTimeout(pulse.activityShelfFrameID);
+      }
+    }
+    pulse.activityShelfResizeObserver?.disconnect?.();
+    pulse.activityShelfTrayPositionObserver?.disconnect?.();
+    pulse.activityShelfPresentationObserver?.disconnect?.();
+    if (pulse.activityShelfWindowListener) {
+      window.removeEventListener?.(
+        "resize",
+        pulse.activityShelfWindowListener,
+      );
+    }
+    pulse.activityShelfFrameID = null;
+    pulse.activityShelfResizeObserver = null;
+    pulse.activityShelfTrayPositionObserver = null;
+    pulse.activityShelfPresentationObserver = null;
+    pulse.activityShelfWindowListener = null;
+    pulse.activityShelfTray = null;
+    pulse.activityShelfTrayContainer = null;
+    pulse.activityShelfPresentation = null;
+    pulse.activityShelfLastLayout = null;
+    clearVoiceActivityShelfLayout();
+  }
+
+  function rendererVoiceSessionActive(renderer) {
+    const phase = String(renderer?.inputs?.phase || "")
+      .trim()
+      .toLowerCase();
+    const activity = String(renderer?.inputs?.voiceActivity || "")
+      .trim()
+      .toLowerCase();
+    // Newer ChatGPT builds can publish `phase=inactive` for one or more
+    // frames while the Voice surface is already listening/speaking. Treat
+    // an explicit activity state as authoritative; otherwise the session
+    // style hides the complete transparent overlay, which looks like the
+    // middle background/avatar disappearing until the next interaction.
+    if (activity && activity !== "idle") return true;
+    if (phase) {
+      // ChatGPT keeps the renderer mounted while inactive and uses starting
+      // before the first visible Voice frame. Its stopping phase can linger
+      // after the native handoff has already returned to Pet; keeping it
+      // visible in that phase leaves a second miniature avatar behind.
+      return phase === "starting" || phase === "active";
+    }
+    if (renderer?.publishedAudioLevels != null) return true;
+    if (activity === "idle") return false;
+    return null;
+  }
+
+  function synchronizeRendererVoiceSession(renderer) {
+    const pulse = runtime.voicePulse;
+    const phase = String(renderer?.inputs?.phase || "")
+      .trim()
+      .toLowerCase();
+    const active = rendererVoiceSessionActive(renderer);
+    if (phase) pulse.sessionPhase = phase;
+    if (active === true) setVoiceSessionActive(true);
+    else if (active === false) deferVoiceSessionDeactivation();
+  }
+
+  function synchronizeRendererVoiceFrame(renderer) {
+    const pulse = runtime.voicePulse;
+    const root = pulse.root;
+    if (!root) return false;
+    let synchronized = false;
+    try {
+      synchronized = synchronizeVoiceCanvas();
+    } catch (error) {
+      pulse.canvasLastError = error?.message || String(error);
+    }
+    if (!synchronized) {
+      let energy = Number(renderer?.publishedAudioLevels?.overall);
+      if (!Number.isFinite(energy)) energy = rendererVoiceLevel(renderer);
+      const speaking = String(renderer?.inputs?.voiceActivity || "")
+        .trim()
+        .toLowerCase() === "speaking";
+      if (speaking && energy <= 0.008) {
+        energy = speakingFallbackEnergy(undefined, 1);
+        pulse.mouthEnergySource = "speaking-state-hook-fallback";
+      } else {
+        pulse.mouthEnergySource = "published-audio-levels-hook";
+      }
+      synchronizeVoiceMouth(root, energy);
+      synchronizeVoiceIdle(root, energy);
+    }
+    renderVoiceLive2DFrame();
+    return true;
+  }
+
+  function releaseVoiceRendererInstrumentation() {
+    const pulse = runtime.voicePulse;
+    const renderer = pulse.instrumentedAudioRenderer;
+    if (
+      renderer
+      && pulse.instrumentedSetInputs
+      && renderer.setInputs === pulse.instrumentedSetInputs
+      && typeof pulse.originalSetInputs === "function"
+    ) {
+      try {
+        renderer.setInputs = pulse.originalSetInputs;
+      } catch {}
+    }
+    if (
+      renderer
+      && pulse.instrumentedSetPublishedAudioLevels
+      && renderer.setPublishedAudioLevels
+        === pulse.instrumentedSetPublishedAudioLevels
+      && typeof pulse.originalSetPublishedAudioLevels === "function"
+    ) {
+      try {
+        renderer.setPublishedAudioLevels =
+          pulse.originalSetPublishedAudioLevels;
+      } catch {}
+    }
+    pulse.instrumentedAudioRenderer = null;
+    pulse.instrumentedSetInputs = null;
+    pulse.originalSetInputs = null;
+    pulse.instrumentedSetPublishedAudioLevels = null;
+    pulse.originalSetPublishedAudioLevels = null;
+  }
+
+  function instrumentVoiceRenderer(renderer) {
+    const pulse = runtime.voicePulse;
+    if (!renderer || renderer === pulse.instrumentedAudioRenderer) return;
+    releaseVoiceRendererInstrumentation();
+    const originalSetInputs = renderer.setInputs;
+    const originalSetPublishedAudioLevels =
+      renderer.setPublishedAudioLevels;
+    let wrappedSetInputs = null;
+    let wrappedSetPublishedAudioLevels = null;
+    if (typeof originalSetInputs === "function") {
+      wrappedSetInputs = function setInputs(inputs) {
+        const result = Reflect.apply(originalSetInputs, this, [inputs]);
+        if (this === renderer) {
+          synchronizeRendererVoiceSession(renderer);
+          synchronizeRendererVoiceFrame(renderer);
+        }
+        return result;
+      };
+    }
+    if (typeof originalSetPublishedAudioLevels === "function") {
+      wrappedSetPublishedAudioLevels = function setPublishedAudioLevels(
+        levels,
+      ) {
+        const result = Reflect.apply(
+          originalSetPublishedAudioLevels,
+          this,
+          [levels],
+        );
+        if (this === renderer) synchronizeRendererVoiceFrame(renderer);
+        return result;
+      };
+    }
+    try {
+      if (wrappedSetInputs) renderer.setInputs = wrappedSetInputs;
+      if (wrappedSetPublishedAudioLevels) {
+        renderer.setPublishedAudioLevels = wrappedSetPublishedAudioLevels;
+      }
+      pulse.instrumentedAudioRenderer = renderer;
+      pulse.instrumentedSetInputs = wrappedSetInputs;
+      pulse.originalSetInputs = originalSetInputs;
+      pulse.instrumentedSetPublishedAudioLevels =
+        wrappedSetPublishedAudioLevels;
+      pulse.originalSetPublishedAudioLevels =
+        originalSetPublishedAudioLevels;
+    } catch {}
+    synchronizeRendererVoiceSession(renderer);
+    synchronizeRendererVoiceFrame(renderer);
+  }
+
   function isVoiceRendererInstance(value, canvas) {
     try {
       return Boolean(
@@ -961,6 +2769,7 @@
     const pulse = runtime.voicePulse;
     let renderer = pulse.publishedAudioRenderer;
     if (!isVoiceRendererInstance(renderer, canvas)) {
+      releaseVoiceRendererInstrumentation();
       renderer = null;
       pulse.publishedAudioRenderer = null;
       pulse.publishedAudioSnapshot = null;
@@ -971,8 +2780,11 @@
       } else {
         renderer = reactVoiceRenderer(canvas);
         pulse.publishedAudioRenderer = renderer;
+        instrumentVoiceRenderer(renderer);
         pulse.publishedAudioSearchCountdown = 60;
       }
+    } else {
+      instrumentVoiceRenderer(renderer);
     }
 
     const levels = renderer?.publishedAudioLevels;
@@ -1004,6 +2816,34 @@
     }
     pulse.mouthEnergySource = "published-audio-levels-desmoothed";
     return pulse.publishedAudioEstimate;
+  }
+
+  function rendererVoiceLevel(renderer) {
+    const candidates = [
+      Number(renderer?.outputLevel),
+      Number(renderer?.audioData?.[3]),
+    ].filter(Number.isFinite);
+    return candidates.length > 0
+      ? clamp(Math.max(...candidates), 0, 1)
+      : 0;
+  }
+
+  function speakingFallbackEnergy(time, amount) {
+    const seconds = Number.isFinite(time)
+      ? time
+      : (
+        typeof performance !== "undefined"
+        && typeof performance.now === "function"
+          ? performance.now() / 1000
+          : Date.now() / 1000
+      );
+    const fast = Math.sin(seconds * 13.7) * 0.5 + 0.5;
+    const slow = Math.sin(seconds * 7.9 + 1.4) * 0.5 + 0.5;
+    return clamp(
+      (0.14 + (fast * 0.62 + slow * 0.38) * 0.58) * amount,
+      0,
+      0.78,
+    );
   }
 
   function voiceCanvasContext(canvas) {
@@ -1069,11 +2909,15 @@
 
     const rootRect = root.getBoundingClientRect?.();
     const canvasRect = canvas.getBoundingClientRect?.();
+    const rootWidth = Number(root.offsetWidth) || Number(rootRect?.width);
+    const rootHeight = Number(root.offsetHeight) || Number(rootRect?.height);
     if (
       !rootRect
       || !canvasRect
-      || rootRect.width <= 0
-      || rootRect.height <= 0
+      || !Number.isFinite(rootWidth)
+      || !Number.isFinite(rootHeight)
+      || rootWidth <= 0
+      || rootHeight <= 0
       || canvasRect.width <= 0
       || canvasRect.height <= 0
     ) {
@@ -1108,6 +2952,43 @@
       program,
       "u_stateSpeak",
     );
+    const renderer = runtime.voicePulse.publishedAudioRenderer;
+    synchronizeRendererVoiceSession(renderer);
+    const rendererActivity = String(
+      renderer?.inputs?.voiceActivity || "",
+    ).trim().toLowerCase();
+    const rendererHasActivity = rendererActivity.length > 0;
+    const rendererIsSpeaking = rendererActivity === "speaking";
+    // ChatGPT 26.727 can leave the WebGL stateSpeak uniform above zero after
+    // its renderer has already transitioned back to listening. When the
+    // renderer publishes an explicit voiceActivity, it is the authoritative
+    // lifecycle signal; otherwise the stale uniform reopens a closed mouth.
+    const speakingAmount = rendererHasActivity
+      ? (rendererIsSpeaking ? 1 : 0)
+      : clamp(stateSpeak, 0, 1);
+    let speechEnergy = rawOutputLevel ?? outputLevel;
+    const publishedOverall = Number(
+      renderer?.publishedAudioLevels?.overall,
+    );
+    if (
+      Number.isFinite(publishedOverall)
+      && publishedOverall <= 0.001
+      && speakingAmount > 0.05
+    ) {
+      const rendererLevel = rendererVoiceLevel(renderer);
+      const webGLLevel = clamp(Number(outputLevel) || 0, 0, 1);
+      const fallbackLevel = Math.max(rendererLevel, webGLLevel);
+      if (fallbackLevel > speechEnergy) {
+        speechEnergy = fallbackLevel;
+        runtime.voicePulse.mouthEnergySource = rendererLevel >= webGLLevel
+          ? "renderer-output-level-fallback"
+          : "webgl-output-level-fallback";
+      }
+    }
+    if ((Number(speechEnergy) || 0) <= 0.008 && speakingAmount > 0.05) {
+      speechEnergy = speakingFallbackEnergy(time, speakingAmount);
+      runtime.voicePulse.mouthEnergySource = "speaking-state-fallback";
+    }
     const stateAmount = Math.max(stateListen, stateThink, stateSpeak);
     const outputEnergy = smoothstep(0.04, 0.46, outputLevel);
     const breath = Math.sin(time * Math.PI * 0.34) * 0.5 + 0.5;
@@ -1156,35 +3037,43 @@
       + layoutRect.height * (0.5 - verticalDrift);
 
     return {
-      left: ((centerX - diameter / 2) / rootRect.width) * 100,
-      top: ((centerY - diameter / 2) / rootRect.height) * 100,
-      width: (diameter / rootRect.width) * 100,
-      height: (diameter / rootRect.height) * 100,
+      // Percentages are relative to the untransformed CSS layout box. During
+      // ChatGPT's Voice handoff the parent is animated with scale(), so using
+      // getBoundingClientRect() here mixes transformed and layout coordinates
+      // and produces values such as 146% at the end of a session.
+      left: ((centerX - diameter / 2) / rootWidth) * 100,
+      top: ((centerY - diameter / 2) / rootHeight) * 100,
+      width: (diameter / rootWidth) * 100,
+      height: (diameter / rootHeight) * 100,
       pulse: referenceRadius > 0 ? radius / referenceRadius : 1,
-      speechEnergy: rawOutputLevel ?? outputLevel,
+      speechEnergy,
     };
   }
 
-  function setVoiceOrbLayoutShift(root, geometry) {
-    const layoutTarget = root?.closest?.(
+  function setVoiceOrbLayoutShift(root) {
+    const hitRegion = root?.closest?.(
       '[data-avatar-overlay-hit-region="mascot"]',
-    ) || root;
-    const rootRect = root?.getBoundingClientRect?.();
-    const targetRect = layoutTarget?.getBoundingClientRect?.();
+    );
+    const layoutTarget = hitRegion?.parentElement || hitRegion || root;
+    const rootLayout = layoutRectWithin(root, layoutTarget) || {
+      left: 0,
+      top: 0,
+      width: Number(layoutTarget?.offsetWidth) || Number(root?.offsetWidth),
+      height: Number(layoutTarget?.offsetHeight) || Number(root?.offsetHeight),
+    };
     if (
-      !rootRect
-      || !targetRect
-      || rootRect.width <= 0
-      || rootRect.height <= 0
+      !Number.isFinite(rootLayout.width)
+      || !Number.isFinite(rootLayout.height)
+      || rootLayout.width <= 0
+      || rootLayout.height <= 0
     ) {
       return;
     }
-    const localCenterX = rootRect.left - targetRect.left + (
-      geometry.left + geometry.width / 2
-    ) / 100 * rootRect.width;
-    const localCenterY = rootRect.top - targetRect.top + (
-      geometry.top + geometry.height / 2
-    ) / 100 * rootRect.height;
+    // Voice animates the orb with scale/translate every frame. Measuring its
+    // transformed rectangle here made the outer presentation chase that
+    // animation and created a visible horizontal feedback loop.
+    const localCenterX = rootLayout.left + rootLayout.width / 2;
+    const localCenterY = rootLayout.top + rootLayout.height / 2;
     const values = {
       [VOICE_ORB_LAYOUT_SHIFT.x]: -localCenterX,
       [VOICE_ORB_LAYOUT_SHIFT.y]: -localCenterY,
@@ -1215,7 +3104,7 @@
         root.style?.setProperty?.(property, formatted);
       }
     }
-    setVoiceOrbLayoutShift(root, geometry);
+    setVoiceOrbLayoutShift(root);
     const pulse = Number(geometry.pulse);
     if (Number.isFinite(pulse)) {
       const formatted = clamp(pulse, 0.25, 2.5).toFixed(4);
@@ -1238,6 +3127,7 @@
   function synchronizeVoiceCanvas() {
     const pulse = runtime.voicePulse;
     if (!pulse.root) return false;
+    synchronizeVoiceEffectiveScale(pulse.root);
     return setVoiceOrbLiveGeometry(
       pulse.root,
       voiceCanvasGeometry(pulse.root),
@@ -1263,8 +3153,16 @@
       ) {
         return;
       }
-      synchronizeVoiceCanvas();
-      scheduleVoiceCanvasFrame(generation);
+      try {
+        synchronizeVoiceCanvas();
+        pulse.canvasLastError = null;
+      } catch (error) {
+        // A transient WebGL/DOM change must not permanently stop the
+        // animation loop. Keep the next frame alive and retain a diagnostic.
+        pulse.canvasLastError = error?.message || String(error);
+      } finally {
+        scheduleVoiceCanvasFrame(generation);
+      }
     });
   }
 
@@ -1332,16 +3230,24 @@
 
   function removeVoiceOrbLiveGeometry(root) {
     root?.style?.removeProperty?.(VOICE_PULSE_LIVE_SCALE);
+    root?.style?.removeProperty?.(VOICE_EFFECTIVE_SCALE);
     clearVoiceMouth(root);
     root?.style?.removeProperty?.(VOICE_IDLE_X);
     root?.style?.removeProperty?.(VOICE_IDLE_Y);
     root?.style?.removeProperty?.(VOICE_IDLE_ROTATION);
     root?.style?.removeProperty?.(VOICE_BLINK_OPACITY);
-    const layoutTarget = root?.closest?.(
+    const hitRegion = root?.closest?.(
       '[data-avatar-overlay-hit-region="mascot"]',
-    ) || root;
-    for (const property of Object.values(VOICE_ORB_LAYOUT_SHIFT)) {
-      layoutTarget?.style?.removeProperty?.(property);
+    );
+    const layoutTargets = [
+      hitRegion?.parentElement,
+      hitRegion,
+      root,
+    ].filter(Boolean);
+    for (const layoutTarget of new Set(layoutTargets)) {
+      for (const property of Object.values(VOICE_ORB_LAYOUT_SHIFT)) {
+        layoutTarget?.style?.removeProperty?.(property);
+      }
     }
     for (const property of Object.values(VOICE_ORB_LIVE_GEOMETRY)) {
       root?.style?.removeProperty?.(property);
@@ -1373,9 +3279,29 @@
     });
   }
 
-  function detachVoicePulseRoot() {
+  function detachVoicePulseRoot(
+    preserveLive2D = false,
+    deferSessionDeactivation = false,
+  ) {
     const pulse = runtime.voicePulse;
+    if (!preserveLive2D) {
+      if (deferSessionDeactivation && pulse.root) {
+        // React can remove and recreate the native Voice root while moving
+        // the detachable surface. Keep the backdrop alive until the new root
+        // is attached, otherwise the transparent window flashes through to
+        // the desktop for a frame (or longer on a throttled overlay).
+        deferVoiceSessionDeactivation();
+      } else {
+        setVoiceSessionActive(false);
+        pulse.sessionPhase = "inactive";
+      }
+      destroyVoiceLive2D();
+    } else {
+      pulse.root?.removeAttribute?.("data-codex-live2d-ready");
+      pulse.root?.removeAttribute?.("data-codex-live2d-loading");
+    }
     pulse.rootObserver?.disconnect?.();
+    pulse.handoffObserver?.disconnect?.();
     if (
       pulse.canvasFrameID != null
       && typeof cancelAnimationFrame === "function"
@@ -1383,13 +3309,22 @@
       cancelAnimationFrame(pulse.canvasFrameID);
     }
     removeVoiceOrbLiveGeometry(pulse.root);
+    clearVoicePresentationAncestors();
+    scheduleVoiceActivityShelfSync();
+    if (pulse.rootMarkerOwned) {
+      pulse.root?.removeAttribute?.("data-codex-voice-orb");
+    }
     pulse.root = null;
+    pulse.rootMarkerOwned = false;
     pulse.rootObserver = null;
+    pulse.handoffObserver = null;
+    pulse.voiceHandoffStaged = false;
     pulse.canvasFrameID = null;
     pulse.analysis = null;
     pulse.analysisLoading = false;
     pulse.lastPosition = null;
     resetVoiceMouthDynamics(pulse);
+    releaseVoiceRendererInstrumentation();
     pulse.publishedAudioRenderer = null;
     pulse.publishedAudioSearchCountdown = 0;
     pulse.publishedAudioSnapshot = null;
@@ -1404,10 +3339,47 @@
   function attachVoicePulseRoot(root, generation) {
     const pulse = runtime.voicePulse;
     if (!root || generation !== pulse.generation) return;
+    pulse.rootMarkerOwned = Boolean(
+      root.matches?.(
+        '[data-avatar-overlay-native-surface-id="voice-output"]',
+      )
+      && !root.hasAttribute?.("data-codex-voice-orb")
+    );
+    if (pulse.rootMarkerOwned) {
+      root.setAttribute("data-codex-voice-orb", "composition");
+    }
     pulse.root = root;
     pulse.active = true;
-    if (!pulse.mouthSourcesReady) {
+    markVoicePresentationAncestors(root);
+    observeVoicePresentation(root);
+    scheduleVoiceActivityShelfSync();
+    if (voiceRendererOwnsAvatar()) {
+      // The native voice-output surface is created before its React audio
+      // renderer publishes the first `starting` phase. A previous Voice
+      // session can therefore leave the freshly mounted Live2D avatar under
+      // `session-active=false` until the user moves the overlay. Treat a new
+      // foreground surface as starting immediately, then let an available
+      // renderer override that provisional state (for example, when a
+      // stopping surface is only lingering during native handoff).
+      const renderer = reactVoiceRenderer(voiceCanvas(root));
+      if (renderer) {
+        synchronizeRendererVoiceSession(renderer);
+      } else {
+        pulse.sessionPhase = "starting";
+        setVoiceSessionActive(true);
+      }
+    }
+    synchronizeVoicePresentationVisibility(root);
+    if (voiceAvatarMode() === "image" && !pulse.mouthSourcesReady) {
       pinVoiceMouthClosed(root);
+    }
+    if (
+      voiceAvatarMode() === "live2D"
+      && voiceRendererOwnsAvatar()
+    ) {
+      mountVoiceLive2D(root, generation);
+    } else if (voiceAvatarMode() === "live2D") {
+      destroyVoiceLive2D();
     }
 
     if (typeof MutationObserver === "function") {
@@ -1440,7 +3412,7 @@
     }
   }
 
-  function stopVoicePulseSync() {
+  function stopVoicePulseSync({ deferSessionDeactivation = false } = {}) {
     const pulse = runtime.voicePulse;
     if (!pulse) return;
     pulse.generation += 1;
@@ -1451,7 +3423,8 @@
       "change",
       pulse.colorSchemeListener,
     );
-    detachVoicePulseRoot();
+    detachVoicePulseRoot(false, deferSessionDeactivation);
+    stopVoiceActivityShelfSync();
     resetVoiceImagePreparation(pulse);
     pulse.domObserver = null;
     pulse.appearanceObserver = null;
@@ -1460,7 +3433,10 @@
   }
 
   function refreshVoicePulseSync() {
-    stopVoicePulseSync();
+    // Rebuilding the Voice observers is expected when the appearance class
+    // changes. Do not hide the whole overlay while the same surface is being
+    // rebound; the root can be recreated within the same event turn.
+    stopVoicePulseSync({ deferSessionDeactivation: true });
     if (!voicePulseIsConfigured()) {
       return;
     }
@@ -1488,10 +3464,18 @@
       runtime.voicePulse.colorSchemeQuery = query;
       runtime.voicePulse.colorSchemeListener = listener;
     }
-    if (!voiceOrbImageIsEnabled()) {
+    const avatarMode = voiceAvatarMode();
+    if (avatarMode === "native") {
       return;
     }
-    prepareVoiceImages(generation);
+    if (avatarMode === "image") {
+      if (!voiceOrbImageIsEnabled()) return;
+      prepareVoiceImages(generation);
+    } else {
+      resetVoiceImagePreparation(runtime.voicePulse);
+      runtime.voicePulse.mouthSourcesReady = true;
+    }
+    startVoiceActivityShelfSync();
 
     const findRoot = () => (
       typeof document.querySelector === "function"
@@ -1504,9 +3488,23 @@
     ) {
       runtime.voicePulse.domObserver = new MutationObserver(() => {
         if (generation !== runtime.voicePulse.generation) return;
+        scheduleVoiceActivityShelfSync();
         const nextRoot = findRoot();
-        if (nextRoot === runtime.voicePulse.root) return;
-        detachVoicePulseRoot();
+        if (nextRoot === runtime.voicePulse.root) {
+          synchronizeVoicePresentationVisibility(nextRoot);
+          return;
+        }
+        const preserveLive2D = Boolean(
+          nextRoot
+          && voiceAvatarMode() === "live2D"
+          && runtime.live2D.model
+        );
+        // A native handoff can leave the old Voice surface in the overlay
+        // window for a short time after its root is removed. Do not apply the
+        // stylesheet-rebuild grace period here: it would keep that old
+        // surface's background image visible as a small stale rectangle while
+        // the replacement root is already on screen.
+        detachVoicePulseRoot(preserveLive2D);
         if (nextRoot) attachVoicePulseRoot(nextRoot, generation);
       });
       runtime.voicePulse.domObserver.observe(document.documentElement, {
@@ -1826,6 +3824,7 @@
           asset = {
             fingerprint: descriptor.fingerprint,
             mediaType: descriptor.mediaType,
+            blob,
             url,
           };
           createdURLs.push(url);
@@ -1834,6 +3833,7 @@
         nextAssets.set(descriptor.id, {
           fingerprint: descriptor.fingerprint,
           mediaType: descriptor.mediaType,
+          blob: asset.blob,
           url: asset.url,
         });
       }
@@ -1889,6 +3889,22 @@
       digest: runtime.current?.digest || null,
       stylePresent: stylePresent(),
       voicePulseActive: runtime.voicePulse.active,
+      live2DActive: Boolean(runtime.live2D.model),
+      live2DError: runtime.live2D.error,
+      live2DPresentationMode: runtime.live2D.presentationMode,
+      live2DPresentationReady: runtime.live2D.presentationFrameReady,
+      live2DPresentationError: runtime.live2D.presentationError,
+      voiceRendererRole: voiceRendererRole(),
+      voiceSessionActive: runtime.voicePulse.sessionActive,
+      voiceSessionPhase: runtime.voicePulse.sessionPhase,
+      voiceSessionDeactivationPending:
+        runtime.voicePulse.sessionDeactivationTimer != null,
+      voiceSessionDeactivationDeadline:
+        runtime.voicePulse.sessionDeactivationDeadline,
+      voiceRendererFound: Boolean(
+        runtime.voicePulse.publishedAudioRenderer,
+      ),
+      voiceActivityLayout: runtime.voicePulse.activityShelfLastLayout,
       current: runtime.current
         ? {
           themeID: runtime.current.themeID,
@@ -1903,8 +3919,12 @@
     stopVoicePulseSync();
     activeStyle()?.remove();
     removeStagingStyle();
+    document.getElementById(VOICE_SESSION_STYLE_ID)?.remove();
     document.documentElement?.removeAttribute(
       "data-codex-theme-switcher-theme",
+    );
+    document.documentElement?.removeAttribute(
+      VOICE_SESSION_ACTIVE_ATTRIBUTE,
     );
     revokeURLs([...runtime.assets.values()].map((asset) => asset.url));
     runtime.current = null;
@@ -1922,7 +3942,9 @@
     voicePulse: {
       generation: 0,
       root: null,
+      rootMarkerOwned: false,
       rootObserver: null,
+      handoffObserver: null,
       domObserver: null,
       appearanceObserver: null,
       colorSchemeQuery: null,
@@ -1931,6 +3953,7 @@
       analysisLoading: false,
       lastPosition: null,
       canvasFrameID: null,
+      canvasLastError: null,
       mouthLevel: 0,
       mouthFrameIndex: 0,
       mouthLastTimestamp: 0,
@@ -1945,7 +3968,13 @@
       mouthImagesPreparing: false,
       mouthImagesFailed: false,
       preloadedVoiceImages: [],
+      voiceImageWarmup: null,
       publishedAudioRenderer: null,
+      instrumentedAudioRenderer: null,
+      instrumentedSetInputs: null,
+      originalSetInputs: null,
+      instrumentedSetPublishedAudioLevels: null,
+      originalSetPublishedAudioLevels: null,
       publishedAudioSearchCountdown: 0,
       publishedAudioSnapshot: null,
       publishedAudioLevel: null,
@@ -1965,7 +3994,54 @@
       blinkOpacity: "",
       blinkStartedAt: 0,
       nextBlinkAt: 0,
+      activityShelfFrameID: null,
+      activityShelfResizeObserver: null,
+      activityShelfTrayPositionObserver: null,
+      activityShelfPresentationObserver: null,
+      activityShelfWindowListener: null,
+      activityShelfTray: null,
+      activityShelfTrayContainer: null,
+      activityShelfPresentation: null,
+      activityShelfLastLayout: null,
       active: false,
+      sessionActive: false,
+      sessionPhase: "inactive",
+      sessionDeactivationTimer: null,
+      sessionDeactivationDeadline: 0,
+      voiceHandoffStaged: false,
+    },
+    live2D: {
+      generation: 0,
+      root: null,
+      container: null,
+      canvas: null,
+      renderCanvas: null,
+      presentationContext: null,
+      presentationMode: "",
+      presentationCopyPending: false,
+      presentationLatestRequested: 0,
+      presentationCommittedSequence: 0,
+      presentationFrameReady: false,
+      presentationError: null,
+      app: null,
+      model: null,
+      resizeObserver: null,
+      configurationKey: "",
+      loading: false,
+      error: null,
+      mouthLevel: 0,
+      rawEnergy: 0,
+      eyeBlinkStartedAt: 0,
+      eyeBlinkNextAt: 0,
+      eyeBlinkAmount: 0,
+      eyeBlinkLastTimestamp: 0,
+      modelUpdateTarget: null,
+      modelUpdateOriginal: null,
+      modelUpdateWrapper: null,
+      rendererRenderTarget: null,
+      rendererRenderOriginal: null,
+      rendererRenderWrapper: null,
+      applyParameters: null,
     },
     voicePulseCache: new Map(),
     begin,
@@ -1974,6 +4050,7 @@
     abort,
     status,
     clear,
+    refreshVoicePulseSync,
   };
   window[GLOBAL_KEY] = runtime;
   expose(runtime);

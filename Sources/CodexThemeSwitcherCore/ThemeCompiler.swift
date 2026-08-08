@@ -24,7 +24,8 @@ public struct ThemeCompilationWarning: Codable, Equatable, Sendable, Identifiabl
 public struct CompiledTheme: Equatable, Sendable {
     public var themeID: UUID
     public var css: String
-    /// CSS delivered only to the dedicated ChatGPT Voice avatar overlay.
+    /// Full-page CSS delivered only to the dedicated Voice avatar overlay.
+    /// The safe embedded-orb subset is already included in `css`.
     public var avatarOverlayCSS: String
     public var warnings: [ThemeCompilationWarning]
     public var runtimeAssets: [ThemeAsset]
@@ -291,6 +292,14 @@ public struct ThemeCompiler: Sendable {
         // declarations remain the true final escape hatch.
         if let imageSkin = document.imageSkin, imageSkin.isEnabled {
             output.append(ThemeImageSkinCompiler.compile(imageSkin))
+        }
+        if let voiceStyle = document.voiceStyle {
+            let embeddedOrbCSS = ThemeVoiceStyleCompiler.compileEmbeddedOrb(
+                voiceStyle
+            )
+            if !embeddedOrbCSS.isEmpty {
+                output.append(embeddedOrbCSS)
+            }
         }
         output.append(contentsOf: advancedCSSOutput)
 

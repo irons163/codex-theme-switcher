@@ -451,6 +451,14 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "avatarMode": {
+          "enum": ["native", "image", "live2D"],
+          "default": "image",
+          "description": "Select the native orb, the existing flat image and mouth-frame renderer, or an imported Cubism Live2D model."
+        },
+        "live2DModel": {
+          "$ref": "#/$defs/live2DModel"
+        },
         "backgroundAssetID": {
           "$ref": "#/$defs/uuid"
         },
@@ -483,6 +491,25 @@
           "type": "number",
           "minimum": 0,
           "maximum": 40
+        },
+        "overlayMascotWidth": {
+          "type": "number",
+          "minimum": 80,
+          "maximum": 339,
+          "default": 113,
+          "description": "Width of ChatGPT's measured Voice avatar area in CSS pixels. Increasing it expands the native overlay window so large portraits and full-body Live2D models are not clipped."
+        },
+        "overlayMascotHeightScale": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 3,
+          "default": 1,
+          "description": "Independent height multiplier for the custom Voice background/avatar area."
+        },
+        "orbLocksToOverlayCenter": {
+          "type": "boolean",
+          "default": true,
+          "description": "Keep the Voice orb anchored to the overlay center. Disable this to use ChatGPT's native free dragging and move the orb to screen edges."
         },
         "orbBackgroundAssetID": {
           "$ref": "#/$defs/uuid"
@@ -653,6 +680,90 @@
         },
         "backdropOpacity": {
           "$ref": "#/$defs/unitNumber"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "avatarMode": {
+                "const": "live2D"
+              }
+            },
+            "required": ["avatarMode"]
+          },
+          "then": {
+            "required": ["live2DModel"]
+          }
+        }
+      ]
+    },
+    "live2DResource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "assetID"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+        },
+        "assetID": {
+          "$ref": "#/$defs/uuid"
+        }
+      }
+    },
+    "live2DParameterID": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_.-]+$"
+    },
+    "live2DModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modelSettingsPath", "resources"],
+      "properties": {
+        "modelSettingsPath": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "\\.model3\\.json$"
+        },
+        "resources": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/live2DResource"
+          }
+        },
+        "scale": {
+          "type": "number",
+          "minimum": 0.25,
+          "maximum": 3
+        },
+        "positionX": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "positionY": {
+          "$ref": "#/$defs/unitNumber"
+        },
+        "mouthParameterID": {
+          "$ref": "#/$defs/live2DParameterID"
+        },
+        "angleXParameterID": {
+          "$ref": "#/$defs/live2DParameterID"
+        },
+        "angleYParameterID": {
+          "$ref": "#/$defs/live2DParameterID"
+        },
+        "angleZParameterID": {
+          "$ref": "#/$defs/live2DParameterID"
+        },
+        "bodyAngleXParameterID": {
+          "$ref": "#/$defs/live2DParameterID"
         }
       }
     },

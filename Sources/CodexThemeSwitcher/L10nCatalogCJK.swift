@@ -35,6 +35,240 @@ enum L10nCatalogCJK {
     private static let entries: [Entry] = [
         .init(" Copy", " 副本", " のコピー", " 복사본"),
         .init(
+            "Voice avatar mode",
+            "Voice 角色模式",
+            "Voiceアバターモード",
+            "Voice 아바타 모드"
+        ),
+        .init(
+            "The three modes are independent. Switching modes does not remove flat-image or Live2D assets.",
+            "三种模式彼此独立；切换模式不会删除平面图或 Live2D 素材。",
+            "3つのモードは独立しています。モードを切り替えても2D画像やLive2Dアセットは削除されません。",
+            "세 가지 모드는 서로 독립적입니다. 모드를 전환해도 평면 이미지나 Live2D 에셋은 삭제되지 않습니다."
+        ),
+        .init(
+            "Avatar mode",
+            "角色模式",
+            "アバターモード",
+            "아바타 모드"
+        ),
+        .init(
+            "Avatar area size",
+            "角色区域大小",
+            "アバター領域のサイズ",
+            "아바타 영역 크기"
+        ),
+        .init(
+            "Expands ChatGPT's native Voice window with the avatar. Increase it when a large or full-body Live2D model is clipped.",
+            "会连同 ChatGPT 原生 Voice 窗口一起放大；大型或全身 Live2D 被裁切时可调高。",
+            "アバターと一緒にChatGPT標準のVoiceウィンドウも拡大します。大きなモデルや全身のLive2Dが切れる場合は値を上げてください。",
+            "아바타와 함께 ChatGPT 기본 Voice 창도 확대됩니다. 크거나 전신인 Live2D 모델이 잘리면 값을 높이세요."
+        ),
+        .init(
+            "Native orb",
+            "原生圆球",
+            "標準オーブ",
+            "기본 구체"
+        ),
+        .init(
+            "Flat image / mouth frames",
+            "平面图／嘴型图",
+            "2D画像／口形フレーム",
+            "평면 이미지 / 입 모양 프레임"
+        ),
+        .init(
+            "Import a .model3.json first. The native orb remains visible until the model is ready.",
+            "请先导入 .model3.json；模型准备完成前会保留原生圆球。",
+            "先に.model3.jsonを読み込んでください。モデルの準備が整うまでは標準オーブが表示されます。",
+            "먼저 .model3.json을 가져오세요. 모델이 준비될 때까지 기본 구체가 표시됩니다."
+        ),
+        .init(
+            "No Live2D model imported",
+            "尚未导入 Live2D 模型",
+            "Live2Dモデルが読み込まれていません",
+            "가져온 Live2D 모델이 없습니다"
+        ),
+        .init(
+            "Live2D uses WebGL. Apply the theme and open a Voice conversation to inspect the real animation.",
+            "Live2D 使用 WebGL；请套用主题并打开 Voice 对话查看实际动画。",
+            "Live2DはWebGLを使用します。テーマを適用してVoice会話を開き、実際のアニメーションを確認してください。",
+            "Live2D는 WebGL을 사용합니다. 테마를 적용하고 Voice 대화를 열어 실제 애니메이션을 확인하세요."
+        ),
+        .init(
+            "Import a Cubism .model3.json and its referenced resources. Existing flat-image settings stay in the theme.",
+            "导入 Cubism .model3.json 及其引用的资源。现有平面图设置仍会保留在主题中。",
+            "Cubismの.model3.jsonと参照リソースを読み込みます。既存の2D画像設定はテーマ内に保持されます。",
+            "Cubism .model3.json과 참조 리소스를 가져옵니다. 기존 평면 이미지 설정은 테마에 유지됩니다."
+        ),
+        .init(
+            "No model selected",
+            "尚未选择模型",
+            "モデルが選択されていません",
+            "선택한 모델이 없습니다"
+        ),
+        .init(
+            "{0} files · {1}",
+            "{0} 个文件 · {1}",
+            "{0}ファイル · {1}",
+            "파일 {0}개 · {1}"
+        ),
+        .init(
+            "Import model",
+            "导入模型",
+            "モデルを読み込む",
+            "모델 가져오기"
+        ),
+        .init(
+            "Replace model",
+            "更换模型",
+            "モデルを置き換える",
+            "모델 교체"
+        ),
+        .init(
+            "Model scale",
+            "模型缩放",
+            "モデルの拡大率",
+            "모델 크기"
+        ),
+        .init(
+            "Idle motion strength",
+            "待机动作强度",
+            "待機モーションの強さ",
+            "대기 모션 강도"
+        ),
+        .init(
+            "The importer is responsible for model and character rights. Confirm the Cubism SDK publication license before distributing the app.",
+            "导入者须自行负责模型与角色权利；公开发布应用前也请确认 Cubism SDK 的发布许可。",
+            "モデルとキャラクターの権利は読み込む側の責任です。アプリを配布する前にCubism SDKの公開ライセンスも確認してください。",
+            "모델과 캐릭터 권리는 가져오는 사용자가 책임집니다. 앱을 배포하기 전에 Cubism SDK 공개 라이선스도 확인하세요."
+        ),
+        .init(
+            "Choose Live2D model3.json",
+            "选择 Live2D model3.json",
+            "Live2D model3.jsonを選択",
+            "Live2D model3.json 선택"
+        ),
+        .init(
+            "Choose the .model3.json inside an exported Cubism folder. Referenced model, texture, physics, and motion files will be embedded with the theme.",
+            "请选择 Cubism 导出文件夹内的 .model3.json；引用的模型、贴图、物理与动作文件会一并嵌入主题。",
+            "Cubismの書き出しフォルダ内にある.model3.jsonを選択してください。参照されるモデル、テクスチャ、物理演算、モーションの各ファイルがテーマに埋め込まれます。",
+            "Cubism 내보내기 폴더의 .model3.json을 선택하세요. 참조된 모델, 텍스처, 물리 및 모션 파일이 테마에 함께 포함됩니다."
+        ),
+        .init(
+            "Import Live2D model",
+            "导入 Live2D 模型",
+            "Live2Dモデルを読み込む",
+            "Live2D 모델 가져오기"
+        ),
+        .init(
+            "Imported the Live2D model with {0} files.",
+            "已导入 Live2D 模型及 {0} 个文件。",
+            "Live2Dモデルと{0}個のファイルを読み込みました。",
+            "Live2D 모델과 파일 {0}개를 가져왔습니다."
+        ),
+        .init(
+            "Change Voice avatar mode",
+            "更改 Voice 角色模式",
+            "Voiceアバターモードを変更",
+            "Voice 아바타 모드 변경"
+        ),
+        .init(
+            "Remove Live2D model",
+            "移除 Live2D 模型",
+            "Live2Dモデルを削除",
+            "Live2D 모델 제거"
+        ),
+        .init(
+            "“{0}” is not a valid Live2D .model3.json file.",
+            "“{0}”不是有效的 Live2D .model3.json 文件。",
+            "「{0}」は有効なLive2D .model3.jsonファイルではありません。",
+            "“{0}”은(는) 올바른 Live2D .model3.json 파일이 아닙니다."
+        ),
+        .init(
+            "The Live2D model is missing “{0}”.",
+            "Live2D 模型缺少“{0}”。",
+            "Live2Dモデルに「{0}」がありません。",
+            "Live2D 모델에 “{0}” 파일이 없습니다."
+        ),
+        .init(
+            "Live2D resource path “{0}” escapes the model folder.",
+            "Live2D 资源路径“{0}”超出模型文件夹。",
+            "Live2Dリソースのパス「{0}」がモデルフォルダの外を参照しています。",
+            "Live2D 리소스 경로 “{0}”이(가) 모델 폴더를 벗어납니다."
+        ),
+        .init(
+            "Enable idle motion",
+            "启用待机动作",
+            "待機モーションを有効にする",
+            "대기 모션 사용"
+        ),
+        .init(
+            "Parameter mapping",
+            "参数对应",
+            "パラメータ対応",
+            "파라미터 매핑"
+        ),
+        .init(
+            "Map mouth and head motion here when the model uses custom parameter IDs.",
+            "若模型使用自定义参数 ID，可在此对应嘴型与头部动作。",
+            "モデルが独自のパラメータIDを使う場合は、ここで口と頭の動きを対応付けます。",
+            "모델이 사용자 지정 파라미터 ID를 사용하면 여기에서 입과 머리 동작을 매핑하세요."
+        ),
+        .init(
+            "Mouth open",
+            "嘴巴张合",
+            "口の開閉",
+            "입 벌림"
+        ),
+        .init(
+            "Head angle X",
+            "头部水平",
+            "頭部の水平角度",
+            "머리 수평 각도"
+        ),
+        .init(
+            "Head angle Y",
+            "头部垂直",
+            "頭部の垂直角度",
+            "머리 수직 각도"
+        ),
+        .init(
+            "Head angle Z",
+            "头部倾斜",
+            "頭部の傾き",
+            "머리 기울기"
+        ),
+        .init(
+            "Body angle X",
+            "身体水平",
+            "身体の水平角度",
+            "몸 수평 각도"
+        ),
+        .init(
+            "Live2D requires internet access when its renderer starts so it can load the official Cubism Core.",
+            "Live2D renderer 启动时需要网络，以加载官方 Cubism Core。",
+            "Live2Dレンダラーの起動時に公式Cubism Coreを読み込むため、インターネット接続が必要です。",
+            "Live2D 렌더러가 시작될 때 공식 Cubism Core를 불러오려면 인터넷 연결이 필요합니다."
+        ),
+        .init(
+            "Remove",
+            "移除",
+            "削除",
+            "제거"
+        ),
+        .init(
+            "Horizontal position",
+            "水平位置",
+            "水平位置",
+            "수평 위치"
+        ),
+        .init(
+            "Vertical position",
+            "垂直位置",
+            "垂直位置",
+            "수직 위치"
+        ),
+        .init(
             "16 MB per asset; 32 MB total assets; 48 MB per template",
             "每个素材上限 16 MB；素材总量 32 MB；每个模板上限 48 MB",
             "アセットごとに16 MB、合計32 MB、テンプレートごとに48 MB",
@@ -1097,10 +1331,10 @@ enum L10nCatalogCJK {
         ),
         .init("Voice", "Voice", "Voice", "Voice"),
         .init(
-            "Customize CSS-addressable ChatGPT Voice orb surfaces and surrounding effects. Voice uses an isolated renderer and never receives the main window wallpaper or component rules.",
-            "自定义 ChatGPT Voice 圆球中可由 CSS 控制的表面与周边效果。Voice 使用独立 renderer，不会接收主窗口的壁纸或组件规则。",
-            "CSSで操作できるChatGPT Voiceオーブの表面と周辺効果をカスタマイズします。Voiceは独立したrendererを使用し、メインウインドウの壁紙やコンポーネントルールは適用されません。",
-            "CSS로 제어할 수 있는 ChatGPT Voice 오브 표면과 주변 효과를 사용자 지정합니다. Voice는 독립 renderer를 사용하며 기본 창의 배경화면이나 구성 요소 규칙을 받지 않습니다."
+            "Customize the ChatGPT Voice orb and surrounding effects. The custom orb appears both in the main window and the isolated Voice overlay; full-page backgrounds remain isolated.",
+            "自定义 ChatGPT Voice 圆球与周边效果。自定义圆球会同时显示在主窗口和独立 Voice 浮层中；全页背景仍只用于独立浮层。",
+            "ChatGPT Voiceのオーブと周辺効果をカスタマイズします。カスタムオーブはメインウインドウと独立したVoiceオーバーレイの両方に表示され、全画面背景はオーバーレイ内だけに適用されます。",
+            "ChatGPT Voice 오브와 주변 효과를 사용자 지정합니다. 사용자 지정 오브는 기본 창과 독립 Voice 오버레이 모두에 표시되며, 전체 화면 배경은 오버레이에만 적용됩니다."
         ),
         .init(
             "Enable Voice styling",
@@ -1210,6 +1444,18 @@ enum L10nCatalogCJK {
             "Voice 背景图像",
             "Voice背景画像",
             "Voice 배경 이미지"
+        ),
+        .init(
+            "Keep orb centered in Voice overlay",
+            "将圆球固定在 Voice 画面中央",
+            "オーブをVoice画面の中央に固定",
+            "오브를 Voice 화면 중앙에 고정"
+        ),
+        .init(
+            "Turn this off to use ChatGPT's native dragging and move the orb to screen edges.",
+            "关闭后可使用 ChatGPT 原生拖动，将圆球移到屏幕边缘。",
+            "オフにするとChatGPT標準のドラッグ操作でオーブを画面端まで移動できます。",
+            "끄면 ChatGPT 기본 드래그를 사용하여 오브를 화면 가장자리로 이동할 수 있습니다."
         ),
         .init(
             "Light and Dark can use different images. The image is embedded in the .codextheme and sent only to the Voice overlay.",

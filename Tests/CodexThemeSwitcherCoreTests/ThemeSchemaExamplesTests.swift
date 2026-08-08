@@ -139,13 +139,20 @@ final class ThemeSchemaExamplesTests: XCTestCase {
         XCTAssertNotNil(definitions["imageSkin"])
         XCTAssertNotNil(definitions["voiceStyle"])
         XCTAssertNotNil(definitions["voiceVariant"])
+        XCTAssertNotNil(definitions["live2DModel"])
+        XCTAssertNotNil(definitions["live2DResource"])
         let voiceVariant = try XCTUnwrap(
             definitions["voiceVariant"] as? [String: Any]
         )
         let voiceProperties = try XCTUnwrap(
             voiceVariant["properties"] as? [String: Any]
         )
+        XCTAssertNotNil(voiceProperties["avatarMode"])
+        XCTAssertNotNil(voiceProperties["live2DModel"])
         XCTAssertNotNil(voiceProperties["backgroundAssetID"])
+        XCTAssertNotNil(voiceProperties["overlayMascotWidth"])
+        XCTAssertNotNil(voiceProperties["overlayMascotHeightScale"])
+        XCTAssertNotNil(voiceProperties["orbLocksToOverlayCenter"])
         XCTAssertNotNil(voiceProperties["orbBackgroundAssetID"])
         XCTAssertNotNil(voiceProperties["orbBackgroundImageFit"])
         XCTAssertNotNil(voiceProperties["orbBackgroundInset"])

@@ -8,6 +8,8 @@ import UniformTypeIdentifiers
 
 @MainActor
 final class ThemeAppModel: ObservableObject {
+    private static let maximumAssetBytes = 16 * 1_024 * 1_024
+    private static let maximumTotalAssetBytes = 32 * 1_024 * 1_024
     private static let supportedSkinImageTypes: Set<String> = [
         "image/png",
         "image/jpeg",
@@ -1163,6 +1165,82 @@ final class ThemeAppModel: ObservableObject {
         }
     }
 
+    func chooseVoiceLive2DModel(for appearance: ThemeSkinAppearance) {
+        let panel = NSOpenPanel()
+        panel.title = L10n.text(
+            "選擇 Live2D model3.json",
+            "Choose Live2D model3.json"
+        )
+        panel.message = L10n.text(
+            "請選擇 Cubism 匯出資料夾內的 .model3.json；相關模型、貼圖、物理與動作檔會一起嵌入主題。",
+            "Choose the .model3.json inside an exported Cubism folder. Referenced model, texture, physics, and motion files will be embedded with the theme."
+        )
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.json]
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            let imported = try makeLive2DModel(from: url)
+            guard var candidate = draft else { return }
+            var voice = candidate.voiceStyle
+                ?? ThemeVoiceStyle(isEnabled: true)
+            voice.isEnabled = true
+            var variant = voice.variant(for: appearance)
+            let replacedIDs = Set(
+                variant.live2DModel?.resources.map(\.assetID) ?? []
+            )
+            let retainedBytes = candidate.assets.reduce(0) {
+                $0 + (
+                    replacedIDs.contains($1.id)
+                        ? 0
+                        : ($1.decodedData?.count ?? 0)
+                )
+            }
+            let addedBytes = imported.assets.reduce(0) {
+                $0 + ($1.decodedData?.count ?? 0)
+            }
+            guard retainedBytes + addedBytes
+                    <= Self.maximumTotalAssetBytes else {
+                throw ThemeAppError.totalAssetsTooLarge(
+                    retainedBytes + addedBytes
+                )
+            }
+
+            variant.avatarMode = .live2D
+            variant.live2DModel = imported.model
+            voice.setVariant(variant, for: appearance)
+            candidate.voiceStyle = voice
+            candidate.assets.append(contentsOf: imported.assets)
+            for id in replacedIDs {
+                pruneAssetIfUnreferenced(id, from: &candidate)
+            }
+            mutateDraft(
+                actionName: L10n.text(
+                    "匯入 Live2D 模型",
+                    "Import Live2D model"
+                ),
+                coalesces: false
+            ) { document in
+                document = candidate
+            }
+            show(
+                L10n.format(
+                    "已匯入 Live2D 模型與 {0} 個檔案。",
+                    "Imported the Live2D model with {0} files.",
+                    "\(imported.assets.count)"
+                ),
+                style: .success
+            )
+        } catch {
+            show(
+                AppErrorLocalization.message(for: error),
+                style: .error
+            )
+        }
+    }
+
     func chooseVoiceBlinkImage(for appearance: ThemeSkinAppearance) {
         let panel = NSOpenPanel()
         panel.title = L10n.text(
@@ -1407,6 +1485,52 @@ final class ThemeAppModel: ObservableObject {
             }
             voice.setVariant(variant, for: appearance)
             document.voiceStyle = voice
+        }
+    }
+
+    func setVoiceAvatarMode(
+        _ mode: ThemeVoiceAvatarMode,
+        for appearance: ThemeSkinAppearance
+    ) {
+        mutateDraft(
+            actionName: L10n.text(
+                "切換 Voice 角色模式",
+                "Change Voice avatar mode"
+            )
+        ) { document in
+            var voice = document.voiceStyle
+                ?? ThemeVoiceStyle(isEnabled: true)
+            voice.isEnabled = true
+            var variant = voice.variant(for: appearance)
+            variant.avatarMode = mode
+            voice.setVariant(variant, for: appearance)
+            document.voiceStyle = voice
+        }
+    }
+
+    func clearVoiceLive2DModel(for appearance: ThemeSkinAppearance) {
+        mutateDraft(
+            actionName: L10n.text(
+                "移除 Live2D 模型",
+                "Remove Live2D model"
+            ),
+            coalesces: false
+        ) { document in
+            guard var voice = document.voiceStyle else { return }
+            var variant = voice.variant(for: appearance)
+            let removedIDs =
+                variant.live2DModel?.resources.map(\.assetID) ?? []
+            variant.live2DModel = nil
+            if variant.avatarMode == .live2D {
+                variant.avatarMode = variant.orbBackgroundAssetID == nil
+                    ? .native
+                    : .image
+            }
+            voice.setVariant(variant, for: appearance)
+            document.voiceStyle = voice
+            for id in Set(removedIDs) {
+                pruneAssetIfUnreferenced(id, from: &document)
+            }
         }
     }
 
@@ -1671,6 +1795,14 @@ final class ThemeAppModel: ObservableObject {
             ].compactMap { $0 }
                 + (document.voiceStyle?.light.orbMouthFrameAssetIDs ?? [])
                 + (document.voiceStyle?.dark.orbMouthFrameAssetIDs ?? [])
+                + (
+                    document.voiceStyle?.light.live2DModel?
+                        .resources.map(\.assetID) ?? []
+                )
+                + (
+                    document.voiceStyle?.dark.live2DModel?
+                        .resources.map(\.assetID) ?? []
+                )
             document.voiceStyle = nil
             for id in Set(assetIDs) {
                 pruneAssetIfUnreferenced(id, from: &document)
@@ -1693,7 +1825,9 @@ final class ThemeAppModel: ObservableObject {
                 removedVariant.backgroundAssetID,
                 removedVariant.orbBackgroundAssetID,
                 removedVariant.orbBlinkAssetID
-            ].compactMap { $0 } + removedVariant.orbMouthFrameAssetIDs
+            ].compactMap { $0 }
+                + removedVariant.orbMouthFrameAssetIDs
+                + (removedVariant.live2DModel?.resources.map(\.assetID) ?? [])
             voice.setVariant(
                 preset.style.variant(for: appearance),
                 for: appearance
@@ -1789,7 +1923,11 @@ final class ThemeAppModel: ObservableObject {
         do {
             let summaries = try await repository.list()
             var loaded: [ThemeDocument] = []
+            var seenSummaryIDs = Set<UUID>()
             for summary in summaries {
+                guard seenSummaryIDs.insert(summary.id).inserted else {
+                    continue
+                }
                 loaded.append(try await repository.load(id: summary.id))
             }
             let loadedIDs = Set(loaded.map(\.id))
@@ -1972,7 +2110,13 @@ final class ThemeAppModel: ObservableObject {
             || document.voiceStyle?.light.orbMouthFrameAssetIDs.contains(id)
                 == true
             || document.voiceStyle?.dark.orbMouthFrameAssetIDs.contains(id)
-                == true {
+                == true
+            || document.voiceStyle?.light.live2DModel?.resources.contains(
+                where: { $0.assetID == id }
+            ) == true
+            || document.voiceStyle?.dark.live2DModel?.resources.contains(
+                where: { $0.assetID == id }
+            ) == true {
             return true
         }
 
@@ -2039,6 +2183,163 @@ final class ThemeAppModel: ObservableObject {
             mediaType: mediaType,
             data: data
         )
+    }
+
+    func makeLive2DModel(
+        from settingsURL: URL
+    ) throws -> (model: ThemeLive2DModel, assets: [ThemeAsset]) {
+        guard settingsURL.lastPathComponent.lowercased()
+            .hasSuffix(".model3.json") else {
+            throw ThemeAppError.invalidLive2DModel(
+                settingsURL.lastPathComponent
+            )
+        }
+        let settingsData = try Data(contentsOf: settingsURL)
+        guard settingsData.count <= Self.maximumAssetBytes,
+              let json = try? JSONSerialization.jsonObject(
+                with: settingsData
+              ),
+              let settings = json as? [String: Any],
+              let fileReferences =
+                settings["FileReferences"] as? [String: Any],
+              fileReferences["Moc"] is String,
+              fileReferences["Textures"] is [String]
+        else {
+            if settingsData.count > Self.maximumAssetBytes {
+                throw ThemeAppError.assetTooLarge(
+                    settingsURL.lastPathComponent
+                )
+            }
+            throw ThemeAppError.invalidLive2DModel(
+                settingsURL.lastPathComponent
+            )
+        }
+
+        let supportedSuffixes = [
+            ".moc3",
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".webp",
+            ".physics3.json",
+            ".pose3.json",
+            ".userdata3.json",
+            ".motion3.json",
+            ".exp3.json",
+            ".cdi3.json",
+            ".wav",
+            ".mp3",
+            ".ogg"
+        ]
+        let requiredPaths = Set(
+            ([fileReferences["Moc"] as? String].compactMap { $0 })
+                + ((fileReferences["Textures"] as? [String]) ?? [])
+        )
+        var referencedPaths = Set<String>()
+        func collectReferences(_ value: Any) {
+            if let dictionary = value as? [String: Any] {
+                for child in dictionary.values {
+                    collectReferences(child)
+                }
+            } else if let array = value as? [Any] {
+                for child in array {
+                    collectReferences(child)
+                }
+            } else if let string = value as? String {
+                let decoded = string.removingPercentEncoding ?? string
+                let lowered = decoded.lowercased()
+                if supportedSuffixes.contains(where: {
+                    lowered.hasSuffix($0)
+                }) {
+                    referencedPaths.insert(decoded)
+                }
+            }
+        }
+        collectReferences(json)
+
+        let root = settingsURL
+            .deletingLastPathComponent()
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        let rootPrefix = root.path.hasSuffix("/")
+            ? root.path
+            : root.path + "/"
+        var files: [(path: String, url: URL, data: Data)] = [
+            (
+                path: settingsURL.lastPathComponent,
+                url: settingsURL,
+                data: settingsData
+            )
+        ]
+        for referencedPath in referencedPaths.sorted() {
+            let isRequired = requiredPaths.contains(referencedPath)
+            guard !referencedPath.contains("\\"),
+                  !referencedPath.hasPrefix("/"),
+                  URL(string: referencedPath)?.scheme == nil else {
+                if isRequired {
+                    throw ThemeAppError.unsafeLive2DResource(referencedPath)
+                }
+                continue
+            }
+            let fileURL = root
+                .appendingPathComponent(referencedPath)
+                .resolvingSymlinksInPath()
+                .standardizedFileURL
+            guard fileURL.path.hasPrefix(rootPrefix) else {
+                if isRequired {
+                    throw ThemeAppError.unsafeLive2DResource(referencedPath)
+                }
+                continue
+            }
+            guard FileManager.default.fileExists(atPath: fileURL.path) else {
+                if isRequired {
+                    throw ThemeAppError.missingLive2DResource(referencedPath)
+                }
+                continue
+            }
+            let relativePath = String(fileURL.path.dropFirst(rootPrefix.count))
+            guard !relativePath.isEmpty,
+                  !relativePath.split(separator: "/").contains("..") else {
+                throw ThemeAppError.unsafeLive2DResource(referencedPath)
+            }
+            let data = try Data(contentsOf: fileURL)
+            guard data.count <= Self.maximumAssetBytes else {
+                throw ThemeAppError.assetTooLarge(relativePath)
+            }
+            files.append((relativePath, fileURL, data))
+        }
+
+        var seenPaths = Set<String>()
+        files = files.filter { seenPaths.insert($0.path).inserted }
+        let assets = files.map { file in
+            ThemeAsset(
+                name: file.path,
+                mediaType: live2DMediaType(for: file.url),
+                data: file.data
+            )
+        }
+        let resources = zip(files, assets).map { file, asset in
+            ThemeLive2DResource(path: file.path, assetID: asset.id)
+        }
+        return (
+            ThemeLive2DModel(
+                modelSettingsPath: settingsURL.lastPathComponent,
+                resources: resources
+            ),
+            assets
+        )
+    }
+
+    private func live2DMediaType(for url: URL) -> String {
+        let name = url.lastPathComponent.lowercased()
+        if name.hasSuffix(".json") {
+            return "application/json"
+        }
+        if name.hasSuffix(".moc3") {
+            return "application/octet-stream"
+        }
+        return UTType(filenameExtension: url.pathExtension)?
+            .preferredMIMEType ?? "application/octet-stream"
     }
 
     func makeMouthSpriteFrameAssets(
@@ -2190,6 +2491,9 @@ enum ThemeAppError: LocalizedError {
     case totalAssetsTooLarge(Int)
     case tooManyVoiceMouthFrames
     case invalidMouthSpriteSheet(String)
+    case invalidLive2DModel(String)
+    case missingLive2DResource(String)
+    case unsafeLive2DResource(String)
     case invalidSkinImage(String)
     case invalidCodexApplication(String)
 
@@ -2226,6 +2530,24 @@ enum ThemeAppError: LocalizedError {
                 "「{0}」無法解碼或切割成 2×2／3×3 嘴型圖。",
                 "“{0}” could not be decoded or split into a 2×2 or 3×3 mouth sprite sheet.",
                 name
+            )
+        case .invalidLive2DModel(let name):
+            return L10n.format(
+                "「{0}」不是有效的 Live2D .model3.json。",
+                "“{0}” is not a valid Live2D .model3.json file.",
+                name
+            )
+        case .missingLive2DResource(let path):
+            return L10n.format(
+                "Live2D 模型缺少檔案「{0}」。",
+                "The Live2D model is missing “{0}”.",
+                path
+            )
+        case .unsafeLive2DResource(let path):
+            return L10n.format(
+                "Live2D 檔案路徑「{0}」超出模型資料夾。",
+                "Live2D resource path “{0}” escapes the model folder.",
+                path
             )
         case .invalidSkinImage(let name):
             return L10n.format(

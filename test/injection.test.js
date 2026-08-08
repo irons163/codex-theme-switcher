@@ -16,6 +16,7 @@ const {
   broadcastTheme,
   checkedEvaluationValue,
   clearRenderers,
+  configureLive2DNativeComposition,
   reconcileExistingSession,
   rendererInjectionSource,
 } = require(injectionPath);
@@ -47,14 +48,32 @@ function evaluation(value) {
 
 function transactionSession(options = {}) {
   const calls = [];
+  const nativeCompositionEvents = [];
   const state = {
     digest: options.digest ?? null,
     stylePresent: options.stylePresent ?? false,
     runtimeVersion: options.runtimeVersion ?? RENDERER_RUNTIME_VERSION,
     pending: null,
   };
+  class FakeMessageEvent {
+    constructor(type, init = {}) {
+      this.type = type;
+      Object.assign(this, init);
+    }
+  }
   const sandbox = {
+    MessageEvent: FakeMessageEvent,
     window: {
+      location: { origin: "app://-" },
+      dispatchEvent(event) {
+        nativeCompositionEvents.push(event);
+        return true;
+      },
+      setTimeout(callback) {
+        callback();
+        return nativeCompositionEvents.length;
+      },
+      clearTimeout() {},
       __codexThemeSwitcherBegin(payload) {
         calls.push({ operation: "begin", payload });
         state.pending = payload;
@@ -112,6 +131,7 @@ function transactionSession(options = {}) {
     closed: false,
     closeCalls: 0,
     messages: [],
+    nativeCompositionEvents,
     state,
     async send(method, params = {}) {
       this.messages.push({ method, params });
@@ -140,6 +160,69 @@ function transactionSession(options = {}) {
     },
   };
 }
+
+test("Live2D uses ChatGPT's document-local non-native renderer state", async () => {
+  const session = transactionSession();
+  const url = "app://-/index.html?initialRoute=%2Favatar-overlay";
+
+  assert.equal(await configureLive2DNativeComposition(
+    session,
+    url,
+    theme({ css: ":root{--cts-voice-avatar-mode:live2D}" }),
+  ), true);
+
+  assert.equal(
+    session.messages.filter(
+      ({ method }) => method === "Page.addScriptToEvaluateOnNewDocument",
+    ).length,
+    0,
+  );
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(
+      session.nativeCompositionEvents.at(-1).data,
+    )),
+    {
+      type: "persisted-atom-updated",
+      key: "avatar-overlay-force-non-native-rendering",
+      value: true,
+      deleted: false,
+    },
+  );
+
+  assert.equal(await configureLive2DNativeComposition(
+    session,
+    url,
+    theme({ css: ":root{--cts-voice-avatar-mode:flat}" }),
+  ), true);
+  assert.equal(
+    session.messages.filter(
+      ({ method }) => method === "Page.removeScriptToEvaluateOnNewDocument",
+    ).length,
+    0,
+  );
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(
+      session.nativeCompositionEvents.at(-1).data,
+    )),
+    {
+      type: "persisted-atom-updated",
+      key: "avatar-overlay-force-non-native-rendering",
+      deleted: true,
+    },
+  );
+});
+
+test("non-avatar renderers never change Voice composition state", async () => {
+  const session = transactionSession();
+
+  assert.equal(await configureLive2DNativeComposition(
+    session,
+    "app://-/index.html",
+    theme({ css: ":root{--cts-voice-avatar-mode:live2D}" }),
+  ), false);
+  assert.equal(session.nativeCompositionEvents.length, 0);
+  assert.equal(session.messages.length, 0);
+});
 
 test("Begin transports CSS as data and omits asset base64", async () => {
   const payload = theme({
@@ -379,6 +462,13 @@ function avatarPage(id = "avatar") {
   };
 }
 
+function voiceOutputPage(id = "voice-output") {
+  return {
+    ...page(id),
+    url: "app://-/avatar-overlay-composition-surface.html?surfaceId=voice-output",
+  };
+}
+
 test("poll status skips resending a matching digest and style", async (t) => {
   let targets = [page("main")];
   const { created, isolated } = await isolatedInjection(t, () => targets);
@@ -484,6 +574,49 @@ test("voice CSS is isolated to avatar-overlay and main CSS stays on main", async
     created[1].codexThemeTargetKind,
     isolated.TARGET_KIND_AVATAR_OVERLAY,
   );
+});
+
+test("legacy avatar overlay keeps ownership when voice-output control appears", async (t) => {
+  let targets = [page("main"), avatarPage()];
+  const { created, isolated } = await isolatedInjection(t, () => targets);
+  const payload = theme({
+    css: ":root{--main:true}",
+    avatarOverlayCSS:
+      ":root{--cts-voice-avatar-mode:live2D;--voice:true}",
+  });
+
+  const sessions = await isolated.injectRenderers(57340, payload);
+  const legacy = sessions.get("avatar");
+  assert.equal(legacy.codexThemeOverlayRole, "full");
+
+  targets = [...targets, voiceOutputPage()];
+  await isolated.injectRenderers(57340, payload, sessions);
+
+  assert.equal(sessions.has("voice-output"), false);
+  assert.equal(legacy.codexThemeOverlayRole, "full");
+  const voiceControl = created.find(({ id }) => id === "voice-output");
+  assert.ok(voiceControl);
+  assert.equal(voiceControl.closed, true);
+  assert.deepEqual(
+    voiceControl.calls.map(({ operation }) => operation),
+    ["clear"],
+  );
+  const legacyBegins = legacy.calls.filter(
+    ({ operation }) => operation === "begin",
+  );
+  assert.equal(legacyBegins.at(-1).payload.css, payload.avatarOverlayCSS);
+
+  targets = [page("main"), avatarPage()];
+  await isolated.injectRenderers(57340, payload, sessions);
+
+  assert.equal(sessions.has("voice-output"), false);
+  assert.equal(legacy.codexThemeOverlayRole, "full");
+  assert.equal(
+    legacy.calls.filter(({ operation }) => operation === "begin")
+      .at(-1).payload.css,
+    payload.avatarOverlayCSS,
+  );
+  assert.equal(created.length, 3);
 });
 
 test("avatar-overlay is untouched until a Voice style is enabled", async (t) => {

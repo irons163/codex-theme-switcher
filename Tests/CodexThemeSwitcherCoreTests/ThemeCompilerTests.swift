@@ -748,17 +748,127 @@ final class ThemeCompilerTests: XCTestCase {
         }
     }
 
-    func testVoiceStyleCompilesIntoIsolatedAvatarOverlayCSS() throws {
+    func testVoiceStyleCompilesFullOverlayAndSafeEmbeddedOrbCSS() throws {
         var voice = ThemeVoiceStyle(isEnabled: true)
         voice.light.orbScale = 1.25
+        voice.light.overlayMascotWidth = 339
+        voice.light.orbLocksToOverlayCenter = false
         voice.dark.hueRotation = -45
+        voice.dark.orbLocksToOverlayCenter = false
         voice.rawCSS = ".voice-extra { border-radius: 50%; }"
         var theme = TestFixtures.theme()
         theme.voiceStyle = voice
 
         let compiled = try ThemeCompiler().compile(theme)
 
-        XCTAssertFalse(compiled.css.contains("--cts-voice-scale"))
+        XCTAssertTrue(compiled.css.contains("--cts-voice-scale: 1.25;"))
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-overlay-mascot-width: 339px;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-overlay-mascot-height: 368px;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-overlay-anchor-width: min(113px, 339px);"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-overlay-anchor-height: min(122px, 368px);"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-lock-center: 0;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "data-codex-voice-activity-shelf"
+            )
+        )
+        XCTAssertFalse(
+            compiled.avatarOverlayCSS.contains(
+                "data-codex-voice-activity-backdrop"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "data-avatar-overlay-hit-region=\"notification-tray\""
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "height: var(--cts-voice-activity-tray-height) !important;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "top: var(--cts-voice-activity-tray-top) !important;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "var(--cts-voice-activity-visual-clip-top, 0px)"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "var(--cts-voice-activity-visual-clip-bottom, 0px)"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "pointer-events: auto !important;"
+            )
+        )
+        XCTAssertFalse(compiled.avatarOverlayCSS.contains("top: 8px !important;"))
+        XCTAssertFalse(
+            compiled.avatarOverlayCSS.contains(
+                "calc(100vh - var(--cts-voice-activity-shelf-height) - 8px)"
+            )
+        )
+        XCTAssertFalse(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-activity-presentation-left"
+            )
+        )
+        XCTAssertFalse(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-activity-presentation-scale"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "[data-avatar-overlay-size=\"mascot\"]"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "height: var(--cts-voice-overlay-anchor-height) !important;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "[data-avatar-overlay-hit-region=\"mascot\"]"
+            )
+        )
+        XCTAssertTrue(compiled.css.contains(".codex-avatar-root"))
+        XCTAssertTrue(
+            compiled.css.contains("/* Codex Theme Voice Embedded Orb */")
+        )
+        XCTAssertFalse(compiled.css.contains(".voice-extra"))
+        XCTAssertFalse(compiled.css.contains("body::before"))
+        XCTAssertFalse(
+            compiled.css.contains(
+                "[data-avatar-overlay-hit-region=\"mascot\"]"
+            )
+        )
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
                 "--cts-voice-scale: 1.25;"
@@ -786,25 +896,25 @@ final class ThemeCompilerTests: XCTestCase {
         )
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
-                "scale(var(--cts-voice-scale));"
+                "scale(var(--cts-voice-effective-scale,"
             )
         )
-        XCTAssertTrue(
+        XCTAssertFalse(
             compiled.avatarOverlayCSS.contains(
                 "--cts-voice-orb-layout-shift-x"
             )
         )
-        XCTAssertTrue(
+        XCTAssertFalse(
             compiled.avatarOverlayCSS.contains(
                 "--cts-voice-orb-layout-shift-y"
             )
         )
-        XCTAssertTrue(
+        XCTAssertFalse(
             compiled.avatarOverlayCSS.contains(
                 "left: 50vw !important;"
             )
         )
-        XCTAssertTrue(
+        XCTAssertFalse(
             compiled.avatarOverlayCSS.contains(
                 "top: 50vh !important;"
             )
@@ -828,6 +938,202 @@ final class ThemeCompilerTests: XCTestCase {
                 """
             )
         )
+    }
+
+    func testCustomVoiceAvatarControlsDockToVisualBottom() throws {
+        let portrait = TestFixtures.imageAsset(
+            name: "portrait.png",
+            bytes: [1, 2, 3]
+        )
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.avatarMode = .image
+        voice.light.orbBackgroundAssetID = portrait.id
+        voice.dark.avatarMode = .native
+        voice.dark.orbBackgroundAssetID = nil
+        var theme = TestFixtures.theme(assets: [portrait])
+        theme.voiceStyle = voice
+
+        let css = try ThemeCompiler().compile(theme).avatarOverlayCSS
+
+        XCTAssertTrue(
+            css.contains(
+                ":has(> [data-avatar-overlay-native-surface-id=\"voice-microphone\"]),"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                ":has(> [data-avatar-overlay-native-surface-id=\"voice-output\"])"
+            )
+        )
+        XCTAssertTrue(css.contains("top: calc(100% - 41px) !important;"))
+        XCTAssertTrue(
+            css.contains(
+                ":has(> [data-avatar-overlay-native-surface-id=\"voice-controls\"])"
+            )
+        )
+        XCTAssertTrue(css.contains("top: calc(100% - 26px) !important;"))
+        XCTAssertEqual(
+            css.components(separatedBy: "top: calc(100% - 41px) !important;")
+                .count - 1,
+            2
+        )
+        XCTAssertEqual(
+            css.components(separatedBy: "top: calc(100% - 26px) !important;")
+                .count - 1,
+            2
+        )
+    }
+
+    func testCustomVoiceAvatarReportsVisualSizeToNativeOverlayLayout() throws {
+        let portrait = TestFixtures.imageAsset(
+            name: "portrait.png",
+            bytes: [1, 2, 3]
+        )
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.avatarMode = .image
+        voice.light.orbBackgroundAssetID = portrait.id
+        voice.light.overlayMascotWidth = 339
+        voice.dark.avatarMode = .native
+        voice.dark.orbBackgroundAssetID = nil
+        var theme = TestFixtures.theme(assets: [portrait])
+        theme.voiceStyle = voice
+
+        let css = try ThemeCompiler().compile(theme).avatarOverlayCSS
+
+        // The node ChatGPT measures must match the custom visual. This is
+        // what makes the native overlay window reserve space for its task
+        // cards instead of placing them over the avatar.
+        XCTAssertTrue(
+            css.contains("--cts-voice-overlay-anchor-width: 339px;")
+        )
+        XCTAssertTrue(
+            css.contains("--cts-voice-overlay-anchor-height: 368px;")
+        )
+        XCTAssertTrue(
+            css.contains(
+                "height: var(--cts-voice-overlay-anchor-height) !important;"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "--cts-voice-orb-custom-frame-width: min(var(--cts-voice-overlay-mascot-width), var(--cts-voice-overlay-mascot-height));"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "--cts-voice-orb-custom-frame-top: calc((var(--cts-voice-overlay-mascot-height) - var(--cts-voice-orb-custom-frame-height)) / 2);"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "scale(var(--cts-voice-effective-scale,"
+            )
+        )
+        XCTAssertFalse(
+            css.contains("--cts-voice-overlay-anchor-width: min(113px, 339px);")
+        )
+    }
+
+    func testCustomVoiceAvatarMeasurementIncludesVisualScale() throws {
+        let portrait = TestFixtures.imageAsset(
+            name: "portrait-scaled.png",
+            bytes: [1, 2, 3]
+        )
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.avatarMode = .image
+        voice.light.orbBackgroundAssetID = portrait.id
+        voice.light.overlayMascotWidth = 113
+        voice.light.orbScale = 2
+        voice.dark.avatarMode = .native
+        voice.dark.orbBackgroundAssetID = nil
+        var theme = TestFixtures.theme(assets: [portrait])
+        theme.voiceStyle = voice
+
+        let css = try ThemeCompiler().compile(theme).avatarOverlayCSS
+
+        // The custom image is transformed inside the mascot node. The size
+        // node reported to ChatGPT must include that transform, otherwise
+        // the host window clips the image back to the stock orb size.
+        XCTAssertTrue(
+            css.contains("--cts-voice-overlay-anchor-width: 226px;")
+        )
+        XCTAssertTrue(
+            css.contains("--cts-voice-overlay-anchor-height: 246px;")
+        )
+    }
+
+    func testCustomVoiceAvatarSupportsIndependentHeightScale() throws {
+        let portrait = TestFixtures.imageAsset(
+            name: "portrait-tall.png",
+            bytes: [1, 2, 3]
+        )
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.avatarMode = .image
+        voice.light.orbBackgroundAssetID = portrait.id
+        voice.light.overlayMascotWidth = 113
+        voice.light.overlayMascotHeightScale = 1.5
+        voice.dark.avatarMode = .native
+        voice.dark.orbBackgroundAssetID = nil
+        var theme = TestFixtures.theme(assets: [portrait])
+        theme.voiceStyle = voice
+
+        let css = try ThemeCompiler().compile(theme).avatarOverlayCSS
+
+        XCTAssertTrue(
+            css.contains("--cts-voice-overlay-anchor-width: 113px;")
+        )
+        XCTAssertTrue(
+            css.contains("--cts-voice-overlay-anchor-height: 185px;")
+        )
+    }
+
+    func testVoiceOverlayCenteringFollowsExplicitAppearanceSetting() throws {
+        let background = TestFixtures.imageAsset(
+            name: "voice-background.png",
+            bytes: [1, 2, 3]
+        )
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.backgroundAssetID = nil
+        voice.light.orbLocksToOverlayCenter = true
+        voice.dark.backgroundAssetID = background.id
+        voice.dark.orbLocksToOverlayCenter = false
+        var theme = TestFixtures.theme(assets: [background])
+        theme.voiceStyle = voice
+
+        let compiled = try ThemeCompiler().compile(theme)
+        let centeringRule = "left: 50vw !important;"
+
+        XCTAssertEqual(
+            compiled.avatarOverlayCSS.components(
+                separatedBy: centeringRule
+            ).count - 1,
+            2
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "@media (prefers-color-scheme: light)"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                ":root:where(.electron-light)[data-codex-theme-switcher-theme]"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "position: fixed !important;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                ":has(> [data-avatar-overlay-hit-region=\"mascot\"]")
+        )
+        XCTAssertFalse(
+            compiled.avatarOverlayCSS.contains(
+                ":root:where(.electron-dark:not(.electron-light))[data-codex-theme-switcher-theme]\n        :has(> [data-avatar-overlay-hit-region=\"mascot\"]"
+            )
+        )
+        XCTAssertFalse(compiled.css.contains(centeringRule))
     }
 
     func testDisabledVoiceStyleProducesNoAvatarOverlayCSS() throws {
@@ -938,13 +1244,42 @@ final class ThemeCompilerTests: XCTestCase {
         theme.voiceStyle = voice
 
         let compiled = try ThemeCompiler().compile(theme)
+        let outerURL =
+            "codex-theme-asset://\(outer.id.uuidString.lowercased())"
+        let orbURL =
+            "codex-theme-asset://\(orb.id.uuidString.lowercased())"
 
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(".codex-avatar-root")
         )
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
-                ".codex-avatar-root,"
+                "data-codex-voice-session-active=\"false\""
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                ".codex-avatar-root[data-codex-pet-id]"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "[data-testid=\"avatar-mascot-button\"]:has("
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "[data-avatar-overlay-hit-region=\"mascot-badge\"]"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                ".codex-avatar-root[data-realtime-voice-orb],"
+            )
+        )
+        XCTAssertFalse(
+            compiled.avatarOverlayCSS.contains(
+                "\n          .codex-avatar-root,"
             )
         )
         XCTAssertTrue(
@@ -1000,7 +1335,13 @@ final class ThemeCompilerTests: XCTestCase {
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
                 """
-                html:root[data-codex-theme-switcher-theme] canvas {
+                html:root[data-codex-theme-switcher-theme] :is(
+                  .codex-avatar-root[data-realtime-voice-orb],
+                  [data-voice-orb],
+                  [data-codex-voice-orb],
+                  [class*="voice-orb" i],
+                  [class*="voiceorb" i]
+                ) canvas {
                   opacity: var(--cts-voice-opacity) !important;
                   scale: var(--cts-voice-scale) !important;
                 """
@@ -1036,7 +1377,9 @@ final class ThemeCompilerTests: XCTestCase {
                 """
             )
         )
-        XCTAssertFalse(compiled.css.contains("voice-orb.png"))
+        XCTAssertFalse(compiled.css.contains(outerURL))
+        XCTAssertTrue(compiled.css.contains(orbURL))
+        XCTAssertFalse(compiled.css.contains("--cts-voice-background-image"))
         XCTAssertEqual(Set(compiled.runtimeAssets.map(\.id)), [outer.id, orb.id])
     }
 
@@ -1149,5 +1492,76 @@ final class ThemeCompilerTests: XCTestCase {
         XCTAssertEqual(CSSEscaper.escapeIdentifier("9 lives"), "\\39 \\20 lives")
         XCTAssertEqual(CSSEscaper.escapeString("a\"b\\c\n"), "a\\\"b\\\\c\\a ")
         XCTAssertFalse(CSSEscaper.escapeComment("name */ body").contains("*/"))
+    }
+
+    func testLive2DVoiceCompilesModelResourcesAndKeepsFlatRendererData() throws {
+        let settings = ThemeAsset(
+            name: "avatar.model3.json",
+            mediaType: "application/json",
+            data: Data("{}".utf8)
+        )
+        let moc = ThemeAsset(
+            name: "avatar.moc3",
+            mediaType: "application/octet-stream",
+            data: Data([0x4D, 0x4F, 0x43, 0x33])
+        )
+        let texture = TestFixtures.imageAsset(
+            name: "textures/texture_00.png"
+        )
+        let flat = TestFixtures.imageAsset(name: "flat.png")
+        var voice = ThemeVoiceStyle(isEnabled: true)
+        voice.light.avatarMode = .live2D
+        voice.light.live2DModel = ThemeLive2DModel(
+            modelSettingsPath: settings.name,
+            resources: [
+                .init(path: settings.name, assetID: settings.id),
+                .init(path: moc.name, assetID: moc.id),
+                .init(path: texture.name, assetID: texture.id)
+            ]
+        )
+        voice.light.orbBackgroundAssetID = flat.id
+        voice.dark.avatarMode = .image
+        voice.dark.orbBackgroundAssetID = flat.id
+        var theme = TestFixtures.theme(
+            assets: [settings, moc, texture, flat]
+        )
+        theme.voiceStyle = voice
+
+        let compiled = try ThemeCompiler().compile(theme)
+
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-avatar-mode: live2D;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-avatar-mode: image;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-live2d-manifest:"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "[data-codex-live2d-avatar]"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "[data-codex-live2d-loading=\"true\"]"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-background-image:"
+            )
+        )
+        XCTAssertEqual(
+            Set(compiled.runtimeAssets.map(\.id)),
+            Set([settings.id, moc.id, texture.id, flat.id])
+        )
     }
 }

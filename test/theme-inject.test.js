@@ -29,6 +29,7 @@ function fakeDOM() {
     },
   };
   const documentElement = {
+    appendChild: host.appendChild,
     setAttribute(name, value) {
       attributes.set(name, String(value));
     },
@@ -44,17 +45,31 @@ function fakeDOM() {
     documentElement,
     body: null,
     createElement(tagName) {
+      const elementChildren = [];
       const element = {
         tagName: String(tagName).toUpperCase(),
         id: "",
         type: "",
         dataset: {},
+        style: {},
         textContent: "",
         disabled: false,
         parentNode: null,
+        children: elementChildren,
+        appendChild(child) {
+          if (!elementChildren.includes(child)) elementChildren.push(child);
+          child.parentNode = element;
+          return child;
+        },
+        getBoundingClientRect() {
+          return { left: 0, top: 0, width: 1, height: 1 };
+        },
         remove() {
-          const index = children.indexOf(element);
-          if (index >= 0) children.splice(index, 1);
+          const siblings = element.parentNode === host
+            ? children
+            : element.parentNode?.children;
+          const index = siblings?.indexOf?.(element) ?? -1;
+          if (index >= 0) siblings.splice(index, 1);
           element.parentNode = null;
         },
       };
@@ -163,7 +178,61 @@ function install(dom = fakeDOM()) {
   return dom;
 }
 
-test("VERSION=23 exposes transaction APIs and source evaluation is idempotent", () => {
+function activeThemeStyle(dom) {
+  return dom.document.getElementById("codex-theme-switcher-style");
+}
+
+function isVoiceOrbSelector(selector) {
+  return String(selector).includes(
+    ".codex-avatar-root[data-realtime-voice-orb]",
+  );
+}
+
+test("custom Voice activity tray follows native side without covering avatar center", () => {
+  const start = source.indexOf("  function voiceActivityTrayLayout(");
+  const end = source.indexOf(
+    "\n  function voiceActivityTrayIsVisible(",
+    start,
+  );
+  assert.ok(start >= 0 && end > start);
+  const sandbox = {};
+  vm.runInNewContext([
+    "const VOICE_ACTIVITY_EDGE_GAP = 8;",
+    source.slice(start, end),
+    "this.layout = voiceActivityTrayLayout;",
+  ].join("\n"), sandbox);
+
+  assert.deepEqual(
+    { ...sandbox.layout({
+      nativePlacement: "top",
+      mascotBounds: { top: 100, bottom: 200 },
+      trayHeight: 50,
+      viewportHeight: 400,
+    }) },
+    { placement: "top", top: 42 },
+  );
+  assert.deepEqual(
+    { ...sandbox.layout({
+      nativePlacement: "bottom",
+      mascotBounds: { top: 100, bottom: 200 },
+      trayHeight: 50,
+      viewportHeight: 400,
+    }) },
+    { placement: "bottom", top: 208 },
+  );
+  assert.deepEqual(
+    { ...sandbox.layout({
+      nativePlacement: "bottom",
+      mascotBounds: { top: 16, bottom: 384 },
+      trayHeight: 75,
+      viewportHeight: 400,
+    }) },
+    { placement: "top", top: 8 },
+    "a full-height avatar pins activity to the upper edge",
+  );
+});
+
+test("VERSION=71 exposes transaction APIs and source evaluation is idempotent", () => {
   const dom = install();
   const runtime = dom.window.__codexThemeSwitcherRuntime;
   const functions = [
@@ -175,7 +244,7 @@ test("VERSION=23 exposes transaction APIs and source evaluation is idempotent", 
     "__codexThemeSwitcherClear",
   ];
 
-  assert.equal(runtime.version, 23);
+  assert.equal(runtime.version, 71);
   for (const name of functions) {
     assert.equal(typeof dom.window[name], "function", name);
   }
@@ -188,6 +257,150 @@ test("VERSION=23 exposes transaction APIs and source evaluation is idempotent", 
   assert.equal(dom.window.__codexThemeSwitcherBegin, begin);
   assert.equal(dom.window.__codexThemeSwitcherStatus().digest, null);
   assert.equal(dom.window.__codexThemeSwitcherStatus().stylePresent, false);
+});
+
+test("a newly attached foreground Voice surface becomes visible immediately", () => {
+  const dom = install();
+  const mutationObservers = [];
+  dom.sandbox.MutationObserver = class FakeMutationObserver {
+    constructor(callback) {
+      this.callback = callback;
+      mutationObservers.push(this);
+    }
+
+    observe() {}
+
+    disconnect() {}
+  };
+  const presentationAttributes = new Map();
+  const contentFrame = {
+    parentElement: null,
+    hasAttribute(name) {
+      return name === "data-avatar-overlay-content-frame";
+    },
+  };
+  const handoffTargetAttributes = new Map([
+    ["data-realtime-voice-handoff-target", "global-overlay"],
+  ]);
+  const handoffTarget = {
+    parentElement: contentFrame,
+    style: { opacity: "1" },
+    hasAttribute(name) {
+      return handoffTargetAttributes.has(name);
+    },
+    getAttribute(name) {
+      return handoffTargetAttributes.get(name) ?? null;
+    },
+    setAttribute(name, value) {
+      handoffTargetAttributes.set(name, String(value));
+    },
+    removeAttribute(name) {
+      handoffTargetAttributes.delete(name);
+    },
+  };
+  const presentation = {
+    parentElement: handoffTarget,
+    style: { opacity: "1" },
+    hasAttribute(name) {
+      return presentationAttributes.has(name);
+    },
+    setAttribute(name, value) {
+      presentationAttributes.set(name, String(value));
+    },
+    removeAttribute(name) {
+      presentationAttributes.delete(name);
+    },
+  };
+  const rootAttributes = new Map([
+    ["data-avatar-overlay-native-surface-id", "voice-output"],
+  ]);
+  const root = {
+    parentElement: presentation,
+    style: { removeProperty() {} },
+    matches(selector) {
+      return String(selector).includes(
+        '[data-avatar-overlay-native-surface-id="voice-output"]',
+      );
+    },
+    hasAttribute(name) {
+      return rootAttributes.has(name);
+    },
+    setAttribute(name, value) {
+      rootAttributes.set(name, String(value));
+    },
+    removeAttribute(name) {
+      rootAttributes.delete(name);
+    },
+    querySelector() {
+      return null;
+    },
+    querySelectorAll() {
+      return [];
+    },
+  };
+  dom.document.querySelector = () => root;
+  dom.document.querySelectorAll = (selector) => (
+    String(selector).includes("data-codex-voice-presentation")
+      && presentationAttributes.has("data-codex-voice-presentation")
+      ? [presentation]
+      : []
+  );
+  dom.sandbox.getComputedStyle = (element) => ({
+    backgroundImage: "none",
+    getPropertyValue(name) {
+      if (element !== dom.document.documentElement) return "";
+      if (name === "--cts-voice-avatar-mode") return "live2D";
+      if (name === "--cts-voice-renderer-role") return "foreground";
+      return "";
+    },
+  });
+
+  dom.window.__codexThemeSwitcherRuntime.refreshVoicePulseSync();
+
+  assert.equal(
+    dom.document.documentElement.getAttribute(
+      "data-codex-voice-session-active",
+    ),
+    "true",
+  );
+  const status = dom.window.__codexThemeSwitcherStatus();
+  assert.equal(status.voiceSessionActive, true);
+  assert.equal(status.voiceSessionPhase, "starting");
+  assert.equal(rootAttributes.get("data-codex-voice-orb"), "composition");
+  assert.equal(
+    presentationAttributes.get("data-codex-voice-presentation"),
+    "true",
+  );
+  assert.doesNotMatch(
+    dom.document.getElementById(
+      "codex-theme-switcher-style-voice-session",
+    ).textContent,
+    /data-codex-voice-presentation[\s\S]*opacity: 1 !important/,
+  );
+
+  presentation.style.opacity = "0";
+  mutationObservers.forEach((observer) => observer.callback([
+    { type: "attributes", target: presentation },
+  ]));
+  assert.equal(
+    dom.document.documentElement.getAttribute(
+      "data-codex-voice-session-active",
+    ),
+    "false",
+    "native handoff opacity clears the old overlay backdrop",
+  );
+
+  presentation.style.opacity = "1";
+  mutationObservers.forEach((observer) => observer.callback([
+    { type: "attributes", target: presentation },
+  ]));
+  assert.equal(
+    dom.document.documentElement.getAttribute(
+      "data-codex-voice-session-active",
+    ),
+    "true",
+    "the foreground surface can resume after the handoff animation",
+  );
 });
 
 test("begin and commit atomically install CSS without assets", () => {
@@ -210,10 +423,9 @@ test("begin and commit atomically install CSS without assets", () => {
     { ok: true, digest: "digest-1" },
   );
 
-  assert.equal(dom.children.length, 1);
-  assert.equal(dom.children[0].id, "codex-theme-switcher-style");
-  assert.equal(dom.children[0].disabled, false);
-  assert.equal(dom.children[0].textContent, ":root { color: red; }");
+  assert.equal(dom.children.length, 2);
+  assert.equal(activeThemeStyle(dom).disabled, false);
+  assert.equal(activeThemeStyle(dom).textContent, ":root { color: red; }");
   assert.equal(
     dom.document.documentElement.getAttribute(
       "data-codex-theme-switcher-theme",
@@ -252,7 +464,7 @@ test("begin reports an unchanged active digest and does not open a transaction",
     }),
     /No active transaction/,
   );
-  assert.equal(dom.children[0].textContent, ":root { color: red; }");
+  assert.equal(activeThemeStyle(dom).textContent, ":root { color: red; }");
 });
 
 test("large base64 chunks become Uint8Array Blob parts and replace asset URLs", () => {
@@ -289,11 +501,39 @@ test("large base64 chunks become Uint8Array Blob parts and replace asset URLs", 
   assert.equal(dom.blobs[0].type, "image/png");
   assert.equal(dom.blobs[0].parts.length > 1, true);
   assert.deepEqual(Buffer.from(dom.blobs[0].bytes()), bytes);
-  assert.match(dom.children[0].textContent, /blob:codex-theme\/1/);
+  assert.match(activeThemeStyle(dom).textContent, /blob:codex-theme\/1/);
   assert.doesNotMatch(
-    dom.children[0].textContent,
+    activeThemeStyle(dom).textContent,
     /codex-theme-asset:\/\//,
   );
+});
+
+test("committed assets retain their Blob for Live2D file loading", () => {
+  const dom = install();
+  const bytes = Buffer.from("MOC3 live2d model bytes");
+  const asset = {
+    ...descriptor("live2d-model", bytes),
+    mediaType: "application/octet-stream",
+  };
+  const payload = beginPayload({ assets: [asset] });
+
+  dom.window.__codexThemeSwitcherBegin(payload);
+  appendBase64(
+    dom.window,
+    payload.transactionID,
+    asset.id,
+    bytes,
+  );
+  dom.window.__codexThemeSwitcherCommit({
+    transactionID: payload.transactionID,
+  });
+
+  const committed = dom.window.__codexThemeSwitcherRuntime.assets.get(
+    asset.id,
+  );
+  assert.equal(committed.mediaType, "application/octet-stream");
+  assert.equal(committed.blob, dom.blobs[0]);
+  assert.deepEqual(Buffer.from(committed.blob.bytes()), bytes);
 });
 
 test("duplicate fingerprints share and reuse one URL across commits", () => {
@@ -317,7 +557,7 @@ test("duplicate fingerprints share and reuse one URL across commits", () => {
   });
   assert.equal(dom.createdURLs.length, 1);
   assert.equal(
-    dom.children[0].textContent.match(/blob:codex-theme\/1/g).length,
+    activeThemeStyle(dom).textContent.match(/blob:codex-theme\/1/g).length,
     2,
   );
 
@@ -335,7 +575,7 @@ test("duplicate fingerprints share and reuse one URL across commits", () => {
 
   assert.equal(dom.createdURLs.length, 1);
   assert.equal(dom.revokedURLs.length, 0);
-  assert.match(dom.children[0].textContent, /blob:codex-theme\/1/);
+  assert.match(activeThemeStyle(dom).textContent, /blob:codex-theme\/1/);
 });
 
 test("replaced and orphaned assets are revoked only after successful commit", () => {
@@ -371,14 +611,14 @@ test("replaced and orphaned assets are revoked only after successful commit", ()
     ["blob:codex-theme/1", "blob:codex-theme/2"],
   );
   assert.deepEqual(dom.revokedURLs, ["blob:codex-theme/1"]);
-  assert.match(dom.children[0].textContent, /blob:codex-theme\/2/);
+  assert.match(activeThemeStyle(dom).textContent, /blob:codex-theme\/2/);
 });
 
 test("commit failure rolls back style and revokes only newly created URLs", () => {
   const dom = install();
   dom.window.__codexThemeSwitcherBegin(beginPayload());
   dom.window.__codexThemeSwitcherCommit({ transactionID: "transaction-1" });
-  const activeStyle = dom.children[0];
+  const activeStyle = activeThemeStyle(dom);
 
   const bytes = Buffer.from("new bytes");
   const asset = descriptor("known", bytes);
@@ -400,8 +640,8 @@ test("commit failure rolls back style and revokes only newly created URLs", () =
     }),
     /without a descriptor/,
   );
-  assert.equal(dom.children.length, 1);
-  assert.equal(dom.children[0], activeStyle);
+  assert.equal(dom.children.length, 2);
+  assert.equal(activeThemeStyle(dom), activeStyle);
   assert.equal(activeStyle.disabled, false);
   assert.equal(activeStyle.textContent, ":root { color: red; }");
   assert.deepEqual(dom.revokedURLs, ["blob:codex-theme/1"]);
@@ -450,7 +690,7 @@ test("invalid or incomplete chunks fail without mutating the active theme", () =
     /incomplete base64 data/,
   );
   assert.equal(dom.window.__codexThemeSwitcherStatus().digest, "digest-1");
-  assert.equal(dom.children[0].textContent, ":root { color: red; }");
+  assert.equal(activeThemeStyle(dom).textContent, ":root { color: red; }");
 });
 
 test("abort discards chunks while preserving the active theme", () => {
@@ -555,16 +795,17 @@ test("runtime uses documentElement as style host and never schedules revival", (
 
   dom.window.__codexThemeSwitcherBegin(beginPayload());
   dom.window.__codexThemeSwitcherCommit({ transactionID: "transaction-1" });
-  assert.equal(dom.children.length, 1);
+  assert.equal(dom.children.length, 2);
   assert.equal(timeoutCalls, 0);
 });
 
-function voiceImagePreloadDOM() {
+function voiceImagePreloadDOM({ paintFrames = false } = {}) {
   const dom = fakeDOM();
   const liveProperties = new Map();
   const observers = [];
   const images = [];
   const pendingDecodes = new Map();
+  const paintCallbacks = [];
   const orb = {
     style: {
       getPropertyValue(name) {
@@ -585,7 +826,7 @@ function voiceImagePreloadDOM() {
     },
   };
   dom.document.querySelector = (selector) => (
-    selector === ".codex-avatar-root" ? orb : null
+    isVoiceOrbSelector(selector) ? orb : null
   );
   dom.sandbox.getComputedStyle = (element) => ({
     backgroundImage: "",
@@ -647,6 +888,12 @@ function voiceImagePreloadDOM() {
       images.push(this);
     }
   };
+  if (paintFrames) {
+    dom.sandbox.requestAnimationFrame = (callback) => {
+      paintCallbacks.push(callback);
+      return paintCallbacks.length;
+    };
+  }
 
   install(dom);
   dom.window.__codexThemeSwitcherBegin(beginPayload({
@@ -658,6 +905,7 @@ function voiceImagePreloadDOM() {
     images,
     liveProperties,
     observers,
+    paintCallbacks,
     pendingDecodes,
   };
 }
@@ -740,12 +988,52 @@ test("failed Voice image decode keeps the closed mouth pinned", async () => {
   );
 });
 
+test("Voice images paint for two frames before mouth animation unlocks", async () => {
+  const fixture = voiceImagePreloadDOM({ paintFrames: true });
+  const pulse = fixture.dom.window
+    .__codexThemeSwitcherRuntime.voicePulse;
+
+  for (const source of ["frame-0", "frame-1", "frame-2", "blink"]) {
+    fixture.pendingDecodes.get(source).resolve();
+  }
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(pulse.mouthSourcesReady, false);
+  assert.equal(pulse.mouthImagesPreparing, true);
+  assert.ok(pulse.voiceImageWarmup);
+  assert.equal(pulse.voiceImageWarmup.children.length, 4);
+  assert.equal(fixture.paintCallbacks.length, 1);
+
+  fixture.paintCallbacks.shift()();
+  assert.equal(pulse.mouthSourcesReady, false);
+  assert.equal(pulse.mouthImagesPreparing, true);
+  assert.equal(fixture.paintCallbacks.length, 1);
+
+  fixture.paintCallbacks.shift()();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(pulse.mouthSourcesReady, true);
+  assert.equal(pulse.mouthImagesPreparing, false);
+  assert.ok(pulse.voiceImageWarmup);
+  assert.equal(
+    fixture.liveProperties.get("--cts-voice-orb-active-image"),
+    'url("frame-0")',
+  );
+
+  fixture.dom.window.__codexThemeSwitcherClear();
+  assert.equal(pulse.voiceImageWarmup, null);
+});
+
 test("custom Voice orb image follows native sprite frame size", async () => {
   const dom = fakeDOM();
   const liveProperties = new Map();
   const observers = [];
   let pulseEnabled = "1";
   const orb = {
+    offsetLeft: 0,
+    offsetTop: 0,
+    offsetWidth: 112,
+    offsetHeight: 121,
+    offsetParent: null,
     style: {
       backgroundImage: 'url("sprite:test")',
       backgroundPosition: "0% 0%",
@@ -779,7 +1067,7 @@ test("custom Voice orb image follows native sprite frame size", async () => {
   dom.window.innerWidth = 356;
   dom.window.innerHeight = 320;
   dom.document.querySelector = (selector) => (
-    selector === ".codex-avatar-root" ? orb : null
+    isVoiceOrbSelector(selector) ? orb : null
   );
   dom.sandbox.getComputedStyle = (element) => {
     if (element === dom.document.documentElement) {
@@ -879,22 +1167,16 @@ test("custom Voice orb image follows native sprite frame size", async () => {
   );
   assert.ok(
     Math.abs(
-      178
-        + Number.parseFloat(
-          liveProperties.get("--cts-voice-orb-layout-shift-x"),
-        )
-        + 112 / 6
-        - 178
+      Number.parseFloat(
+        liveProperties.get("--cts-voice-orb-layout-shift-x"),
+      ) + 112 / 2
     ) < 0.14,
   );
   assert.ok(
     Math.abs(
-      160
-        + Number.parseFloat(
-          liveProperties.get("--cts-voice-orb-layout-shift-y"),
-        )
-        + 121 / 6
-        - 160
+      Number.parseFloat(
+        liveProperties.get("--cts-voice-orb-layout-shift-y"),
+      ) + 121 / 2
     ) < 0.14,
   );
   assert.equal(
@@ -994,10 +1276,20 @@ test("custom Voice orb image follows native sprite frame size", async () => {
 
 test("custom Voice orb image follows the realtime WebGL canvas", () => {
   const dom = fakeDOM();
+  let voiceSessionAttributeWrites = 0;
+  const setDocumentAttribute = dom.document.documentElement.setAttribute
+    .bind(dom.document.documentElement);
+  dom.document.documentElement.setAttribute = (name, value) => {
+    if (name === "data-codex-voice-session-active") {
+      voiceSessionAttributeWrites += 1;
+    }
+    setDocumentAttribute(name, value);
+  };
   const liveProperties = new Map();
   const layoutProperties = new Map();
   const propertySetCounts = new Map();
   const computedPropertyReadCounts = new Map();
+  let transformedPresentationScale = 1;
   const observers = [];
   const uniforms = new Map([
     ["u_resolution", new Float32Array([228, 242])],
@@ -1049,8 +1341,12 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
   };
   const voiceRenderer = {
     canvas,
+    inputs: { voiceActivity: "listening" },
     outputLevel: 0,
     publishedAudioLevels: null,
+    setInputs(inputs) {
+      this.inputs = inputs;
+    },
     setPublishedAudioLevels(levels) {
       this.publishedAudioLevels = levels;
     },
@@ -1086,12 +1382,14 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
             layoutProperties.get("--cts-voice-orb-layout-shift-y"),
           ) || 0
         ),
-        width: 112,
-        height: 121,
+        width: 112 * transformedPresentationScale,
+        height: 121 * transformedPresentationScale,
       };
     },
   };
   const orb = {
+    offsetWidth: 112,
+    offsetHeight: 121,
     style: {
       getPropertyValue(name) {
         return liveProperties.get(name) || "";
@@ -1122,7 +1420,7 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
   dom.window.innerWidth = 356;
   dom.window.innerHeight = 320;
   dom.document.querySelector = (selector) => (
-    selector === ".codex-avatar-root" ? orb : null
+    isVoiceOrbSelector(selector) ? orb : null
   );
   dom.sandbox.getComputedStyle = (element) => ({
     getPropertyValue(name) {
@@ -1197,6 +1495,16 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
   }));
   dom.window.__codexThemeSwitcherCommit({ transactionID: "transaction-1" });
 
+  voiceRenderer.setInputs({
+    phase: "inactive",
+    voiceActivity: "listening",
+  });
+  assert.equal(
+    dom.window.__codexThemeSwitcherRuntime.voicePulse.sessionActive,
+    true,
+    "explicit Voice activity keeps the overlay visible during an inactive phase handoff",
+  );
+
   const number = (name) => Number.parseFloat(liveProperties.get(name));
   const layoutNumber = (name) => Number.parseFloat(
     layoutProperties.get(name),
@@ -1212,24 +1520,12 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
   assert.equal(liveProperties.get("--cts-voice-orb-live-pulse"), "1.0000");
   assert.ok(
     Math.abs(
-      178
-        + layoutNumber("--cts-voice-orb-layout-shift-x")
-        + (
-          number("--cts-voice-orb-live-left")
-          + number("--cts-voice-orb-live-width") / 2
-        ) * 1.12
-        - 178
+      layoutNumber("--cts-voice-orb-layout-shift-x") + 112 / 2
     ) < 0.14,
   );
   assert.ok(
     Math.abs(
-      160
-        + layoutNumber("--cts-voice-orb-layout-shift-y")
-        + (
-          number("--cts-voice-orb-live-top")
-          + number("--cts-voice-orb-live-height") / 2
-        ) * 1.21
-        - 160
+      layoutNumber("--cts-voice-orb-layout-shift-y") + 121 / 2
     ) < 0.14,
   );
   assert.equal(
@@ -1301,8 +1597,31 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
     const property = `--cts-voice-orb-mouth-frame-${index}`;
     return [property, computedPropertyReadCounts.get(property)];
   });
+  const sessionWritesBeforeStableFrame = voiceSessionAttributeWrites;
+  const stableLayoutShiftX = layoutProperties.get(
+    "--cts-voice-orb-layout-shift-x",
+  );
+  const stableLayoutShiftY = layoutProperties.get(
+    "--cts-voice-orb-layout-shift-y",
+  );
+  transformedPresentationScale = 0.5;
   now = 16;
   frameCallback();
+  assert.equal(
+    layoutProperties.get("--cts-voice-orb-layout-shift-x"),
+    stableLayoutShiftX,
+    "CSS transforms must not feed back into horizontal Voice positioning",
+  );
+  assert.equal(
+    layoutProperties.get("--cts-voice-orb-layout-shift-y"),
+    stableLayoutShiftY,
+    "CSS transforms must not feed back into vertical Voice positioning",
+  );
+  assert.equal(
+    voiceSessionAttributeWrites,
+    sessionWritesBeforeStableFrame,
+    "a stable Voice lifecycle must not invalidate the overlay every frame",
+  );
   for (const [property, count] of unchangedImageCounts) {
     assert.equal(propertySetCounts.get(property), count);
   }
@@ -1313,6 +1632,30 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
     dom.window.__codexThemeSwitcherRuntime.voicePulse.mouthEnergySource,
     "webgl-output-level",
   );
+
+  voiceRenderer.inputs.voiceActivity = "speaking";
+  voiceRenderer.setPublishedAudioLevels({
+    high: 0,
+    low: 0,
+    mid: 0,
+    overall: 0,
+  });
+  uniforms.set("u_outputLevel", 0);
+  uniforms.set("u_stateListen", 0);
+  uniforms.set("u_stateSpeak", 1);
+  now = 48;
+  frameCallback();
+  assert.ok(
+    dom.window.__codexThemeSwitcherRuntime.voicePulse.mouthRawLevel > 0.1,
+  );
+  assert.equal(
+    dom.window.__codexThemeSwitcherRuntime.voicePulse.mouthEnergySource,
+    "speaking-state-fallback",
+  );
+
+  voiceRenderer.inputs.voiceActivity = "listening";
+  uniforms.set("u_stateListen", 1);
+  uniforms.set("u_stateSpeak", 0);
 
   voiceRenderer.setPublishedAudioLevels({
     high: 0.42,

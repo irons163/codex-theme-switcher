@@ -111,8 +111,14 @@ function codexAvatarOverlayTargets(targets) {
   return targets.filter((target) => {
     if (target.type !== "page" || !targetWebSocket(target)) return false;
     const url = String(target.url || "");
-    return /^app:\/\/-\/index\.html(?:[?#]|$)/.test(url)
+    const indexOverlay = /^app:\/\/-\/index\.html(?:[?#]|$)/.test(url)
       && url.includes("avatar-overlay");
+    const voiceOutputSurface = (
+      /^app:\/\/-\/avatar-overlay-composition-surface\.html(?:[?#]|$)/
+        .test(url)
+      && /(?:[?&])surfaceId=voice-output(?:&|$)/.test(url)
+    );
+    return indexOverlay || voiceOutputSurface;
   });
 }
 

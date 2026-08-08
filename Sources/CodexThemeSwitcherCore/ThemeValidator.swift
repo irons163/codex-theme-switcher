@@ -517,6 +517,105 @@ public struct ThemeValidator: Sendable {
                         )
                     }
                 }
+                if variant.avatarMode == .live2D,
+                   variant.live2DModel == nil {
+                    add(
+                        .missingSkinAsset,
+                        path: "\(path).live2DModel",
+                        message: "Live2D avatar mode requires an imported Cubism model."
+                    )
+                }
+                if let model = variant.live2DModel {
+                    let resourcesByPath = Dictionary(
+                        grouping: model.resources,
+                        by: \.path
+                    )
+                    if model.modelSettingsPath.isEmpty
+                        || !model.modelSettingsPath.lowercased()
+                            .hasSuffix(".model3.json")
+                        || resourcesByPath[model.modelSettingsPath] == nil {
+                        add(
+                            .missingSkinAsset,
+                            path: "\(path).live2DModel.modelSettingsPath",
+                            message: "Live2D model settings must reference an imported .model3.json resource."
+                        )
+                    }
+                    if let settingsResource =
+                        resourcesByPath[model.modelSettingsPath]?.first,
+                       let settingsAsset = document.assets.first(
+                        where: { $0.id == settingsResource.assetID }
+                       ),
+                       settingsAsset.mediaType.lowercased()
+                        != "application/json" {
+                        add(
+                            .invalidSkinAssetType,
+                            path: "\(path).live2DModel.modelSettingsPath",
+                            message: "Live2D model settings must use an application/json asset."
+                        )
+                    }
+                    for (resourceIndex, resource) in model.resources.enumerated() {
+                        let resourcePath =
+                            "\(path).live2DModel.resources[\(resourceIndex)]"
+                        if !Self.isSafeRelativeAssetPath(resource.path) {
+                            add(
+                                .invalidAssetName,
+                                path: "\(resourcePath).path",
+                                message: "Live2D resource paths must stay inside the imported model folder."
+                            )
+                        }
+                        if document.assets.contains(where: {
+                            $0.id == resource.assetID
+                        }) == false {
+                            add(
+                                .missingSkinAsset,
+                                path: "\(resourcePath).assetID",
+                                message: "Live2D resource references missing asset \(resource.assetID.uuidString)."
+                            )
+                        }
+                    }
+                    if resourcesByPath.values.contains(where: {
+                        $0.count > 1
+                    }) {
+                        add(
+                            .duplicateIdentifier,
+                            path: "\(path).live2DModel.resources",
+                            message: "Live2D resource paths must be unique."
+                        )
+                    }
+                    let live2DValues: [
+                        (String, Double, ClosedRange<Double>)
+                    ] = [
+                        ("scale", model.scale, 0.25...3),
+                        ("positionX", model.positionX, 0...1),
+                        ("positionY", model.positionY, 0...1)
+                    ]
+                    for (name, value, range) in live2DValues
+                    where !value.isFinite || !range.contains(value) {
+                        add(
+                            .invalidSkinNumber,
+                            path: "\(path).live2DModel.\(name)",
+                            message: "Live2D layout value is outside the supported range."
+                        )
+                    }
+                    let parameterIDs = [
+                        ("mouthParameterID", model.mouthParameterID),
+                        ("angleXParameterID", model.angleXParameterID),
+                        ("angleYParameterID", model.angleYParameterID),
+                        ("angleZParameterID", model.angleZParameterID),
+                        (
+                            "bodyAngleXParameterID",
+                            model.bodyAngleXParameterID
+                        )
+                    ]
+                    for (name, value) in parameterIDs
+                    where !Self.isValidLive2DParameterID(value) {
+                        add(
+                            .invalidSkinCSSValue,
+                            path: "\(path).live2DModel.\(name)",
+                            message: "Live2D parameter IDs may contain letters, digits, underscores, periods, and hyphens."
+                        )
+                    }
+                }
                 if variant.orbMouthFrameAssetIDs.count > 8 {
                     add(
                         .invalidSkinNumber,
@@ -705,6 +804,16 @@ public struct ThemeValidator: Sendable {
                         variant.orbBlinkDurationMilliseconds,
                         60...400
                     ),
+                    (
+                        "overlayMascotWidth",
+                        variant.overlayMascotWidth,
+                        80...339
+                    ),
+                    (
+                        "overlayMascotHeightScale",
+                        variant.overlayMascotHeightScale,
+                        0.5...3
+                    ),
                     ("orbScale", variant.orbScale, 0.5...3),
                     ("brightness", variant.brightness, 0...3),
                     ("contrast", variant.contrast, 0...3),
@@ -882,6 +991,22 @@ public struct ThemeValidator: Sendable {
 
     private static func isValidMediaType(_ value: String) -> Bool {
         matches(#"^[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+$"#, value)
+    }
+
+    private static func isSafeRelativeAssetPath(_ value: String) -> Bool {
+        guard !value.isEmpty,
+              !value.hasPrefix("/"),
+              !value.hasPrefix("\\"),
+              !value.contains("\\"),
+              !value.contains("\0") else {
+            return false
+        }
+        return value.split(separator: "/", omittingEmptySubsequences: false)
+            .allSatisfy { !$0.isEmpty && $0 != "." && $0 != ".." }
+    }
+
+    private static func isValidLive2DParameterID(_ value: String) -> Bool {
+        matches(#"^[A-Za-z][A-Za-z0-9_.-]{0,127}$"#, value)
     }
 
     private static func matches(_ pattern: String, _ value: String) -> Bool {

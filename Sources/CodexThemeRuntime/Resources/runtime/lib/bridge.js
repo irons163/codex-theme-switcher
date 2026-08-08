@@ -7,10 +7,13 @@ const http = require("node:http");
 const path = require("node:path");
 const {
   cdpStatus,
+  codexAvatarOverlayTargets,
+  codexPageTargets,
   ensureCodexLaunched,
   findAvailablePort,
   findExistingCodexDebugPort,
   isCodexRunning,
+  listTargets,
   portIsAvailable,
   readBundleValue,
 } = require("./cdp");
@@ -27,7 +30,7 @@ const {
 const { sleep } = require("./processes");
 
 const APP_ID = "codex-theme-switcher";
-const PROTOCOL_VERSION = 24;
+const PROTOCOL_VERSION = 25;
 const MAX_THEME_CSS_BYTES = 64 * 1024 * 1024;
 const MAX_THEME_ASSET_BYTES = 16 * 1024 * 1024;
 const MAX_THEME_TOTAL_ASSET_BYTES = 32 * 1024 * 1024;
@@ -519,6 +522,7 @@ async function serveBridge(options) {
     injectedAt: null,
     lastError: null,
     launching: false,
+    targetSignature: null,
   };
   const enqueueMutation = createMutationQueue();
 
@@ -550,6 +554,24 @@ async function serveBridge(options) {
     );
     state.injectedAt = new Date().toISOString();
     state.lastError = null;
+  }
+
+  async function detectRendererChanges() {
+    const targets = await listTargets(state.debugPort);
+    const signature = [
+      ...codexPageTargets(targets),
+      ...codexAvatarOverlayTargets(targets),
+    ]
+      .map((target) => `${target.id}:${target.url || ""}`)
+      .sort()
+      .join("\n");
+    if (state.targetSignature == null) {
+      state.targetSignature = signature;
+      return;
+    }
+    if (signature === state.targetSignature) return;
+    state.targetSignature = signature;
+    await injectOnce();
   }
 
   async function injectWhenReady(timeoutMs = 2000) {
@@ -761,6 +783,14 @@ async function serveBridge(options) {
         state.lastError = error.message || String(error);
       });
   }, 3000).unref();
+
+  // Native Voice composition surfaces are created and destroyed during the
+  // opening/closing animation. Discover those target handoffs quickly while
+  // keeping the heavier full health reconciliation on its existing cadence.
+  setInterval(() => {
+    if (state.launching) return;
+    enqueueMutation(() => detectRendererChanges()).catch(() => {});
+  }, 200).unref();
 
   log(
     `bridge listening on 127.0.0.1:${options.bridgePort}, debug port ${state.debugPort}`,

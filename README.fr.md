@@ -69,10 +69,11 @@ Les aperçus générés par un agent restent des approximations fidèles. Vérif
 
 - Définissez un arrière-plan Voice et une image distincte dans l’orbe animé.
 - Ajoutez un portrait bouche fermée et jusqu’à huit formes de bouche, ou importez une planche 2×2 / 3×3.
+- Vous pouvez aussi importer un package Cubism `.model3.json` pour profiter des mouvements Live2D et d’une bouche continue pilotée par le son. Les réglages d’image 2D restent disponibles après un changement de mode.
 - Réglez la sensibilité, le seuil de silence, la vitesse d’ouverture et de fermeture, le clignement, le mouvement au repos, la pulsation et la visibilité de l’orbe natif.
 - La bouche suit l’intensité sonore ; il ne s’agit pas d’une synchronisation labiale par phonèmes.
 
-Le style Voice dépend du moteur de rendu interne de ChatGPT et peut nécessiter une mise à jour après une nouvelle version de Codex / ChatGPT.
+Le style Voice dépend du moteur de rendu interne de ChatGPT et peut nécessiter une mise à jour après une nouvelle version de Codex / ChatGPT. Live2D nécessite un accès à Internet pour charger le Cubism Core officiel au démarrage du moteur ; vérifiez les droits du modèle, du personnage et de publication du SDK Cubism avant de distribuer une app ou un thème.
 
 ## Importation et exportation
 

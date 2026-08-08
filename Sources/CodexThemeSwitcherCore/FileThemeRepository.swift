@@ -42,6 +42,7 @@ public actor FileThemeRepository {
                     ThemeSummary(document: $0, isBuiltIn: true)
                 }
                 : []
+            var seenThemeIDs = Set(summaries.map(\.id))
 
             let urls = try fileManager.contentsOfDirectory(
                 at: themesDirectory,
@@ -50,6 +51,9 @@ public actor FileThemeRepository {
             )
             for url in urls where url.pathExtension.lowercased() == "json" {
                 let document = try decodeTheme(at: url)
+                guard seenThemeIDs.insert(document.id).inserted else {
+                    continue
+                }
                 summaries.append(
                     ThemeSummary(document: document, isBuiltIn: false)
                 )

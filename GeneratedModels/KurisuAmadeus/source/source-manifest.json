@@ -1,0 +1,33 @@
+{
+  "name": "Kurisu Amadeus Fan Model",
+  "canvas": {
+    "width": 1024,
+    "height": 1536
+  },
+  "layers": {
+    "neutral": "00_BASE__neutral",
+    "eyesClosed": "20_EYES__closed",
+    "mouthA": "30_MOUTH__A_open",
+    "mouthO": "31_MOUTH__O_round"
+  },
+  "parameters": {
+    "angleX": "ParamAngleX",
+    "angleY": "ParamAngleY",
+    "angleZ": "ParamAngleZ",
+    "bodyAngleX": "ParamBodyAngleX",
+    "leftEyeOpen": "ParamEyeLOpen",
+    "rightEyeOpen": "ParamEyeROpen",
+    "mouthOpen": "ParamMouthOpenY",
+    "breath": "ParamBreath"
+  },
+  "recommendedRanges": {
+    "ParamAngleX": [-30, 30],
+    "ParamAngleY": [-30, 30],
+    "ParamAngleZ": [-30, 30],
+    "ParamBodyAngleX": [-10, 10],
+    "ParamEyeLOpen": [0, 1],
+    "ParamEyeROpen": [0, 1],
+    "ParamMouthOpenY": [0, 1],
+    "ParamBreath": [0, 1]
+  }
+}

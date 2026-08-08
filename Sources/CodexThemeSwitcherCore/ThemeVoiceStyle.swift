@@ -1,5 +1,66 @@
 import Foundation
 
+public enum ThemeVoiceAvatarMode: String, Codable, CaseIterable, Equatable, Sendable {
+    /// Keep ChatGPT's original animated Voice orb.
+    case native
+    /// Use the existing flat portrait, mouth-frame, and blink-image renderer.
+    case image
+    /// Render an imported Cubism `.model3.json` package with WebGL.
+    case live2D
+}
+
+public struct ThemeLive2DResource: Codable, Equatable, Sendable, Identifiable {
+    public var path: String
+    public var assetID: UUID
+
+    public var id: String { path }
+
+    public init(path: String, assetID: UUID) {
+        self.path = path
+        self.assetID = assetID
+    }
+}
+
+public struct ThemeLive2DModel: Codable, Equatable, Sendable {
+    /// Path of the `.model3.json` file relative to the imported model folder.
+    public var modelSettingsPath: String
+    /// Every Cubism file required by the settings file, including the settings
+    /// file itself. Paths remain relative so the Web loader can resolve them.
+    public var resources: [ThemeLive2DResource]
+    public var scale: Double
+    public var positionX: Double
+    public var positionY: Double
+    public var mouthParameterID: String
+    public var angleXParameterID: String
+    public var angleYParameterID: String
+    public var angleZParameterID: String
+    public var bodyAngleXParameterID: String
+
+    public init(
+        modelSettingsPath: String,
+        resources: [ThemeLive2DResource],
+        scale: Double = 1,
+        positionX: Double = 0.5,
+        positionY: Double = 0.5,
+        mouthParameterID: String = "ParamMouthOpenY",
+        angleXParameterID: String = "ParamAngleX",
+        angleYParameterID: String = "ParamAngleY",
+        angleZParameterID: String = "ParamAngleZ",
+        bodyAngleXParameterID: String = "ParamBodyAngleX"
+    ) {
+        self.modelSettingsPath = modelSettingsPath
+        self.resources = resources
+        self.scale = scale
+        self.positionX = positionX
+        self.positionY = positionY
+        self.mouthParameterID = mouthParameterID
+        self.angleXParameterID = angleXParameterID
+        self.angleYParameterID = angleYParameterID
+        self.angleZParameterID = angleZParameterID
+        self.bodyAngleXParameterID = bodyAngleXParameterID
+    }
+}
+
 /// Best-effort styling for ChatGPT Voice's dedicated avatar-overlay renderer.
 ///
 /// The renderer can contain ordinary DOM, SVG, Canvas, WebGL, and native
@@ -78,6 +139,10 @@ public struct ThemeVoiceStyle: Codable, Equatable, Sendable {
 }
 
 public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
+    /// Selects the renderer without removing data owned by the other modes.
+    /// This lets users switch back to a flat portrait without reimporting it.
+    public var avatarMode: ThemeVoiceAvatarMode
+    public var live2DModel: ThemeLive2DModel?
     public var backgroundAssetID: UUID?
     public var backgroundImageFit: ThemeSkinImageFit
     public var backgroundPositionX: Double
@@ -85,6 +150,20 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
     public var backgroundZoom: Double
     public var backgroundImageOpacity: Double
     public var backgroundImageBlur: Double
+    /// Width, in CSS pixels, of ChatGPT's measured Voice mascot area.
+    ///
+    /// ChatGPT derives the native overlay window height from this measurement,
+    /// so increasing it gives large portraits and Live2D models more room.
+    public var overlayMascotWidth: Double
+    /// Independent height multiplier for the custom Voice background/avatar
+    /// area. This lets a portrait or Live2D model have more vertical room
+    /// without making the whole area wider.
+    public var overlayMascotHeightScale: Double
+    /// Keeps the draggable Voice mascot anchored to the overlay center.
+    ///
+    /// When disabled, ChatGPT's native positioning can move the orb to screen
+    /// edges regardless of whether an overlay background image is configured.
+    public var orbLocksToOverlayCenter: Bool
     public var orbBackgroundAssetID: UUID?
     public var orbBackgroundImageFit: ThemeSkinImageFit
     public var orbBackgroundPositionX: Double
@@ -137,6 +216,8 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
     public var backdropOpacity: Double
 
     public init(
+        avatarMode: ThemeVoiceAvatarMode = .image,
+        live2DModel: ThemeLive2DModel? = nil,
         backgroundAssetID: UUID? = nil,
         backgroundImageFit: ThemeSkinImageFit = .cover,
         backgroundPositionX: Double = 0.5,
@@ -144,6 +225,9 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         backgroundZoom: Double = 1,
         backgroundImageOpacity: Double = 1,
         backgroundImageBlur: Double = 0,
+        overlayMascotWidth: Double = 113,
+        overlayMascotHeightScale: Double = 1,
+        orbLocksToOverlayCenter: Bool = true,
         orbBackgroundAssetID: UUID? = nil,
         orbBackgroundImageFit: ThemeSkinImageFit = .cover,
         orbBackgroundPositionX: Double = 0.5,
@@ -180,6 +264,8 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         backdropColor: String = "#000000",
         backdropOpacity: Double = 0
     ) {
+        self.avatarMode = avatarMode
+        self.live2DModel = live2DModel
         self.backgroundAssetID = backgroundAssetID
         self.backgroundImageFit = backgroundImageFit
         self.backgroundPositionX = backgroundPositionX
@@ -187,6 +273,9 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         self.backgroundZoom = backgroundZoom
         self.backgroundImageOpacity = backgroundImageOpacity
         self.backgroundImageBlur = backgroundImageBlur
+        self.overlayMascotWidth = overlayMascotWidth
+        self.overlayMascotHeightScale = overlayMascotHeightScale
+        self.orbLocksToOverlayCenter = orbLocksToOverlayCenter
         self.orbBackgroundAssetID = orbBackgroundAssetID
         self.orbBackgroundImageFit = orbBackgroundImageFit
         self.orbBackgroundPositionX = orbBackgroundPositionX
@@ -277,6 +366,8 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
     )
 
     private enum CodingKeys: String, CodingKey {
+        case avatarMode
+        case live2DModel
         case backgroundAssetID
         case backgroundImageFit
         case backgroundPositionX
@@ -284,6 +375,9 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         case backgroundZoom
         case backgroundImageOpacity
         case backgroundImageBlur
+        case overlayMascotWidth
+        case overlayMascotHeightScale
+        case orbLocksToOverlayCenter
         case orbBackgroundAssetID
         case orbBackgroundImageFit
         case orbBackgroundPositionX
@@ -330,6 +424,10 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         defaults: ThemeVoiceVariant
     ) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
+        live2DModel = try values.decodeIfPresent(
+            ThemeLive2DModel.self,
+            forKey: .live2DModel
+        )
         backgroundAssetID = try values.decodeIfPresent(
             UUID.self,
             forKey: .backgroundAssetID
@@ -363,10 +461,36 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
             Double.self,
             forKey: .backgroundImageBlur
         ) ?? defaults.backgroundImageBlur
+        overlayMascotWidth = try values.decodeIfPresent(
+            Double.self,
+            forKey: .overlayMascotWidth
+        ) ?? defaults.overlayMascotWidth
+        overlayMascotHeightScale = try values.decodeIfPresent(
+            Double.self,
+            forKey: .overlayMascotHeightScale
+        ) ?? defaults.overlayMascotHeightScale
+        orbLocksToOverlayCenter = try values.decodeIfPresent(
+            Bool.self,
+            forKey: .orbLocksToOverlayCenter
+        ) ?? defaults.orbLocksToOverlayCenter
         orbBackgroundAssetID = try values.decodeIfPresent(
             UUID.self,
             forKey: .orbBackgroundAssetID
         )
+        if let rawMode = try values.decodeIfPresent(
+            String.self,
+            forKey: .avatarMode
+        ) {
+            avatarMode = ThemeVoiceAvatarMode(rawValue: rawMode)
+                ?? defaults.avatarMode
+        } else if live2DModel != nil {
+            avatarMode = .live2D
+        } else if orbBackgroundAssetID != nil {
+            // Themes created before avatarMode existed used the image renderer.
+            avatarMode = .image
+        } else {
+            avatarMode = defaults.avatarMode
+        }
         if let rawImageFit = try values.decodeIfPresent(
             String.self,
             forKey: .orbBackgroundImageFit

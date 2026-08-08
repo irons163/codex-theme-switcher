@@ -15,8 +15,9 @@ public struct ThemeDocument: Codable, Equatable, Sendable, Identifiable {
     public var layers: [ThemeLayer]
     public var assets: [ThemeAsset]
     public var imageSkin: ThemeImageSkin?
-    /// Optional styling that is delivered only to ChatGPT Voice's dedicated
-    /// avatar-overlay renderer. It is never mixed into the main Codex window.
+    /// Optional ChatGPT Voice styling. Safe orb-only rules are also compiled
+    /// into the main renderer for the initial embedded Voice orb, while the
+    /// full background and advanced CSS remain isolated to avatar-overlay.
     public var voiceStyle: ThemeVoiceStyle?
 
     public init(
