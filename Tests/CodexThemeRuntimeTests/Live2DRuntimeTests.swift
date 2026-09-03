@@ -465,7 +465,7 @@ final class Live2DRuntimeTests: XCTestCase {
             JSONSerialization.jsonObject(with: result) as? [String: Any]
         )
 
-        XCTAssertEqual(object["version"] as? Int, 67)
+        XCTAssertEqual(object["version"] as? Int, 71)
 
         let nativeCompositionTest = """
         const runtime = require(\(javascriptString(injection.path)));
