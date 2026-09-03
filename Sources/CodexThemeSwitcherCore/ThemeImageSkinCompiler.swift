@@ -212,11 +212,16 @@ enum ThemeImageSkinCompiler {
             ])
         }
         if skin.targets.cards || skin.targets.popovers {
-            rootDeclarations.append(
-                "--color-background-elevated-primary: var(--cts-skin-card);"
-            )
+            rootDeclarations.append(CodexNativeThemeTokens.declaration(
+                name: "--color-background-elevated-primary",
+                value: "var(--cts-skin-card)"
+            ))
         }
         if skin.targets.cards {
+            rootDeclarations.append(CodexNativeThemeTokens.declaration(
+                name: "--color-background-panel",
+                value: "var(--cts-skin-card)"
+            ))
             rootDeclarations.append(
                 "--color-token-bg-secondary: var(--cts-skin-card);"
             )
@@ -639,7 +644,7 @@ enum ThemeImageSkinCompiler {
         value: String
     ) -> [String] {
         ([role.cssVariableName] + role.codexStableTokenAliases).map {
-            "\($0): \(value);"
+            CodexNativeThemeTokens.declaration(name: $0, value: value)
         }
     }
 

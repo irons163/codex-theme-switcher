@@ -316,6 +316,49 @@ public enum ThemeSemanticRole: String, Codable, CaseIterable, Equatable, Sendabl
     }
 }
 
+/// Codex now writes these theme values to `html.style`. A normal :root
+/// declaration cannot override them, even when our stylesheet loads last.
+/// Keep the exception limited to native inline colors, and give explicit
+/// custom values the same priority so later editor overrides still win.
+enum CodexNativeThemeTokens {
+    static let inlineColors: Set<String> = [
+        "--color-background-application-menu",
+        "--color-background-control",
+        "--color-background-control-opaque",
+        "--color-background-elevated-primary",
+        "--color-background-elevated-primary-opaque",
+        "--color-background-elevated-secondary",
+        "--color-background-elevated-secondary-opaque",
+        "--color-background-panel",
+        "--color-background-surface",
+        "--color-border",
+        "--color-border-application-menu-separator",
+        "--color-border-heavy",
+        "--color-border-light",
+        "--color-foreground-application-menu",
+        "--color-icon-accent",
+        "--color-icon-secondary",
+        "--color-icon-tertiary",
+        "--color-text-accent",
+        "--color-text-button-secondary",
+        "--color-text-button-tertiary",
+        "--color-text-foreground",
+        "--color-text-foreground-secondary",
+        "--color-text-foreground-tertiary"
+    ]
+
+    static func declaration(name: String, value: String) -> String {
+        let hasPriority = value.range(
+            of: #"!\s*important\s*$"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) != nil
+        let priority = inlineColors.contains(name) && !hasPriority
+            ? " !important"
+            : ""
+        return "\(name): \(value)\(priority);"
+    }
+}
+
 public struct ThemeVariable: Codable, Equatable, Sendable, Identifiable {
     public var id: UUID
     public var name: String
