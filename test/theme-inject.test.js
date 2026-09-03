@@ -232,7 +232,7 @@ test("custom Voice activity tray follows native side without covering avatar cen
   );
 });
 
-test("VERSION=71 exposes transaction APIs and source evaluation is idempotent", () => {
+test("VERSION=72 exposes transaction APIs and source evaluation is idempotent", () => {
   const dom = install();
   const runtime = dom.window.__codexThemeSwitcherRuntime;
   const functions = [
@@ -244,7 +244,7 @@ test("VERSION=71 exposes transaction APIs and source evaluation is idempotent", 
     "__codexThemeSwitcherClear",
   ];
 
-  assert.equal(runtime.version, 71);
+  assert.equal(runtime.version, 72);
   for (const name of functions) {
     assert.equal(typeof dom.window[name], "function", name);
   }
@@ -257,6 +257,23 @@ test("VERSION=71 exposes transaction APIs and source evaluation is idempotent", 
   assert.equal(dom.window.__codexThemeSwitcherBegin, begin);
   assert.equal(dom.window.__codexThemeSwitcherStatus().digest, null);
   assert.equal(dom.window.__codexThemeSwitcherStatus().stylePresent, false);
+});
+
+test("upgrading the renderer replaces version 71 closures and clears the old theme", () => {
+  const dom = fakeDOM();
+  vm.runInNewContext(source.replace("const VERSION = 72;", "const VERSION = 71;"), dom.sandbox);
+  const oldRuntime = dom.window.__codexThemeSwitcherRuntime;
+  dom.window.__codexThemeSwitcherBegin(beginPayload());
+  dom.window.__codexThemeSwitcherCommit({ transactionID: "transaction-1" });
+  assert.ok(activeThemeStyle(dom));
+
+  install(dom);
+
+  assert.notEqual(dom.window.__codexThemeSwitcherRuntime, oldRuntime);
+  assert.notEqual(dom.window.__codexThemeSwitcherBegin, oldRuntime.begin);
+  assert.equal(dom.window.__codexThemeSwitcherRuntime.version, 72);
+  assert.equal(activeThemeStyle(dom), null);
+  assert.equal(oldRuntime.status().stylePresent, false);
 });
 
 test("a newly attached foreground Voice surface becomes visible immediately", () => {
@@ -1274,7 +1291,7 @@ test("custom Voice orb image follows native sprite frame size", async () => {
   );
 });
 
-test("custom Voice orb image follows the realtime WebGL canvas", () => {
+test("custom Voice orb image still follows the legacy WebGL canvas and audio API", () => {
   const dom = fakeDOM();
   let voiceSessionAttributeWrites = 0;
   const setDocumentAttribute = dom.document.documentElement.setAttribute
@@ -1303,6 +1320,7 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
   let frameCallback = null;
   let now = 0;
   const cancelledFrames = [];
+  const contextRequests = [];
   const program = {};
   const gl = {
     CURRENT_PROGRAM: 0x8b8d,
@@ -1323,9 +1341,7 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
     offsetHeight: 161,
     offsetParent: null,
     getAttribute(name) {
-      return name === "data-avatar-overlay-placement"
-        ? "bottom-end"
-        : null;
+      return name === "data-avatar-overlay-placement" ? "center" : null;
     },
     getBoundingClientRect() {
       return {
@@ -1336,14 +1352,15 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
       };
     },
     getContext(kind) {
+      contextRequests.push(kind);
       return kind === "webgl" ? gl : null;
     },
   };
   const voiceRenderer = {
     canvas,
-    inputs: { voiceActivity: "listening" },
-    outputLevel: 0,
+    inputs: { phase: "active", voiceActivity: "listening" },
     publishedAudioLevels: null,
+    outputLevel: 0,
     setInputs(inputs) {
       this.inputs = inputs;
     },
@@ -1411,9 +1428,10 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
         : null;
     },
     querySelector(selector) {
-      return selector === "canvas[data-avatar-overlay-placement]"
-        ? canvas
-        : null;
+      if (selector === "canvas[data-avatar-overlay-placement]") {
+        return canvas;
+      }
+      return null;
     },
   };
   canvas.offsetParent = orb;
@@ -1494,6 +1512,11 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
     ].join("\n"),
   }));
   dom.window.__codexThemeSwitcherCommit({ transactionID: "transaction-1" });
+
+  assert.ok(
+    contextRequests.includes("webgl"),
+    "Voice synchronization must still support older WebGL1 canvases",
+  );
 
   voiceRenderer.setInputs({
     phase: "inactive",
@@ -1633,7 +1656,10 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
     "webgl-output-level",
   );
 
-  voiceRenderer.inputs.voiceActivity = "speaking";
+  voiceRenderer.setInputs({
+    phase: "active",
+    voiceActivity: "speaking",
+  });
   voiceRenderer.setPublishedAudioLevels({
     high: 0,
     low: 0,
@@ -1653,7 +1679,10 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
     "speaking-state-fallback",
   );
 
-  voiceRenderer.inputs.voiceActivity = "listening";
+  voiceRenderer.setInputs({
+    phase: "active",
+    voiceActivity: "listening",
+  });
   uniforms.set("u_stateListen", 1);
   uniforms.set("u_stateSpeak", 0);
 
@@ -1784,4 +1813,122 @@ test("custom Voice orb image follows the realtime WebGL canvas", () => {
   );
   assert.equal(cancelledFrames.length, 2);
   assert.equal(observers.every((observer) => observer.disconnected), true);
+});
+
+test("Horizon Voice uses private renderer audio, not microphone uniforms, and returns to closed mouth", () => {
+  const dom = fakeDOM();
+  const properties = new Map();
+  let now = 0;
+  let nextFrame;
+  let frameID = 0;
+  const style = {
+    getPropertyValue: (name) => properties.get(name) || "",
+    setProperty: (name, value) => properties.set(name, value),
+    removeProperty: (name) => properties.delete(name),
+  };
+  const root = {
+    offsetWidth: 112, offsetHeight: 112, style,
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 112, height: 112 }),
+    querySelector: (selector) => selector === "[data-avatar-overlay-placement] canvas"
+      ? canvas : null,
+  };
+  const placement = {
+    offsetLeft: -20, offsetTop: -20, offsetWidth: 152, offsetHeight: 152,
+    offsetParent: root,
+    hasAttribute: (name) => name === "data-avatar-overlay-placement",
+  };
+  // Match the production Horizon composite: no legacy resolution, time,
+  // output level, or stateSpeak uniforms exist on this program.
+  const uniforms = new Map([
+    ["uSurfaceScale", 0.6], ["uMicLevel", 1], ["uUserSpeakingScale", 0],
+    ["uConnectionRevealAmount", 1], ["uBaseShaderFrame", 24],
+  ]);
+  const program = {};
+  const gl = {
+    CURRENT_PROGRAM: 0x8b8d, drawingBufferWidth: 306, drawingBufferHeight: 306,
+    getParameter: () => program,
+    getUniformLocation: (_program, name) => uniforms.has(name) ? name : null,
+    getUniform: (_program, name) => uniforms.get(name),
+  };
+  const canvas = {
+    width: 306, height: 306,
+    offsetWidth: 153, offsetHeight: 153, offsetLeft: 76, offsetTop: 76,
+    offsetParent: placement, parentElement: placement,
+    getContext: (kind) => kind === "webgl2" ? gl : null,
+    getBoundingClientRect: () => ({ left: -20.5, top: -20.5, width: 153, height: 153 }),
+  };
+  class HorizonRenderer {
+    #inputs;
+    #levels;
+    setInputs(inputs) { this.#inputs = inputs; }
+    setAudioLevels(levels) { this.#levels = levels; }
+    snapshot() { return { inputs: this.#inputs, levels: this.#levels }; }
+  }
+  const renderer = new HorizonRenderer();
+  const nativeSetInputs = renderer.setInputs;
+  const nativeSetAudioLevels = renderer.setAudioLevels;
+  const inputRef = { current: { phase: "active", voiceActivity: "listening" } };
+  const audioRef = { current: { overall: 0, high: 0, mid: 0, low: 0, micLevel: 1 } };
+  renderer.setInputs(inputRef.current);
+  renderer.setAudioLevels(audioRef.current);
+  const refs = [{ current: renderer }, { current: placement }, { current: canvas }, audioRef, inputRef];
+  const hooks = refs.reduceRight((next, ref) => ({ memoizedState: ref, next }), null);
+  canvas.__reactFiber$horizon = { return: { memoizedState: hooks, return: null } };
+  dom.document.querySelector = (selector) => isVoiceOrbSelector(selector) ? root : null;
+  const configuration = {
+    "--cts-voice-orb-image-enabled": "1",
+    "--cts-voice-orb-pulse-enabled": "1",
+    "--cts-voice-orb-mouth-frame-count": "3",
+    "--cts-voice-orb-mouth-frame-0": "url(closed)",
+    "--cts-voice-orb-mouth-frame-1": "url(half-open)",
+    "--cts-voice-orb-mouth-frame-2": "url(open)",
+    "--cts-voice-orb-mouth-sensitivity": "1",
+    "--cts-voice-orb-mouth-response-curve": "1",
+    "--cts-voice-orb-mouth-attack-ms": "8",
+    "--cts-voice-orb-mouth-release-ms": "40",
+    "--cts-voice-orb-mouth-noise-gate": "0.05",
+    "--cts-voice-orb-background-opacity": "1",
+  };
+  dom.sandbox.getComputedStyle = () => ({ getPropertyValue: (name) => configuration[name] || "" });
+  dom.sandbox.performance = { now: () => now };
+  dom.sandbox.requestAnimationFrame = (callback) => { nextFrame = callback; return ++frameID; };
+  dom.sandbox.cancelAnimationFrame = () => {};
+  install(dom);
+  dom.window.__codexThemeSwitcherBegin(beginPayload({ css: ":root { --cts-voice-orb-image-enabled: 1; }" }));
+  dom.window.__codexThemeSwitcherCommit({ transactionID: "transaction-1" });
+  const pulse = dom.window.__codexThemeSwitcherRuntime.voicePulse;
+  const step = (milliseconds = 16) => { now += milliseconds; nextFrame(); };
+  const publish = (overall) => {
+    audioRef.current = { overall, high: overall, low: overall, mid: overall, micLevel: 1 };
+    renderer.setAudioLevels(audioRef.current);
+  };
+
+  assert.equal(pulse.publishedAudioRenderer, renderer);
+  assert.equal(pulse.sessionActive, true, "initial private inputs must be recovered from the owning React refs");
+  assert.equal(pulse.mouthRawLevel, 0, "a loud microphone must not open the assistant's mouth");
+  assert.equal(properties.get("--cts-voice-orb-active-image"), "url(closed)");
+  assert.ok(Math.abs(parseFloat(properties.get("--cts-voice-orb-live-left")) - 9.0179) < 0.01);
+  assert.ok(Math.abs(parseFloat(properties.get("--cts-voice-orb-live-top")) - 9.0179) < 0.01);
+
+  renderer.setInputs({ phase: "active", voiceActivity: "speaking" });
+  publish(0.7);
+  step(32);
+  assert.equal(properties.get("--cts-voice-orb-active-image"), "url(open)");
+  assert.equal(renderer.snapshot().levels.overall, 0.7, "instrumentation must not alter native audio levels");
+  assert.equal(pulse.mouthEnergySource, "published-audio-levels-desmoothed");
+
+  publish(0);
+  const initialFallback = pulse.mouthRawLevel;
+  step(173);
+  assert.notEqual(pulse.mouthRawLevel, initialFallback, "missing u_time must not freeze the speaking fallback");
+  renderer.setInputs({ phase: "active", voiceActivity: "listening" });
+  for (let i = 0; i < 30; i += 1) step();
+  assert.equal(pulse.mouthRawLevel, 0);
+  assert.equal(properties.get("--cts-voice-orb-active-image"), "url(closed)");
+  assert.equal(pulse.canvasLastError, null);
+
+  dom.window.__codexThemeSwitcherClear();
+  assert.equal(renderer.setInputs, nativeSetInputs);
+  assert.equal(renderer.setAudioLevels, nativeSetAudioLevels);
+  assert.equal(pulse.publishedAudioRenderer, null);
 });

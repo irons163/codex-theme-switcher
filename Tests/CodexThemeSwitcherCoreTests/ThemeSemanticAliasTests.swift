@@ -185,7 +185,8 @@ final class ThemeSemanticAliasTests: XCTestCase {
         for role in ThemeSemanticRole.allCases {
             for alias in role.codexStableTokenAliases {
                 XCTAssertTrue(
-                    css.contains("  \(alias): var(\(role.cssVariableName));"),
+                    css.contains("  \(alias): var(\(role.cssVariableName));")
+                        || css.contains("  \(alias): var(\(role.cssVariableName)) !important;"),
                     "Missing \(alias) for \(role.rawValue)"
                 )
             }
@@ -206,5 +207,55 @@ final class ThemeSemanticAliasTests: XCTestCase {
 
         XCTAssertLessThan(generatedAccent.lowerBound, customAccent.lowerBound)
         XCTAssertLessThan(generatedLink.lowerBound, rawLink.lowerBound)
+    }
+
+    func testNativeInlineColorsAreOverriddenWithoutLosingExplicitCustomValues() throws {
+        let document = ThemeDocument(
+            metadata: ThemeMetadata(name: "Native settings colors"),
+            layers: [ThemeLayer(name: "Colors", variables: [
+                ThemeVariable(name: "--color-background-panel", value: "#faf7f0"),
+                ThemeVariable(value: "#eee8da", semanticRole: .backgroundSecondary),
+                ThemeVariable(value: "#29251f", semanticRole: .textPrimary),
+                ThemeVariable(value: "#676057", semanticRole: .textSecondary),
+                ThemeVariable(name: "--color-border", value: "#c8bdaa !important")
+            ])]
+        )
+        let css = try ThemeCompiler().compile(document).css
+        let generated = try XCTUnwrap(css.range(of:
+            "--color-background-panel: var(--codex-theme-background-secondary) !important;"
+        ))
+        let custom = try XCTUnwrap(css.range(of:
+            "--color-background-panel: #faf7f0 !important;"
+        ))
+        XCTAssertLessThan(generated.lowerBound, custom.lowerBound)
+        XCTAssertTrue(css.contains(
+            "--color-text-foreground: var(--codex-theme-text-primary) !important;"
+        ))
+        XCTAssertTrue(css.contains(
+            "--color-text-foreground-secondary: var(--codex-theme-text-secondary) !important;"
+        ))
+        XCTAssertTrue(css.contains("--color-border: #c8bdaa !important;"))
+        XCTAssertFalse(css.contains("!important !important"))
+        XCTAssertTrue(css.contains("--codex-theme-text-primary: #29251f;"))
+    }
+
+    func testImageSkinCardsOverrideNativePanelButRespectDisabledCardTarget() throws {
+        var theme = BuiltInThemes.paper
+        theme.imageSkin = ThemeImageSkin()
+        let enabled = try ThemeCompiler().compile(theme).css
+        XCTAssertTrue(enabled.contains(
+            "--color-background-panel: var(--cts-skin-card) !important;"
+        ))
+        XCTAssertTrue(enabled.contains(
+            "--color-background-elevated-primary: var(--cts-skin-card) !important;"
+        ))
+        XCTAssertTrue(enabled.contains(
+            "--color-text-foreground: var(--cts-skin-text-primary) !important;"
+        ))
+        theme.imageSkin?.targets.cards = false
+        let disabled = try ThemeCompiler().compile(theme).css
+        XCTAssertFalse(disabled.contains(
+            "--color-background-panel: var(--cts-skin-card)"
+        ))
     }
 }

@@ -9,7 +9,7 @@ final class Live2DRuntimeTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(source.contains("const VERSION = 71;"))
+        XCTAssertTrue(source.contains("const VERSION = 72;"))
         XCTAssertTrue(source.contains("function presentationScale("))
         XCTAssertTrue(source.contains("function synchronizeVoiceEffectiveScale("))
         XCTAssertTrue(
@@ -465,7 +465,7 @@ final class Live2DRuntimeTests: XCTestCase {
             JSONSerialization.jsonObject(with: result) as? [String: Any]
         )
 
-        XCTAssertEqual(object["version"] as? Int, 71)
+        XCTAssertEqual(object["version"] as? Int, 72)
 
         let nativeCompositionTest = """
         const runtime = require(\(javascriptString(injection.path)));

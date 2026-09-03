@@ -5,7 +5,7 @@
   const STYLE_ID = "codex-theme-switcher-style";
   const STAGING_STYLE_ID = `${STYLE_ID}-staging`;
   const VOICE_SESSION_STYLE_ID = `${STYLE_ID}-voice-session`;
-  const VERSION = 71;
+  const VERSION = 72;
   const PUBLISHED_AUDIO_SMOOTHING = 0.86;
   const VOICE_SESSION_INACTIVE_GRACE_MILLISECONDS = 500;
   // ChatGPT keeps its detachable Pet in another `.codex-avatar-root`.
@@ -1950,9 +1950,25 @@
   }
 
   function voiceCanvas(root) {
-    return root?.querySelector?.(
+    if (!root?.querySelector) return null;
+    // Older shells put the placement marker directly on the canvas. Codex
+    // 26.831 moved it to the wrapper around the canvas, so try both shapes
+    // before falling back to an unmarked native canvas. Exclude our own
+    // Live2D canvas from that final fallback.
+    for (const selector of [
       "canvas[data-avatar-overlay-placement]",
-    ) || null;
+      "[data-avatar-overlay-placement] canvas",
+      "canvas:not([data-codex-live2d-canvas])",
+    ]) {
+      try {
+        const canvas = root.querySelector(selector);
+        if (canvas) return canvas;
+      } catch {
+        // Older embedded DOM implementations may reject :not() or an
+        // attribute selector; keep trying the remaining compatible shapes.
+      }
+    }
+    return null;
   }
 
   function cancelVoiceSessionDeactivation() {
@@ -2577,10 +2593,11 @@
   }
 
   function rendererVoiceSessionActive(renderer) {
-    const phase = String(renderer?.inputs?.phase || "")
+    const inputs = voiceRendererInputs(renderer);
+    const phase = String(inputs?.phase || "")
       .trim()
       .toLowerCase();
-    const activity = String(renderer?.inputs?.voiceActivity || "")
+    const activity = String(inputs?.voiceActivity || "")
       .trim()
       .toLowerCase();
     // Newer ChatGPT builds can publish `phase=inactive` for one or more
@@ -2596,14 +2613,47 @@
       // visible in that phase leaves a second miniature avatar behind.
       return phase === "starting" || phase === "active";
     }
-    if (renderer?.publishedAudioLevels != null) return true;
+    if (voiceRendererAudioLevels(renderer) != null) return true;
     if (activity === "idle") return false;
+    return null;
+  }
+
+  function voiceRendererInputs(renderer) {
+    const pulse = runtime.voicePulse;
+    const direct = renderer?.inputs;
+    if (direct && typeof direct === "object") return direct;
+    if (
+      renderer
+      && (
+        renderer === pulse.publishedAudioRenderer
+        || renderer === pulse.instrumentedAudioRenderer
+      )
+    ) {
+      return pulse.voiceRendererInputs;
+    }
+    return null;
+  }
+
+  function voiceRendererAudioLevels(renderer) {
+    const pulse = runtime.voicePulse;
+    const direct = renderer?.publishedAudioLevels
+      || renderer?.audioLevels;
+    if (direct && typeof direct === "object") return direct;
+    if (
+      renderer
+      && (
+        renderer === pulse.publishedAudioRenderer
+        || renderer === pulse.instrumentedAudioRenderer
+      )
+    ) {
+      return pulse.voiceRendererAudioLevels;
+    }
     return null;
   }
 
   function synchronizeRendererVoiceSession(renderer) {
     const pulse = runtime.voicePulse;
-    const phase = String(renderer?.inputs?.phase || "")
+    const phase = String(voiceRendererInputs(renderer)?.phase || "")
       .trim()
       .toLowerCase();
     const active = rendererVoiceSessionActive(renderer);
@@ -2623,9 +2673,10 @@
       pulse.canvasLastError = error?.message || String(error);
     }
     if (!synchronized) {
-      let energy = Number(renderer?.publishedAudioLevels?.overall);
+      const audioLevels = voiceRendererAudioLevels(renderer);
+      let energy = Number(audioLevels?.overall);
       if (!Number.isFinite(energy)) energy = rendererVoiceLevel(renderer);
-      const speaking = String(renderer?.inputs?.voiceActivity || "")
+      const speaking = String(voiceRendererInputs(renderer)?.voiceActivity || "")
         .trim()
         .toLowerCase() === "speaking";
       if (speaking && energy <= 0.008) {
@@ -2666,11 +2717,23 @@
           pulse.originalSetPublishedAudioLevels;
       } catch {}
     }
+    if (
+      renderer
+      && pulse.instrumentedSetAudioLevels
+      && renderer.setAudioLevels === pulse.instrumentedSetAudioLevels
+      && typeof pulse.originalSetAudioLevels === "function"
+    ) {
+      try {
+        renderer.setAudioLevels = pulse.originalSetAudioLevels;
+      } catch {}
+    }
     pulse.instrumentedAudioRenderer = null;
     pulse.instrumentedSetInputs = null;
     pulse.originalSetInputs = null;
     pulse.instrumentedSetPublishedAudioLevels = null;
     pulse.originalSetPublishedAudioLevels = null;
+    pulse.instrumentedSetAudioLevels = null;
+    pulse.originalSetAudioLevels = null;
   }
 
   function instrumentVoiceRenderer(renderer) {
@@ -2680,12 +2743,15 @@
     const originalSetInputs = renderer.setInputs;
     const originalSetPublishedAudioLevels =
       renderer.setPublishedAudioLevels;
+    const originalSetAudioLevels = renderer.setAudioLevels;
     let wrappedSetInputs = null;
     let wrappedSetPublishedAudioLevels = null;
+    let wrappedSetAudioLevels = null;
     if (typeof originalSetInputs === "function") {
       wrappedSetInputs = function setInputs(inputs) {
         const result = Reflect.apply(originalSetInputs, this, [inputs]);
         if (this === renderer) {
+          pulse.voiceRendererInputs = inputs;
           synchronizeRendererVoiceSession(renderer);
           synchronizeRendererVoiceFrame(renderer);
         }
@@ -2705,11 +2771,22 @@
         return result;
       };
     }
+    if (typeof originalSetAudioLevels === "function") {
+      wrappedSetAudioLevels = function setAudioLevels(levels) {
+        const result = Reflect.apply(originalSetAudioLevels, this, [levels]);
+        if (this === renderer) {
+          pulse.voiceRendererAudioLevels = levels;
+          synchronizeRendererVoiceFrame(renderer);
+        }
+        return result;
+      };
+    }
     try {
       if (wrappedSetInputs) renderer.setInputs = wrappedSetInputs;
       if (wrappedSetPublishedAudioLevels) {
         renderer.setPublishedAudioLevels = wrappedSetPublishedAudioLevels;
       }
+      if (wrappedSetAudioLevels) renderer.setAudioLevels = wrappedSetAudioLevels;
       pulse.instrumentedAudioRenderer = renderer;
       pulse.instrumentedSetInputs = wrappedSetInputs;
       pulse.originalSetInputs = originalSetInputs;
@@ -2717,22 +2794,78 @@
         wrappedSetPublishedAudioLevels;
       pulse.originalSetPublishedAudioLevels =
         originalSetPublishedAudioLevels;
+      pulse.instrumentedSetAudioLevels = wrappedSetAudioLevels;
+      pulse.originalSetAudioLevels = originalSetAudioLevels;
     } catch {}
     synchronizeRendererVoiceSession(renderer);
     synchronizeRendererVoiceFrame(renderer);
   }
 
   function isVoiceRendererInstance(value, canvas) {
+    const pulse = runtime.voicePulse;
+    try {
+      const canvasMatches = value?.canvas === canvas
+        || (
+          value === pulse.publishedAudioRenderer
+          && pulse.publishedAudioRendererCanvas === canvas
+        );
+      return Boolean(
+        value
+        && typeof value === "object"
+        && canvasMatches
+        && (
+          typeof value.setPublishedAudioLevels === "function"
+          || typeof value.setAudioLevels === "function"
+        )
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  function isVoiceRendererCandidate(value) {
     try {
       return Boolean(
         value
         && typeof value === "object"
-        && value.canvas === canvas
-        && "publishedAudioLevels" in value
-        && typeof value.setPublishedAudioLevels === "function"
+        && typeof value.setInputs === "function"
+        && (
+          typeof value.setPublishedAudioLevels === "function"
+          || typeof value.setAudioLevels === "function"
+        )
       );
     } catch {
       return false;
+    }
+  }
+
+  function captureVoiceRendererSnapshots(fiber, renderer) {
+    const pulse = runtime.voicePulse;
+    let hook = fiber?.memoizedState;
+    for (let index = 0; hook && index < 80; index += 1) {
+      const value = hook.memoizedState?.current;
+      if (
+        value
+        && value !== renderer
+        && typeof value === "object"
+      ) {
+        try {
+          if (
+            typeof value.phase === "string"
+            || typeof value.voiceActivity === "string"
+          ) {
+            pulse.voiceRendererInputs = value;
+          } else if (
+            "overall" in value
+            || "high" in value
+            || "mid" in value
+            || "low" in value
+          ) {
+            pulse.voiceRendererAudioLevels = value;
+          }
+        } catch {}
+      }
+      hook = hook.next;
     }
   }
 
@@ -2754,7 +2887,11 @@
       for (let index = 0; hook && index < 80; index += 1) {
         const state = hook.memoizedState;
         for (const candidate of [state, state?.current]) {
-          if (isVoiceRendererInstance(candidate, canvas)) {
+          if (
+            isVoiceRendererInstance(candidate, canvas)
+            || isVoiceRendererCandidate(candidate)
+          ) {
+            captureVoiceRendererSnapshots(fiber, candidate);
             return candidate;
           }
         }
@@ -2772,6 +2909,9 @@
       releaseVoiceRendererInstrumentation();
       renderer = null;
       pulse.publishedAudioRenderer = null;
+      pulse.publishedAudioRendererCanvas = null;
+      pulse.voiceRendererInputs = null;
+      pulse.voiceRendererAudioLevels = null;
       pulse.publishedAudioSnapshot = null;
       pulse.publishedAudioLevel = null;
       pulse.publishedAudioEstimate = 0;
@@ -2780,6 +2920,7 @@
       } else {
         renderer = reactVoiceRenderer(canvas);
         pulse.publishedAudioRenderer = renderer;
+        pulse.publishedAudioRendererCanvas = renderer ? canvas : null;
         instrumentVoiceRenderer(renderer);
         pulse.publishedAudioSearchCountdown = 60;
       }
@@ -2787,7 +2928,7 @@
       instrumentVoiceRenderer(renderer);
     }
 
-    const levels = renderer?.publishedAudioLevels;
+    const levels = voiceRendererAudioLevels(renderer);
     const overall = Number(levels?.overall);
     if (!Number.isFinite(overall)) {
       pulse.publishedAudioSnapshot = null;
@@ -2819,24 +2960,29 @@
   }
 
   function rendererVoiceLevel(renderer) {
+    const levels = voiceRendererAudioLevels(renderer);
     const candidates = [
       Number(renderer?.outputLevel),
       Number(renderer?.audioData?.[3]),
+      Number(levels?.high),
+      Number(levels?.mid),
+      Number(levels?.low),
+      Number(levels?.overall),
     ].filter(Number.isFinite);
     return candidates.length > 0
       ? clamp(Math.max(...candidates), 0, 1)
       : 0;
   }
 
+  function voiceAnimationSeconds() {
+    return typeof performance !== "undefined"
+      && typeof performance.now === "function"
+      ? performance.now() / 1000
+      : Date.now() / 1000;
+  }
+
   function speakingFallbackEnergy(time, amount) {
-    const seconds = Number.isFinite(time)
-      ? time
-      : (
-        typeof performance !== "undefined"
-        && typeof performance.now === "function"
-          ? performance.now() / 1000
-          : Date.now() / 1000
-      );
+    const seconds = Number.isFinite(time) ? time : voiceAnimationSeconds();
     const fast = Math.sin(seconds * 13.7) * 0.5 + 0.5;
     const slow = Math.sin(seconds * 7.9 + 1.4) * 0.5 + 0.5;
     return clamp(
@@ -2848,12 +2994,20 @@
 
   function voiceCanvasContext(canvas) {
     if (!canvas?.getContext) return null;
-    try {
-      return canvas.getContext("webgl")
-        || canvas.getContext("experimental-webgl");
-    } catch {
-      return null;
+    // Codex 26.831 and newer render the Voice orb with WebGL2. Keep the
+    // WebGL1 fallbacks for older shells, but always prefer the current
+    // context for native geometry. Assistant audio comes from the renderer;
+    // the new shader's uMicLevel is the user's microphone, not output audio.
+    for (const contextName of ["webgl2", "webgl", "experimental-webgl"]) {
+      try {
+        const context = canvas.getContext(contextName);
+        if (context) return context;
+      } catch {
+        // A browser can reject an unsupported context type; try the next
+        // compatible context instead of disabling Voice synchronization.
+      }
     }
+    return null;
   }
 
   function layoutRectWithin(element, ancestor) {
@@ -2897,10 +3051,22 @@
     }
     if (!program) return null;
 
-    const resolution = vectorUniform(gl, program, "u_resolution");
+    const uniformResolution = vectorUniform(gl, program, "u_resolution");
+    const drawingBufferWidth = Number(gl.drawingBufferWidth)
+      || Number(canvas.width)
+      || Number(canvas.clientWidth);
+    const drawingBufferHeight = Number(gl.drawingBufferHeight)
+      || Number(canvas.height)
+      || Number(canvas.clientHeight);
+    const resolution = uniformResolution
+      && uniformResolution.length >= 2
+      ? uniformResolution
+      : [drawingBufferWidth, drawingBufferHeight];
     if (
       !resolution
       || resolution.length < 2
+      || !Number.isFinite(resolution[0])
+      || !Number.isFinite(resolution[1])
       || resolution[0] <= 0
       || resolution[1] <= 0
     ) {
@@ -2930,7 +3096,9 @@
       height: canvasRect.height,
     };
 
-    const time = numericUniform(gl, program, "u_time");
+    // The newer composite shader no longer publishes u_time. A frozen zero
+    // would also freeze the speaking fallback and idle movement.
+    const time = numericUniform(gl, program, "u_time", voiceAnimationSeconds());
     const outputLevel = numericUniform(
       gl,
       program,
@@ -2954,21 +3122,34 @@
     );
     const renderer = runtime.voicePulse.publishedAudioRenderer;
     synchronizeRendererVoiceSession(renderer);
-    const rendererActivity = String(
-      renderer?.inputs?.voiceActivity || "",
-    ).trim().toLowerCase();
+    const rendererInputs = voiceRendererInputs(renderer);
+    const rendererActivity = String(rendererInputs?.voiceActivity || "")
+      .trim()
+      .toLowerCase();
     const rendererHasActivity = rendererActivity.length > 0;
     const rendererIsSpeaking = rendererActivity === "speaking";
+    const effectiveStateListen = Math.max(
+      stateListen,
+      rendererActivity === "listening" ? 1 : 0,
+    );
+    const effectiveStateThink = Math.max(
+      stateThink,
+      rendererActivity === "thinking" ? 1 : 0,
+    );
+    const effectiveStateSpeak = Math.max(
+      stateSpeak,
+      rendererIsSpeaking ? 1 : 0,
+    );
     // ChatGPT 26.727 can leave the WebGL stateSpeak uniform above zero after
     // its renderer has already transitioned back to listening. When the
     // renderer publishes an explicit voiceActivity, it is the authoritative
     // lifecycle signal; otherwise the stale uniform reopens a closed mouth.
     const speakingAmount = rendererHasActivity
       ? (rendererIsSpeaking ? 1 : 0)
-      : clamp(stateSpeak, 0, 1);
+      : clamp(effectiveStateSpeak, 0, 1);
     let speechEnergy = rawOutputLevel ?? outputLevel;
     const publishedOverall = Number(
-      renderer?.publishedAudioLevels?.overall,
+      voiceRendererAudioLevels(renderer)?.overall,
     );
     if (
       Number.isFinite(publishedOverall)
@@ -2989,8 +3170,47 @@
       speechEnergy = speakingFallbackEnergy(time, speakingAmount);
       runtime.voicePulse.mouthEnergySource = "speaking-state-fallback";
     }
-    const stateAmount = Math.max(stateListen, stateThink, stateSpeak);
-    const outputEnergy = smoothstep(0.04, 0.46, outputLevel);
+    const surfaceScale = numericUniform(gl, program, "uSurfaceScale", null);
+    if (surfaceScale != null) {
+      // Horizon's full-resolution composite draws a centered unit circle in
+      // clip space. Its canvas is centered inside the placement wrapper with
+      // translate(-50%, -50%); offsetLeft/Top alone include the half-canvas
+      // translation and would move our image to the right and down.
+      const placement = canvas.parentElement;
+      const placementLayout = placement?.hasAttribute?.(
+        "data-avatar-overlay-placement",
+      ) ? layoutRectWithin(placement, root) : null;
+      const centerX = placementLayout
+        ? placementLayout.left + placementLayout.width / 2
+        : layoutRect.left + layoutRect.width / 2;
+      const centerY = placementLayout
+        ? placementLayout.top + placementLayout.height / 2
+        : layoutRect.top + layoutRect.height / 2;
+      const userSpeaking = clamp(
+        numericUniform(gl, program, "uUserSpeakingScale"), 0, 1,
+      );
+      const microphone = clamp(numericUniform(gl, program, "uMicLevel"), 0, 1);
+      const restingScale = 1 - userSpeaking * 0.14;
+      const nativeScale = Math.max(restingScale + userSpeaking * microphone * 0.08, 0.75);
+      const strength = voicePulseIsEnabled() ? voicePulseStrength() : 0;
+      const scale = surfaceScale * (restingScale + (nativeScale - restingScale) * strength);
+      const width = layoutRect.width * scale;
+      const height = layoutRect.height * scale;
+      return {
+        left: ((centerX - width / 2) / rootWidth) * 100,
+        top: ((centerY - height / 2) / rootHeight) * 100,
+        width: (width / rootWidth) * 100,
+        height: (height / rootHeight) * 100,
+        pulse: restingScale > 0 ? scale / (surfaceScale * restingScale) : 1,
+        speechEnergy,
+      };
+    }
+    const stateAmount = Math.max(
+      effectiveStateListen,
+      effectiveStateThink,
+      effectiveStateSpeak,
+    );
+    const outputEnergy = smoothstep(0.04, 0.46, speechEnergy);
     const breath = Math.sin(time * Math.PI * 0.34) * 0.5 + 0.5;
     const entry = smoothstep(0, 0.9, stateAmount);
     const aspect = resolution[0] / resolution[1];
@@ -3002,7 +3222,7 @@
       return null;
     }
 
-    const thinking = clamp(stateThink, 0, 1);
+    const thinking = clamp(effectiveStateThink, 0, 1);
     const baseRadius = maximumRadius
       * (0.88 + (0.94 - 0.88) * thinking);
     const enteredRadius = baseRadius * (0.82 + (1 - 0.82) * entry);
@@ -3326,6 +3546,9 @@
     resetVoiceMouthDynamics(pulse);
     releaseVoiceRendererInstrumentation();
     pulse.publishedAudioRenderer = null;
+    pulse.publishedAudioRendererCanvas = null;
+    pulse.voiceRendererInputs = null;
+    pulse.voiceRendererAudioLevels = null;
     pulse.publishedAudioSearchCountdown = 0;
     pulse.publishedAudioSnapshot = null;
     pulse.publishedAudioLevel = null;
@@ -3970,11 +4193,16 @@
       preloadedVoiceImages: [],
       voiceImageWarmup: null,
       publishedAudioRenderer: null,
+      publishedAudioRendererCanvas: null,
+      voiceRendererInputs: null,
+      voiceRendererAudioLevels: null,
       instrumentedAudioRenderer: null,
       instrumentedSetInputs: null,
       originalSetInputs: null,
       instrumentedSetPublishedAudioLevels: null,
       originalSetPublishedAudioLevels: null,
+      instrumentedSetAudioLevels: null,
+      originalSetAudioLevels: null,
       publishedAudioSearchCountdown: 0,
       publishedAudioSnapshot: null,
       publishedAudioLevel: null,

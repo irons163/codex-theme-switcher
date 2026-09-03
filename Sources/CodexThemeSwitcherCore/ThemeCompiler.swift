@@ -219,18 +219,25 @@ public struct ThemeCompiler: Sendable {
                 // afterwards regardless of editor ordering, so they override the
                 // structured semantic aliases within this layer.
                 for variable in variables where variable.semanticRole != nil {
-                    body.append("  \(variable.resolvedName): \(variable.value);")
+                    body.append("  " + CodexNativeThemeTokens.declaration(
+                        name: variable.resolvedName,
+                        value: variable.value
+                    ))
                     if let role = variable.semanticRole {
                         for alias in role.codexStableTokenAliases
                         where alias != variable.resolvedName {
-                            body.append(
-                                "  \(alias): var(\(variable.resolvedName));"
-                            )
+                            body.append("  " + CodexNativeThemeTokens.declaration(
+                                name: alias,
+                                value: "var(\(variable.resolvedName))"
+                            ))
                         }
                     }
                 }
                 for variable in variables where variable.semanticRole == nil {
-                    body.append("  \(variable.resolvedName): \(variable.value);")
+                    body.append("  " + CodexNativeThemeTokens.declaration(
+                        name: variable.resolvedName,
+                        value: variable.value
+                    ))
                 }
                 body.append("}")
             }
