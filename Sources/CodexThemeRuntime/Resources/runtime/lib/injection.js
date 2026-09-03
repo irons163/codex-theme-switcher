@@ -13,7 +13,9 @@ const {
 } = require("./cdp");
 
 const BASE64_CHUNK_CHARACTERS = 256 * 1024;
-const RENDERER_RUNTIME_VERSION = 67;
+// Keep this in lockstep with theme-inject.js. A mismatch makes the bridge
+// reinstall the renderer on every reconciliation pass.
+const RENDERER_RUNTIME_VERSION = 71;
 const LIVE2D_CORE_URL =
   "https://cubism.live2d.com/sdk-web/core/06/live2dcubismcore.min.js";
 const LIVE2D_MARKER = "__codexThemeSwitcherLive2DReady";

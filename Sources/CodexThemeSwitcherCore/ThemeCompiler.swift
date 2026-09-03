@@ -94,30 +94,50 @@ public struct ThemeComponentCatalog: Codable, Equatable, Sendable {
                 "#root"
             ],
             "titlebar": [
-                ".app-header-tint"
+                // Codex 26.831 moved the title bar to a semantic header
+                // attribute. Keep the class selector for older builds.
+                ".app-header-tint",
+                "header[data-app-shell-header-layout]",
+                "[data-app-shell-header-toolbar]",
+                "html:root[data-codex-theme-switcher-theme][data-codex-window-type=\"electron\"][data-codex-window-chrome=\"native\"] header[data-app-shell-header-layout]"
             ],
             "sidebar": [
-                "aside.app-shell-left-panel"
+                "aside.app-shell-left-panel",
+                "aside[data-app-shell-left-panel-appearance]",
+                "html:root[data-codex-theme-switcher-theme][data-codex-window-type=\"electron\"][data-codex-window-chrome=\"native\"] aside[data-app-shell-left-panel-appearance]"
             ],
             "navigation": [
-                "aside.app-shell-left-panel nav"
+                "aside.app-shell-left-panel nav",
+                "aside[data-app-shell-left-panel-appearance] nav",
+                "[data-app-action-sidebar-scroll]",
+                "[data-app-action-sidebar-thread-row]",
+                "html:root[data-codex-theme-switcher-theme][data-codex-window-type=\"electron\"][data-codex-window-chrome=\"native\"] [data-app-action-sidebar-thread-row]"
             ],
             "conversation": [
                 "main.main-surface",
+                "main[data-app-shell-main-surface]",
                 "[data-app-shell-main-content-layout]",
-                ".app-shell-main-content-frame"
+                ".app-shell-main-content-frame",
+                "[data-app-shell-thread-edge-divider]",
+                "html:root[data-codex-theme-switcher-theme][data-codex-window-type=\"electron\"][data-codex-window-chrome=\"native\"] main[data-app-shell-main-surface]"
             ],
             "userMessage": [
-                "[data-message-author-role=\"user\"]"
+                "[data-message-author-role=\"user\"]",
+                "[data-user-message-bubble]"
             ],
             "assistantMessage": [
-                "[data-message-author-role=\"assistant\"]"
+                "[data-message-author-role=\"assistant\"]",
+                "[data-markdown-text-style=\"assistant-message\"]"
             ],
             "composer": [
-                "[data-codex-composer-root] .composer-surface-chrome"
+                "[data-codex-composer-root] .composer-surface-chrome",
+                "[data-codex-composer-root] [data-composer-surface-variant]",
+                "[data-codex-composer-root][data-composer-surface-variant]",
+                "html:root[data-codex-theme-switcher-theme][data-codex-window-type=\"electron\"][data-codex-window-chrome=\"native\"] [data-codex-composer-root] [data-composer-surface-variant]"
             ],
             "composerTray": [
                 "[data-codex-composer-root]",
+                "[data-codex-composer-root] [data-composer-footer-responsive]",
                 "[data-codex-composer-request-navigation]",
                 "[data-codex-approval-surface]"
             ],

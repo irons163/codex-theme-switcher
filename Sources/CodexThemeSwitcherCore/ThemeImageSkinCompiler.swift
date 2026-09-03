@@ -272,7 +272,8 @@ enum ThemeImageSkinCompiler {
             if skin.wallpaperScope == .fullWindow {
                 rules.append(surfaceRule(
                     selectors: [
-                        "main.main-surface"
+                        "main.main-surface",
+                        "main[data-app-shell-main-surface]"
                     ],
                     background: "var(--cts-skin-content)"
                 ))
@@ -281,14 +282,17 @@ enum ThemeImageSkinCompiler {
         if skin.targets.content || skin.wallpaperScope == .mainContent {
             rules.append(transparentRule(selectors: [
                 "[data-app-shell-main-content-layout]",
-                ".app-shell-main-content-frame"
+                ".app-shell-main-content-frame",
+                "main[data-app-shell-main-surface]",
+                "[data-app-shell-thread-edge-divider]"
             ]))
         }
 
         if skin.targets.sidebar {
             rules.append(glassRule(
                 selectors: [
-                    "aside.app-shell-left-panel"
+                    "aside.app-shell-left-panel",
+                    "aside[data-app-shell-left-panel-appearance]"
                 ],
                 background: "var(--cts-skin-sidebar)",
                 radius: false,
@@ -300,7 +304,11 @@ enum ThemeImageSkinCompiler {
 
         if skin.targets.titlebar {
             rules.append(surfaceRule(
-                selectors: [".app-header-tint"],
+                selectors: [
+                    ".app-header-tint",
+                    "header[data-app-shell-header-layout]",
+                    "[data-app-shell-header-toolbar]"
+                ],
                 background: "var(--cts-skin-content)"
             ))
         }
@@ -309,6 +317,8 @@ enum ThemeImageSkinCompiler {
             rules.append(glassRule(
                 selectors: [
                     "[data-codex-composer-root] .composer-surface-chrome",
+                    "[data-codex-composer-root] [data-composer-surface-variant]",
+                    "[data-codex-composer-root][data-composer-surface-variant]",
                     "[data-codex-composer-request-navigation]",
                     "[data-codex-approval-surface]"
                 ],
@@ -316,7 +326,8 @@ enum ThemeImageSkinCompiler {
             ))
             rules.append(controlRule(
                 selectors: [
-                    "[data-composer-navigation-target=\"workspace-project\"]"
+                    "[data-composer-navigation-target=\"workspace-project\"]",
+                    "[data-app-action-composer-project-picker]"
                 ],
                 background: "var(--cts-skin-composer)"
             ))
@@ -327,7 +338,8 @@ enum ThemeImageSkinCompiler {
             rules.append(glassRule(
                 selectors: [
                     "section[class~=\"group/home-suggestions\"] button[aria-labelledby]",
-                    "[data-home-ambient-suggestions] button[aria-labelledby]"
+                    "[data-home-ambient-suggestions] button[aria-labelledby]",
+                    "[data-app-action-home-suggestion]"
                 ],
                 background: "var(--cts-skin-card)"
             ))
@@ -373,7 +385,8 @@ enum ThemeImageSkinCompiler {
         rule(
             selectors: [
                 "[data-mcp-app-portal-target=\"true\"]:has(> [data-thread-find-target=\"conversation\"])",
-                "main.main-surface [role=\"main\"] div:has(> [data-feature=\"game-source\"])"
+                "main.main-surface [role=\"main\"] div:has(> [data-feature=\"game-source\"])",
+                "main[data-app-shell-main-surface] [role=\"main\"] div:has(> [data-feature=\"game-source\"])"
             ],
             declarations: [
                 "box-sizing: border-box !important;",
@@ -394,7 +407,10 @@ enum ThemeImageSkinCompiler {
         rule(
             selectors: [
                 "[data-codex-composer-root] .composer-surface-chrome "
-                    + "button.size-token-button-composer.bg-token-foreground"
+                    + "button.size-token-button-composer.bg-token-foreground",
+                "[data-codex-composer-root] [data-composer-surface-variant] "
+                    + "button.size-token-button-composer.bg-token-foreground",
+                "[data-codex-composer-root] [data-composer-surface-variant] button[data-testid=\"composer-submit\"]"
             ],
             declarations: [
                 "--color-token-foreground: var(--cts-skin-composer-action-background) !important;",
@@ -462,6 +478,14 @@ enum ThemeImageSkinCompiler {
               background-image: none !important;
             }
 
+            \(root) main[data-app-shell-main-surface] {
+              position: relative;
+              isolation: isolate;
+              overflow: hidden;
+              background-color: var(--cts-skin-background-color) !important;
+              background-image: none !important;
+            }
+
             \(root) main.main-surface::before {
               content: "";
               position: absolute;
@@ -479,7 +503,34 @@ enum ThemeImageSkinCompiler {
               transform-origin: var(--cts-skin-image-origin);
             }
 
+            \(root) main[data-app-shell-main-surface]::before {
+              content: "";
+              position: absolute;
+              inset: var(--cts-skin-image-inset);
+              z-index: -2;
+              pointer-events: none;
+              background-image: var(--cts-skin-background-image);
+              background-size: var(--cts-skin-background-size);
+              background-repeat: var(--cts-skin-background-repeat);
+              background-position: var(--cts-skin-background-position);
+              mix-blend-mode: var(--cts-skin-image-blend);
+              filter: var(--cts-skin-image-filter);
+              opacity: var(--cts-skin-image-opacity);
+              transform: var(--cts-skin-image-transform);
+              transform-origin: var(--cts-skin-image-origin);
+            }
+
             \(root) main.main-surface::after {
+              content: "";
+              position: absolute;
+              inset: 0;
+              z-index: -1;
+              pointer-events: none;
+              background:
+            \(overlayBackground);
+            }
+
+            \(root) main[data-app-shell-main-surface]::after {
               content: "";
               position: absolute;
               inset: 0;

@@ -61,6 +61,36 @@ final class ThemeCompilerTests: XCTestCase {
         XCTAssertFalse(compiled.css.contains("not-in-catalog"))
     }
 
+    func testCatalogIncludesCodex831SemanticShellSelectors() {
+        let catalog = ThemeComponentCatalog.default
+
+        XCTAssertTrue(
+            catalog.selectors(for: "sidebar")?.contains(
+                "aside[data-app-shell-left-panel-appearance]"
+            ) == true
+        )
+        XCTAssertTrue(
+            catalog.selectors(for: "conversation")?.contains(
+                "main[data-app-shell-main-surface]"
+            ) == true
+        )
+        XCTAssertTrue(
+            catalog.selectors(for: "composer")?.contains(
+                "[data-codex-composer-root] [data-composer-surface-variant]"
+            ) == true
+        )
+        XCTAssertTrue(
+            catalog.selectors(for: "userMessage")?.contains(
+                "[data-user-message-bubble]"
+            ) == true
+        )
+        XCTAssertTrue(
+            catalog.selectors(for: "assistantMessage")?.contains(
+                "[data-markdown-text-style=\"assistant-message\"]"
+            ) == true
+        )
+    }
+
     func testExternalizesEmbeddedAssetForRuntime() throws {
         let assetID = UUID()
         let asset = ThemeAsset(
@@ -372,6 +402,12 @@ final class ThemeCompilerTests: XCTestCase {
         )
         XCTAssertTrue(css.contains("main.main-surface::before {"))
         XCTAssertTrue(css.contains("main.main-surface::after {"))
+        XCTAssertTrue(
+            css.contains("main[data-app-shell-main-surface]::before {")
+        )
+        XCTAssertTrue(
+            css.contains("main[data-app-shell-main-surface]::after {")
+        )
         XCTAssertTrue(css.contains("position: absolute;"))
         XCTAssertTrue(css.contains("z-index: -2;"))
         XCTAssertTrue(css.contains("z-index: -1;"))
