@@ -268,7 +268,50 @@ final class ThemeAppModel: ObservableObject {
         Task {
             await reloadThemes()
             await refreshRuntime()
+            await reapplyActiveThemeIfNeeded()
             startMonitoring()
+        }
+    }
+
+    /// Codex can keep the runtime bridge alive while its renderer is updated.
+    /// In that case the bridge still has the saved theme snapshot, but the
+    /// stylesheet was compiled by an older app and misses newly introduced
+    /// native tokens. Re-emit the persisted active document only when the
+    /// runtime and repository point at the same theme; this preserves the
+    /// attach flow's contract of restoring the runtime snapshot instead of
+    /// replacing it with an unrelated or unsaved editor draft.
+    private func reapplyActiveThemeIfNeeded() async {
+        guard let runtime,
+              let activeThemeID,
+              let runtimeThemeID = runtimeStatus?.activeThemeID
+                .flatMap(UUID.init(uuidString:)),
+              runtimeThemeID == activeThemeID,
+              isAttached,
+              !isDraftDirty,
+              let document = themes.first(where: { $0.id == activeThemeID })
+        else {
+            return
+        }
+
+        do {
+            let compiled = try compiler.compile(document)
+            let result = try await runtime.apply(
+                css: compiled.css,
+                themeID: document.id.uuidString,
+                themeName: document.metadata.name,
+                avatarOverlayCSS: compiled.avatarOverlayCSS,
+                assets: compiled.runtimeAssets.map {
+                    ThemeRuntimeAsset(
+                        id: $0.id.uuidString.lowercased(),
+                        mediaType: $0.mediaType,
+                        dataBase64: $0.dataBase64
+                    )
+                }
+            ).requiringSuccess()
+            runtimeStatus = result.status
+        } catch {
+            // Startup re-sync is best effort. Keep the attached status and
+            // let the explicit Apply action surface any actionable failure.
         }
     }
 

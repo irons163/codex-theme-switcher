@@ -28,9 +28,14 @@ enum L10nCatalogWestern {
             spanish: "Tamaño del área del avatar"
         ),
         Entry(
-            key: "Expands ChatGPT's native Voice window with the avatar. Increase it when a large or full-body Live2D model is clipped.",
-            french: "Agrandit la fenêtre Voice native de ChatGPT avec l’avatar. Augmentez la valeur si un grand modèle Live2D ou un personnage en pied est rogné.",
-            spanish: "Amplía la ventana Voice nativa de ChatGPT junto con el avatar. Aumenta el valor si se recorta un modelo Live2D grande o de cuerpo entero."
+            key: "Middle area height",
+            french: "Hauteur de la zone centrale",
+            spanish: "Altura del área central"
+        ),
+        Entry(
+            key: "Width controls the overall area; height independently expands the middle background/avatar region so tall or full-body Live2D models are not clipped.",
+            french: "La largeur contrôle la zone globale ; la hauteur agrandit indépendamment la zone centrale d’arrière-plan et d’avatar afin d’éviter de rogner les modèles Live2D grands ou en pied.",
+            spanish: "El ancho controla el área general; la altura amplía por separado la zona central de fondo y avatar para que los modelos Live2D altos o de cuerpo entero no se recorten."
         ),
         Entry(
             key: "Native orb",

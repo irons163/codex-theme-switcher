@@ -15,6 +15,9 @@ final class ThemeNativeSurfaceRenderTests: XCTestCase {
         XCTAssertEqual(values["description"], "rgb(105, 96, 85)")
         XCTAssertEqual(values["directLabel"], "rgb(41, 37, 31)")
         XCTAssertEqual(values["directDescription"], "rgb(105, 96, 85)")
+        XCTAssertEqual(values["baseSurface"], "rgb(246, 241, 231)")
+        XCTAssertEqual(values["surfaceUnder"], "rgb(246, 241, 231)")
+        XCTAssertEqual(values["primaryIcon"], "rgb(41, 37, 31)")
     }
 
     @MainActor
@@ -38,7 +41,9 @@ final class ThemeNativeSurfaceRenderTests: XCTestCase {
         <!doctype html>
         <html class="electron-dark" data-codex-theme-switcher-theme="paper"
           style="--color-background-panel:#222222; --color-text-foreground:#ffffff;
-                 --color-text-foreground-secondary:#aaaaaa; --color-background-surface:#181818">
+                 --color-text-foreground-secondary:#aaaaaa; --color-background-surface:#181818;
+                 --codex-base-surface:#181818; --codex-base-ink:#ffffff;
+                 --color-background-surface-under:#141414; --color-icon-primary:#ffffff">
           <head><style>
             .text-default { color: var(--color-text); }
             .text-secondary { color: var(--color-text-secondary); }
@@ -50,6 +55,9 @@ final class ThemeNativeSurfaceRenderTests: XCTestCase {
               <div id="description" class="text-secondary">Description</div>
               <span id="directLabel" style="color:var(--color-text-foreground)">Label</span>
               <span id="directDescription" style="color:var(--color-text-foreground-secondary)">Description</span>
+              <div id="baseSurface" style="background-color:var(--codex-base-surface)">Base</div>
+              <div id="surfaceUnder" style="background-color:var(--color-background-surface-under)">Under</div>
+              <span id="primaryIcon" style="color:var(--color-icon-primary)">Icon</span>
             </div>
           </body>
         </html>
@@ -57,9 +65,10 @@ final class ThemeNativeSurfaceRenderTests: XCTestCase {
         await fulfillment(of: [loaded], timeout: 10)
         if let error = navigation.error { throw error }
         let result = try await view.evaluateJavaScript("""
-        Object.fromEntries(['panel', 'label', 'description', 'directLabel', 'directDescription'].map(id => {
+        Object.fromEntries(['panel', 'label', 'description', 'directLabel', 'directDescription', 'baseSurface', 'surfaceUnder', 'primaryIcon'].map(id => {
           const style = getComputedStyle(document.getElementById(id));
-          return [id, id === 'panel' ? style.backgroundColor : style.color];
+          const backgroundIDs = new Set(['panel', 'baseSurface', 'surfaceUnder']);
+          return [id, backgroundIDs.has(id) ? style.backgroundColor : style.color];
         }))
         """)
         return try XCTUnwrap(result as? [String: String])

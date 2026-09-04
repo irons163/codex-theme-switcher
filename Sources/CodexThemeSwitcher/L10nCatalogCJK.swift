@@ -59,10 +59,16 @@ enum L10nCatalogCJK {
             "아바타 영역 크기"
         ),
         .init(
-            "Expands ChatGPT's native Voice window with the avatar. Increase it when a large or full-body Live2D model is clipped.",
-            "会连同 ChatGPT 原生 Voice 窗口一起放大；大型或全身 Live2D 被裁切时可调高。",
-            "アバターと一緒にChatGPT標準のVoiceウィンドウも拡大します。大きなモデルや全身のLive2Dが切れる場合は値を上げてください。",
-            "아바타와 함께 ChatGPT 기본 Voice 창도 확대됩니다. 크거나 전신인 Live2D 모델이 잘리면 값을 높이세요."
+            "Middle area height",
+            "中间区域高度",
+            "中央領域の高さ",
+            "중앙 영역 높이"
+        ),
+        .init(
+            "Width controls the overall area; height independently expands the middle background/avatar region so tall or full-body Live2D models are not clipped.",
+            "宽度控制整体区域；高度可单独放大中间背景和角色区域，避免高身材或全身 Live2D 模型被裁切。",
+            "幅は全体の領域を、高さは中央の背景とアバター領域を個別に拡大し、背の高いモデルや全身Live2Dが切れないようにします。",
+            "너비는 전체 영역을 조절하고 높이는 중앙 배경/아바타 영역만 확대하여 키가 크거나 전신인 Live2D 모델이 잘리지 않게 합니다."
         ),
         .init(
             "Native orb",
