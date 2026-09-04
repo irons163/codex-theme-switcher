@@ -63,6 +63,49 @@ final class ThemeAppModelAttachTests: XCTestCase {
     }
 
     @MainActor
+    func testStartupResyncsSavedThemeWhenRuntimeIsAlreadyAttached() async throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        var theme = BuiltInThemes.paper
+        theme.id = UUID()
+        theme.metadata.name = "Saved Paper Theme"
+        _ = try await fixture.repository.save(
+            theme,
+            collisionPolicy: .fail
+        )
+        try await fixture.repository.setActiveThemeID(theme.id)
+        try JSONEncoder().encode(
+            ApplyPayload(
+                themeID: theme.id.uuidString,
+                themeName: theme.metadata.name,
+                css: ":root { --stale-codex-token: true; }"
+            )
+        ).write(to: fixture.runtimeSnapshot)
+
+        let model = ThemeAppModel(
+            repository: fixture.repository,
+            runtime: fixture.runtime
+        )
+        model.start()
+
+        let commands = try await waitForCommands(
+            2,
+            in: fixture.commandLog,
+            model: model
+        )
+        XCTAssertEqual(commands.map(\.command), ["status", "apply"])
+        let applied = try JSONDecoder().decode(
+            ApplyPayload.self,
+            from: Data(contentsOf: fixture.runtimeSnapshot)
+        )
+        XCTAssertEqual(applied.themeID, theme.id.uuidString)
+        XCTAssertFalse(applied.css.contains("--stale-codex-token"))
+        XCTAssertTrue(model.isAttached)
+        XCTAssertEqual(model.activeThemeID, theme.id)
+    }
+
+    @MainActor
     func testAttachRestoresRuntimeSnapshotInsteadOfLaterEdits() async throws {
         let fixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: fixture.root) }
@@ -314,7 +357,7 @@ final class ThemeAppModelAttachTests: XCTestCase {
                 );
               }
             }
-            const attached = command !== "status";
+            const attached = command !== "status" || Boolean(activeTheme);
             process.stdout.write(JSON.stringify({
               ok: true,
               status: {

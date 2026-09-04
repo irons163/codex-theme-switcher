@@ -167,6 +167,7 @@ public enum ThemeSemanticRole: String, Codable, CaseIterable, Equatable, Sendabl
             return [
                 "--codex-base-surface",
                 "--color-background-surface",
+                "--color-background-surface-under",
                 "--color-background-primary",
                 "--color-token-bg-primary",
                 "--color-token-main-surface-primary",
@@ -214,6 +215,7 @@ public enum ThemeSemanticRole: String, Codable, CaseIterable, Equatable, Sendabl
                 "--foreground",
                 "--color-text",
                 "--color-text-foreground",
+                "--color-icon-primary",
                 "--color-text-primary",
                 "--color-text-primary-solid",
                 "--color-foreground-application-menu",
@@ -322,6 +324,12 @@ public enum ThemeSemanticRole: String, Codable, CaseIterable, Equatable, Sendabl
 /// custom values the same priority so later editor overrides still win.
 enum CodexNativeThemeTokens {
     static let inlineColors: Set<String> = [
+        // Codex 26.901 writes the base surface/ink and several derived
+        // surfaces directly on html.style. Generated :root aliases need
+        // !important to cross that inline declaration boundary.
+        "--codex-base-accent",
+        "--codex-base-ink",
+        "--codex-base-surface",
         "--color-background-application-menu",
         "--color-background-control",
         "--color-background-control-opaque",
@@ -331,12 +339,14 @@ enum CodexNativeThemeTokens {
         "--color-background-elevated-secondary-opaque",
         "--color-background-panel",
         "--color-background-surface",
+        "--color-background-surface-under",
         "--color-border",
         "--color-border-application-menu-separator",
         "--color-border-heavy",
         "--color-border-light",
         "--color-foreground-application-menu",
         "--color-icon-accent",
+        "--color-icon-primary",
         "--color-icon-secondary",
         "--color-icon-tertiary",
         "--color-text-accent",

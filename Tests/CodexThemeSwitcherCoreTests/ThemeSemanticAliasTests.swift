@@ -8,6 +8,7 @@ final class ThemeSemanticAliasTests: XCTestCase {
             .backgroundPrimary: [
                 "--codex-base-surface",
                 "--color-background-surface",
+                "--color-background-surface-under",
                 "--color-background-primary",
                 "--color-token-bg-primary",
                 "--color-token-main-surface-primary",
@@ -52,6 +53,7 @@ final class ThemeSemanticAliasTests: XCTestCase {
                 "--foreground",
                 "--color-text",
                 "--color-text-foreground",
+                "--color-icon-primary",
                 "--color-text-primary",
                 "--color-text-primary-solid",
                 "--color-foreground-application-menu",
