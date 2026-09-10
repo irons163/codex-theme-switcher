@@ -1822,32 +1822,45 @@ final class ThemeAppModel: ObservableObject {
     }
 
     func removeVoiceStyle() {
-        mutateDraft(
-            actionName: L10n.text(
-                "移除 Voice 樣式",
-                "Remove Voice style"
-            )
-        ) { document in
-            let assetIDs = [
-                document.voiceStyle?.light.backgroundAssetID,
-                document.voiceStyle?.dark.backgroundAssetID,
-                document.voiceStyle?.light.orbBackgroundAssetID,
-                document.voiceStyle?.dark.orbBackgroundAssetID,
-                document.voiceStyle?.light.orbBlinkAssetID,
-                document.voiceStyle?.dark.orbBlinkAssetID
-            ].compactMap { $0 }
-                + (document.voiceStyle?.light.orbMouthFrameAssetIDs ?? [])
-                + (document.voiceStyle?.dark.orbMouthFrameAssetIDs ?? [])
-                + (
-                    document.voiceStyle?.light.live2DModel?
-                        .resources.map(\.assetID) ?? []
-                )
-                + (
-                    document.voiceStyle?.dark.live2DModel?
-                        .resources.map(\.assetID) ?? []
-                )
+        let actionName = L10n.text(
+            "移除 Voice 樣式",
+            "Remove Voice style"
+        )
+        mutateDraft(actionName: actionName) { document in
+            guard let voice = document.voiceStyle else { return }
+
+            // Keep the asset collection explicit so newer Swift toolchains do
+            // not spend excessive time inferring a large mixed expression.
+            var assetIDs = Set<UUID>()
+            if let id = voice.light.backgroundAssetID {
+                assetIDs.insert(id)
+            }
+            if let id = voice.dark.backgroundAssetID {
+                assetIDs.insert(id)
+            }
+            if let id = voice.light.orbBackgroundAssetID {
+                assetIDs.insert(id)
+            }
+            if let id = voice.dark.orbBackgroundAssetID {
+                assetIDs.insert(id)
+            }
+            if let id = voice.light.orbBlinkAssetID {
+                assetIDs.insert(id)
+            }
+            if let id = voice.dark.orbBlinkAssetID {
+                assetIDs.insert(id)
+            }
+            assetIDs.formUnion(voice.light.orbMouthFrameAssetIDs)
+            assetIDs.formUnion(voice.dark.orbMouthFrameAssetIDs)
+            for resource in voice.light.live2DModel?.resources ?? [] {
+                assetIDs.insert(resource.assetID)
+            }
+            for resource in voice.dark.live2DModel?.resources ?? [] {
+                assetIDs.insert(resource.assetID)
+            }
+
             document.voiceStyle = nil
-            for id in Set(assetIDs) {
+            for id in assetIDs {
                 pruneAssetIfUnreferenced(id, from: &document)
             }
         }
