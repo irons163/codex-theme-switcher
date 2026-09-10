@@ -5,7 +5,14 @@
   const STYLE_ID = "codex-theme-switcher-style";
   const STAGING_STYLE_ID = `${STYLE_ID}-staging`;
   const VOICE_SESSION_STYLE_ID = `${STYLE_ID}-voice-session`;
-  const VERSION = 72;
+  const VERSION = 73;
+  // Pixi's resolution is the number of backing pixels per CSS pixel before
+  // the avatar overlay's transforms are applied. Keep the existing Retina
+  // baseline, then add enough resolution for the final transformed box so
+  // Chromium never has to enlarge a small Live2D canvas with CSS.
+  const LIVE2D_BASE_RESOLUTION_MAX = 2;
+  const LIVE2D_MAX_RENDER_RESOLUTION = 8;
+  const LIVE2D_RESOLUTION_QUANTUM = 0.125;
   const PUBLISHED_AUDIO_SMOOTHING = 0.86;
   const VOICE_SESSION_INACTIVE_GRACE_MILLISECONDS = 500;
   // ChatGPT keeps its detachable Pet in another `.codex-avatar-root`.
@@ -229,11 +236,8 @@
     return Number.isFinite(value) ? value : fallback;
   }
 
-  function presentationScale(root) {
-    const presentation = root?.closest?.(
-      `[${VOICE_PRESENTATION_ATTRIBUTE}]`,
-    ) || root?.parentElement || null;
-    const transform = computedStyle(presentation)?.transform || "";
+  function transformScale(element) {
+    const transform = computedStyle(element)?.transform || "";
     if (!transform || transform === "none") return 1;
 
     let scaleX = 1;
@@ -262,6 +266,86 @@
     return Number.isFinite(scale) && scale > 0.01
       ? clamp(scale, 0.25, 4)
       : 1;
+  }
+
+  function presentationScale(root) {
+    const presentation = root?.closest?.(
+      `[${VOICE_PRESENTATION_ATTRIBUTE}]`,
+    ) || root?.parentElement || null;
+    return transformScale(presentation);
+  }
+
+  function live2DBaseResolution() {
+    const devicePixelRatio = Number(
+      typeof window !== "undefined" ? window.devicePixelRatio : 1,
+    );
+    return clamp(
+      Number.isFinite(devicePixelRatio) && devicePixelRatio > 0
+        ? devicePixelRatio
+        : 1,
+      1,
+      LIVE2D_BASE_RESOLUTION_MAX,
+    );
+  }
+
+  function live2DFinalDisplayScale(container) {
+    const layoutWidth = Math.max(
+      Number(container?.clientWidth) || 0,
+      Number(container?.offsetWidth) || 0,
+    );
+    const layoutHeight = Math.max(
+      Number(container?.clientHeight) || 0,
+      Number(container?.offsetHeight) || 0,
+    );
+    const rect = container?.getBoundingClientRect?.();
+    const renderedWidth = Number(rect?.width) || 0;
+    const renderedHeight = Number(rect?.height) || 0;
+    if (
+      layoutWidth > 0
+      && layoutHeight > 0
+      && renderedWidth > 0
+      && renderedHeight > 0
+    ) {
+      // getBoundingClientRect() includes the container's own transform and
+      // every transformed presentation ancestor. This is the actual size
+      // Chromium composites, unlike clientWidth/clientHeight which remain
+      // the pre-transform CSS layout size.
+      const scaleX = renderedWidth / layoutWidth;
+      const scaleY = renderedHeight / layoutHeight;
+      const scale = Math.sqrt(Math.abs(scaleX * scaleY));
+      if (Number.isFinite(scale) && scale > 0.01) {
+        return clamp(scale, 0.25, LIVE2D_MAX_RENDER_RESOLUTION);
+      }
+    }
+
+    // Embedded/test DOMs may not implement getBoundingClientRect(). Keep a
+    // useful fallback by multiplying the CSS transform scales we can read.
+    let scale = 1;
+    let element = container;
+    while (element) {
+      scale *= transformScale(element);
+      element = element.parentElement || null;
+    }
+    return Number.isFinite(scale) && scale > 0.01
+      ? clamp(scale, 0.25, LIVE2D_MAX_RENDER_RESOLUTION)
+      : 1;
+  }
+
+  function live2DRenderResolution(state) {
+    const base = live2DBaseResolution();
+    const displayScale = Math.max(
+      live2DFinalDisplayScale(state?.container),
+      1,
+    );
+    const requested = base * displayScale;
+    const quantized = Math.ceil(
+      requested / LIVE2D_RESOLUTION_QUANTUM,
+    ) * LIVE2D_RESOLUTION_QUANTUM;
+    return clamp(
+      quantized,
+      base,
+      LIVE2D_MAX_RENDER_RESOLUTION,
+    );
   }
 
   function synchronizeVoiceEffectiveScale(root) {
@@ -1110,6 +1194,7 @@
     state.presentationError = null;
     state.app = null;
     state.model = null;
+    state.renderResolution = null;
     state.configurationKey = "";
     state.loading = false;
     state.error = null;
@@ -1576,7 +1661,7 @@
     if (!container || !app || !model) return;
     const width = Math.max(Math.round(container.clientWidth), 64);
     const height = Math.max(Math.round(container.clientHeight), 64);
-    app.renderer.resize(width, height);
+    synchronizeLive2DRendererResolution(state, width, height, true);
     model.scale.set(1);
     const bounds = model.getLocalBounds?.();
     const modelWidth = Math.max(Number(bounds?.width) || model.width, 1);
@@ -1591,6 +1676,31 @@
     model.scale.set(scale);
     model.x = width * configuration.positionX;
     model.y = height * configuration.positionY;
+  }
+
+  function synchronizeLive2DRendererResolution(
+    state,
+    width,
+    height,
+    forceResize = false,
+  ) {
+    const renderer = state?.app?.renderer;
+    if (!renderer || typeof renderer.resize !== "function") return false;
+    const resolution = live2DRenderResolution(state);
+    const rendererResolution = Number(renderer.resolution);
+    const previousResolution = Number.isFinite(rendererResolution)
+      ? rendererResolution
+      : Number(state.renderResolution);
+    const changed = !Number.isFinite(previousResolution)
+      || Math.abs(previousResolution - resolution) >= LIVE2D_RESOLUTION_QUANTUM;
+    if (changed) {
+      // Set resolution before resize: Pixi uses the current resolution when
+      // allocating the WebGL view's physical backing dimensions.
+      renderer.resolution = resolution;
+    }
+    if (forceResize || changed) renderer.resize(width, height);
+    state.renderResolution = resolution;
+    return changed;
   }
 
   async function mountVoiceLive2D(root, pulseGeneration) {
@@ -1697,7 +1807,7 @@
         // between Pixi frames, making the entire model flash transparent even
         // though Cubism still contains and renders every drawable.
         preserveDrawingBuffer: true,
-        resolution: Math.min(Number(window.devicePixelRatio) || 1, 2),
+        resolution: live2DBaseResolution(),
       });
       state.app = app;
       if (!installLive2DPresentationMirror(state)) {
@@ -1774,6 +1884,7 @@
       state.rendererRenderWrapper = null;
       state.app = null;
       state.model = null;
+      state.renderResolution = null;
       state.loading = false;
       state.error = error?.message || String(error);
       root.removeAttribute("data-codex-live2d-loading");
@@ -3348,10 +3459,20 @@
     const pulse = runtime.voicePulse;
     if (!pulse.root) return false;
     synchronizeVoiceEffectiveScale(pulse.root);
-    return setVoiceOrbLiveGeometry(
+    const synchronized = setVoiceOrbLiveGeometry(
       pulse.root,
       voiceCanvasGeometry(pulse.root),
     );
+    // Voice geometry and the presentation handoff can change transforms
+    // without changing the container's CSS layout dimensions. Re-measure the
+    // final transformed box on the animation loop so a scale transition gets
+    // a matching Pixi backing resolution instead of a CSS-upscaled bitmap.
+    synchronizeLive2DRendererResolution(
+      runtime.live2D,
+      Math.max(Math.round(runtime.live2D.container?.clientWidth || 0), 64),
+      Math.max(Math.round(runtime.live2D.container?.clientHeight || 0), 64),
+    );
+    return synchronized;
   }
 
   function scheduleVoiceCanvasFrame(generation) {
@@ -4253,6 +4374,7 @@
       presentationError: null,
       app: null,
       model: null,
+      renderResolution: null,
       resizeObserver: null,
       configurationKey: "",
       loading: false,

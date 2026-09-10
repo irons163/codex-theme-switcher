@@ -232,7 +232,7 @@ test("custom Voice activity tray follows native side without covering avatar cen
   );
 });
 
-test("VERSION=72 exposes transaction APIs and source evaluation is idempotent", () => {
+test("VERSION=73 exposes transaction APIs and source evaluation is idempotent", () => {
   const dom = install();
   const runtime = dom.window.__codexThemeSwitcherRuntime;
   const functions = [
@@ -244,7 +244,7 @@ test("VERSION=72 exposes transaction APIs and source evaluation is idempotent", 
     "__codexThemeSwitcherClear",
   ];
 
-  assert.equal(runtime.version, 72);
+  assert.equal(runtime.version, 73);
   for (const name of functions) {
     assert.equal(typeof dom.window[name], "function", name);
   }
@@ -259,9 +259,9 @@ test("VERSION=72 exposes transaction APIs and source evaluation is idempotent", 
   assert.equal(dom.window.__codexThemeSwitcherStatus().stylePresent, false);
 });
 
-test("upgrading the renderer replaces version 71 closures and clears the old theme", () => {
+test("upgrading the renderer replaces version 72 closures and clears the old theme", () => {
   const dom = fakeDOM();
-  vm.runInNewContext(source.replace("const VERSION = 72;", "const VERSION = 71;"), dom.sandbox);
+  vm.runInNewContext(source.replace("const VERSION = 73;", "const VERSION = 72;"), dom.sandbox);
   const oldRuntime = dom.window.__codexThemeSwitcherRuntime;
   dom.window.__codexThemeSwitcherBegin(beginPayload());
   dom.window.__codexThemeSwitcherCommit({ transactionID: "transaction-1" });
@@ -271,7 +271,7 @@ test("upgrading the renderer replaces version 71 closures and clears the old the
 
   assert.notEqual(dom.window.__codexThemeSwitcherRuntime, oldRuntime);
   assert.notEqual(dom.window.__codexThemeSwitcherBegin, oldRuntime.begin);
-  assert.equal(dom.window.__codexThemeSwitcherRuntime.version, 72);
+  assert.equal(dom.window.__codexThemeSwitcherRuntime.version, 73);
   assert.equal(activeThemeStyle(dom), null);
   assert.equal(oldRuntime.status().stylePresent, false);
 });

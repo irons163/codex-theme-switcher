@@ -9,7 +9,20 @@ final class Live2DRuntimeTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(source.contains("const VERSION = 72;"))
+        XCTAssertTrue(source.contains("const VERSION = 73;"))
+        XCTAssertTrue(source.contains("function transformScale("))
+        XCTAssertTrue(source.contains("function live2DFinalDisplayScale("))
+        XCTAssertTrue(source.contains("function live2DRenderResolution("))
+        XCTAssertTrue(
+            source.contains("function synchronizeLive2DRendererResolution(")
+        )
+        XCTAssertTrue(source.contains("LIVE2D_MAX_RENDER_RESOLUTION = 8"))
+        XCTAssertTrue(source.contains("getBoundingClientRect() includes"))
+        XCTAssertTrue(
+            source.contains(
+                "matching Pixi backing resolution instead of a CSS-upscaled bitmap"
+            )
+        )
         XCTAssertTrue(source.contains("function presentationScale("))
         XCTAssertTrue(source.contains("function synchronizeVoiceEffectiveScale("))
         XCTAssertTrue(
@@ -284,6 +297,92 @@ final class Live2DRuntimeTests: XCTestCase {
         XCTAssertEqual(result["height"] as? Int, 64)
     }
 
+    func testLive2DBackingResolutionTracksFinalTransformedSize() throws {
+        let source = try String(
+            contentsOf: runtimeDirectory
+                .appendingPathComponent("theme-inject.js"),
+            encoding: .utf8
+        )
+        let start = try XCTUnwrap(
+            source.range(of: "  function transformScale(")
+        )
+        let end = try XCTUnwrap(
+            source.range(
+                of: "\n  async function mountVoiceLive2D(",
+                range: start.upperBound..<source.endIndex
+            )
+        )
+        let functions = String(source[start.lowerBound..<end.lowerBound])
+        let script = """
+        const window = { devicePixelRatio: 2 };
+        const LIVE2D_BASE_RESOLUTION_MAX = 2;
+        const LIVE2D_MAX_RENDER_RESOLUTION = 8;
+        const LIVE2D_RESOLUTION_QUANTUM = 0.125;
+        function clamp(value, minimum, maximum) {
+          return Math.max(minimum, Math.min(maximum, value));
+        }
+        function computedStyle(element) {
+          return { transform: element?.transform || "none" };
+        }
+        \(functions)
+        const resizeEvents = [];
+        const container = {
+          clientWidth: 129,
+          clientHeight: 129,
+          offsetWidth: 129,
+          offsetHeight: 129,
+          transform: "matrix(3.78796, 0, 0, 3.78796, 0, 0)",
+          getBoundingClientRect() {
+            return { width: this.renderedWidth, height: this.renderedHeight };
+          },
+          renderedWidth: 388.86,
+          renderedHeight: 388.86,
+          parentElement: {
+            transform: "matrix(0.791965, 0, 0, 0.791965, 0, 0)",
+            parentElement: null
+          }
+        };
+        const renderer = {
+          resolution: 2,
+          resize(width, height) {
+            resizeEvents.push({
+              width,
+              height,
+              resolution: this.resolution,
+              backingWidth: Math.round(width * this.resolution),
+              backingHeight: Math.round(height * this.resolution)
+            });
+          }
+        };
+        const state = { container, app: { renderer }, renderResolution: 2 };
+        const first = live2DRenderResolution(state);
+        synchronizeLive2DRendererResolution(state, 129, 129);
+        container.renderedWidth = 258;
+        container.renderedHeight = 258;
+        synchronizeLive2DRendererResolution(state, 129, 129);
+        process.stdout.write(JSON.stringify({
+          first,
+          finalScale: live2DFinalDisplayScale(container),
+          resolution: state.renderResolution,
+          resizeEvents
+        }));
+        """
+        let data = try runNode(script)
+        let result = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+
+        XCTAssertEqual(result["first"] as? Double, 6.125)
+        XCTAssertEqual(result["finalScale"] as? Double, 2)
+        XCTAssertEqual(result["resolution"] as? Double, 4)
+        let events = try XCTUnwrap(result["resizeEvents"] as? [[String: Any]])
+        XCTAssertEqual(events.count, 2)
+        XCTAssertEqual(events[0]["backingWidth"] as? Int, 790)
+        XCTAssertEqual(events[0]["backingHeight"] as? Int, 790)
+        XCTAssertEqual(events[1]["backingWidth"] as? Int, 516)
+        XCTAssertEqual(events[1]["backingHeight"] as? Int, 516)
+    }
+
     func testVoiceSessionVisibilityCoversUpdatedChatGPTPhases() throws {
         let source = try String(
             contentsOf: runtimeDirectory
@@ -465,7 +564,7 @@ final class Live2DRuntimeTests: XCTestCase {
             JSONSerialization.jsonObject(with: result) as? [String: Any]
         )
 
-        XCTAssertEqual(object["version"] as? Int, 72)
+        XCTAssertEqual(object["version"] as? Int, 73)
 
         let nativeCompositionTest = """
         const runtime = require(\(javascriptString(injection.path)));
