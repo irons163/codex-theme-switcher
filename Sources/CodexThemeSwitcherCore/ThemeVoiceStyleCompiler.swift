@@ -34,27 +34,44 @@ enum ThemeVoiceStyleCompiler {
         _ style: ThemeVoiceStyle,
         embeddedOrbOnly: Bool = false
     ) -> [String] {
-        let assetIDs = Set(
+        // Keep each collection operation separate so newer Swift toolchains
+        // do not spend excessive time inferring the mixed optional/UUID
+        // expression below.
+        var assetIDs = Set<UUID>()
+        if !embeddedOrbOnly {
+            assetIDs.formUnion(
+                [
+                    style.light.backgroundAssetID,
+                    style.dark.backgroundAssetID
+                ].compactMap { $0 }
+            )
+        }
+        assetIDs.formUnion(
             [
-                embeddedOrbOnly ? nil : style.light.backgroundAssetID,
-                embeddedOrbOnly ? nil : style.dark.backgroundAssetID,
                 style.light.orbBackgroundAssetID,
                 style.dark.orbBackgroundAssetID,
                 style.light.orbBlinkAssetID,
                 style.dark.orbBlinkAssetID
             ].compactMap { $0 }
-                + style.light.orbMouthFrameAssetIDs
-                + style.dark.orbMouthFrameAssetIDs
-                + (style.light.live2DModel?.resources.map(\.assetID) ?? [])
-                + (style.dark.live2DModel?.resources.map(\.assetID) ?? [])
-        ).sorted { $0.uuidString < $1.uuidString }
+        )
+        assetIDs.formUnion(style.light.orbMouthFrameAssetIDs)
+        assetIDs.formUnion(style.dark.orbMouthFrameAssetIDs)
+        assetIDs.formUnion(
+            style.light.live2DModel?.resources.map(\.assetID) ?? []
+        )
+        assetIDs.formUnion(
+            style.dark.live2DModel?.resources.map(\.assetID) ?? []
+        )
+        let sortedAssetIDs = assetIDs.sorted {
+            $0.uuidString < $1.uuidString
+        }
 
         var output: [String] = []
-        if !assetIDs.isEmpty {
+        if !sortedAssetIDs.isEmpty {
             output.append(
                 """
                 :root {
-                \(assetIDs.map {
+                \(sortedAssetIDs.map {
                     "  \(assetVariable($0)): theme-asset(\"\($0.uuidString)\");"
                 }.joined(separator: "\n"))
                 }
