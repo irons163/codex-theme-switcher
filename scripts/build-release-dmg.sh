@@ -68,6 +68,7 @@ AGENT_SCHEMA="${APP_PATH}/Contents/Resources/Schemas/codextheme.schema.json"
 FRAMEWORKS_DIR="${APP_PATH}/Contents/Frameworks"
 RESOURCES_DIR="${APP_PATH}/Contents/Resources"
 VOICE_DEFAULTS_DIR="${RESOURCES_DIR}/VoiceDefaults"
+VOICE_DEFAULT_MODEL_DIR="${VOICE_DEFAULTS_DIR}/KurisuAmadeus"
 STAGING_DIR="${WORK_DIR}/dmg-staging"
 DMG_NAME="${APP_PRODUCT_NAME}-${SAFE_VERSION}-${ARCH_LABEL}.dmg"
 DMG_PATH="${WORK_DIR}/${DMG_NAME}"
@@ -121,7 +122,8 @@ mkdir -p \
   "$FRAMEWORKS_DIR" \
   "$RESOURCES_DIR" \
   "${RESOURCES_DIR}/Schemas" \
-  "$VOICE_DEFAULTS_DIR"
+  "$VOICE_DEFAULTS_DIR" \
+  "$VOICE_DEFAULT_MODEL_DIR"
 
 ditto "$BINARY_SOURCE" "$APP_BINARY"
 ditto "$AGENT_CLI_SOURCE" "$AGENT_CLI"
@@ -136,6 +138,22 @@ ditto \
 ditto \
   "$PROJECT_ROOT/Examples/voice-mouth-sprites/anime-girl-blink-closed.png" \
   "$VOICE_DEFAULTS_DIR/anime-girl-blink-closed.png"
+ditto \
+  "$PROJECT_ROOT/Examples/voice-mouth-sprites/frame-phone-balanced.png" \
+  "$VOICE_DEFAULTS_DIR/frame-phone-balanced.png"
+ditto \
+  "$PROJECT_ROOT/GeneratedModels/KurisuAmadeus/runtime/kurisu-amadeus.model3.json" \
+  "$VOICE_DEFAULT_MODEL_DIR/kurisu-amadeus.model3.json"
+ditto \
+  "$PROJECT_ROOT/GeneratedModels/KurisuAmadeus/runtime/kurisu-amadeus.cdi3.json" \
+  "$VOICE_DEFAULT_MODEL_DIR/kurisu-amadeus.cdi3.json"
+ditto \
+  "$PROJECT_ROOT/GeneratedModels/KurisuAmadeus/runtime/kurisu-amadeus.moc3" \
+  "$VOICE_DEFAULT_MODEL_DIR/kurisu-amadeus.moc3"
+mkdir -p "$VOICE_DEFAULT_MODEL_DIR/kurisu-amadeus.4096"
+ditto \
+  "$PROJECT_ROOT/GeneratedModels/KurisuAmadeus/runtime/kurisu-amadeus.4096/texture_00.png" \
+  "$VOICE_DEFAULT_MODEL_DIR/kurisu-amadeus.4096/texture_00.png"
 ditto "$SPARKLE_FRAMEWORK_SOURCE" "${FRAMEWORKS_DIR}/Sparkle.framework"
 ditto "$RUNTIME_RESOURCE_BUNDLE" "${RESOURCES_DIR}/${APP_PRODUCT_NAME}_CodexThemeRuntime.bundle"
 ditto "$APP_RESOURCE_BUNDLE" "${RESOURCES_DIR}/${APP_PRODUCT_NAME}_${APP_PRODUCT_NAME}.bundle"
@@ -146,6 +164,16 @@ chmod +x "$AGENT_CLI"
   || fail "Default Voice mouth sprites were not packaged"
 [[ -f "$VOICE_DEFAULTS_DIR/anime-girl-blink-closed.png" ]] \
   || fail "Default Voice blink image was not packaged"
+[[ -f "$VOICE_DEFAULTS_DIR/frame-phone-balanced.png" ]] \
+  || fail "Default Voice phone background was not packaged"
+[[ -f "$VOICE_DEFAULT_MODEL_DIR/kurisu-amadeus.model3.json" ]] \
+  || fail "Default Voice Live2D settings were not packaged"
+[[ -f "$VOICE_DEFAULT_MODEL_DIR/kurisu-amadeus.cdi3.json" ]] \
+  || fail "Default Voice Live2D display info was not packaged"
+[[ -f "$VOICE_DEFAULT_MODEL_DIR/kurisu-amadeus.moc3" ]] \
+  || fail "Default Voice Live2D model was not packaged"
+[[ -f "$VOICE_DEFAULT_MODEL_DIR/kurisu-amadeus.4096/texture_00.png" ]] \
+  || fail "Default Voice Live2D texture was not packaged"
 
 /usr/libexec/PlistBuddy \
   -c "Set :CFBundleShortVersionString ${RELEASE_VERSION}" \

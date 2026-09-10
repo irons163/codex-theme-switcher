@@ -12,6 +12,7 @@ APP_BINARY_PATH="$STAGING_PATH/Contents/MacOS/CodexThemeSwitcher"
 AGENT_CLI_PATH="$STAGING_PATH/Contents/Helpers/codex-theme"
 AGENT_SCHEMA_PATH="$STAGING_PATH/Contents/Resources/Schemas/codextheme.schema.json"
 VOICE_DEFAULTS_PATH="$STAGING_PATH/Contents/Resources/VoiceDefaults"
+VOICE_DEFAULT_MODEL_PATH="$VOICE_DEFAULTS_PATH/KurisuAmadeus"
 SPARKLE_FRAMEWORK_PATH="$STAGING_PATH/Contents/Frameworks/Sparkle.framework"
 PLIST_BUDDY="/usr/libexec/PlistBuddy"
 
@@ -66,6 +67,7 @@ mkdir -p \
   "$STAGING_PATH/Contents/Resources" \
   "$STAGING_PATH/Contents/Resources/Schemas" \
   "$VOICE_DEFAULTS_PATH" \
+  "$VOICE_DEFAULT_MODEL_PATH" \
   "$STAGING_PATH/Contents/Frameworks"
 
 cp "$BINARY_PATH" "$APP_BINARY_PATH"
@@ -83,6 +85,22 @@ cp \
 cp \
   "$PROJECT_ROOT/Examples/voice-mouth-sprites/anime-girl-blink-closed.png" \
   "$VOICE_DEFAULTS_PATH/anime-girl-blink-closed.png"
+cp \
+  "$PROJECT_ROOT/Examples/voice-mouth-sprites/frame-phone-balanced.png" \
+  "$VOICE_DEFAULTS_PATH/frame-phone-balanced.png"
+cp \
+  "$PROJECT_ROOT/GeneratedModels/KurisuAmadeus/runtime/kurisu-amadeus.model3.json" \
+  "$VOICE_DEFAULT_MODEL_PATH/kurisu-amadeus.model3.json"
+cp \
+  "$PROJECT_ROOT/GeneratedModels/KurisuAmadeus/runtime/kurisu-amadeus.cdi3.json" \
+  "$VOICE_DEFAULT_MODEL_PATH/kurisu-amadeus.cdi3.json"
+cp \
+  "$PROJECT_ROOT/GeneratedModels/KurisuAmadeus/runtime/kurisu-amadeus.moc3" \
+  "$VOICE_DEFAULT_MODEL_PATH/kurisu-amadeus.moc3"
+mkdir -p "$VOICE_DEFAULT_MODEL_PATH/kurisu-amadeus.4096"
+cp \
+  "$PROJECT_ROOT/GeneratedModels/KurisuAmadeus/runtime/kurisu-amadeus.4096/texture_00.png" \
+  "$VOICE_DEFAULT_MODEL_PATH/kurisu-amadeus.4096/texture_00.png"
 ditto \
   "$RUNTIME_RESOURCE_BUNDLE" \
   "$STAGING_PATH/Contents/Resources/CodexThemeSwitcher_CodexThemeRuntime.bundle"
@@ -111,6 +129,11 @@ test -x "$AGENT_CLI_PATH"
 test -f "$AGENT_SCHEMA_PATH"
 test -f "$VOICE_DEFAULTS_PATH/anime-girl-mouth-2x2.png"
 test -f "$VOICE_DEFAULTS_PATH/anime-girl-blink-closed.png"
+test -f "$VOICE_DEFAULTS_PATH/frame-phone-balanced.png"
+test -f "$VOICE_DEFAULT_MODEL_PATH/kurisu-amadeus.model3.json"
+test -f "$VOICE_DEFAULT_MODEL_PATH/kurisu-amadeus.cdi3.json"
+test -f "$VOICE_DEFAULT_MODEL_PATH/kurisu-amadeus.moc3"
+test -f "$VOICE_DEFAULT_MODEL_PATH/kurisu-amadeus.4096/texture_00.png"
 test -f "$SPARKLE_FRAMEWORK_PATH/Versions/B/Sparkle"
 test -f "$SPARKLE_FRAMEWORK_PATH/Versions/B/Autoupdate"
 test -d "$SPARKLE_FRAMEWORK_PATH/Versions/B/Updater.app"

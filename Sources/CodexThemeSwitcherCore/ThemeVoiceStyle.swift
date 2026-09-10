@@ -365,6 +365,19 @@ public struct ThemeVoiceVariant: Codable, Equatable, Sendable {
         backdropOpacity: 0
     )
 
+    /// Current Live2D Voice defaults used when a new theme enables Voice.
+    /// Asset references and the imported model are attached by the app because
+    /// portable theme assets require document-specific UUIDs.
+    public static let live2DDefault: ThemeVoiceVariant = {
+        var variant = animatedPortraitDefault
+        variant.avatarMode = .live2D
+        variant.backgroundZoom = 0.5
+        variant.backgroundImageOpacity = 1
+        variant.overlayMascotWidth = 129
+        variant.orbScale = 1.41
+        return variant
+    }()
+
     private enum CodingKeys: String, CodingKey {
         case avatarMode
         case live2DModel

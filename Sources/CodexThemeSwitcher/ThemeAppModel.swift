@@ -2493,6 +2493,11 @@ final class ThemeAppModel: ObservableObject {
         guard let directory = voiceDefaultResourceDirectory else {
             throw CocoaError(.fileNoSuchFile)
         }
+        guard let modelURL = VoiceDefaultPresetResources.live2DModelURL(
+            in: directory
+        ) else {
+            throw CocoaError(.fileNoSuchFile)
+        }
         let frames = try makeMouthSpriteFrameAssets(
             from: directory.appendingPathComponent(
                 VoiceDefaultPresetResources.mouthSpriteFilename
@@ -2509,17 +2514,33 @@ final class ThemeAppModel: ObservableObject {
                 VoiceDefaultPresetResources.blinkFilename
             )
         )
-        var variant = ThemeVoiceVariant.animatedPortraitDefault
-        variant.orbBackgroundAssetID = closedMouth.id
-        variant.orbMouthFrameAssetIDs = Array(frames.dropFirst().map(\.id))
-        variant.orbBlinkAssetID = blink.id
+        let phone = try makeBackgroundAsset(
+            from: directory.appendingPathComponent(
+                VoiceDefaultPresetResources.phoneBackgroundFilename
+            )
+        )
+        let imported = try makeLive2DModel(from: modelURL)
+        var model = imported.model
+        model.scale = 0.94
+
+        var lightVariant = ThemeVoiceVariant.live2DDefault
+        lightVariant.live2DModel = model
+        lightVariant.backgroundAssetID = phone.id
+        lightVariant.orbBackgroundAssetID = closedMouth.id
+        lightVariant.orbMouthFrameAssetIDs = Array(
+            frames.dropFirst().map(\.id)
+        )
+        lightVariant.orbBlinkAssetID = blink.id
+
+        var darkVariant = lightVariant
+        darkVariant.orbScale = 3
         return (
             ThemeVoiceStyle(
                 isEnabled: true,
-                light: variant,
-                dark: variant
+                light: lightVariant,
+                dark: darkVariant
             ),
-            frames + [blink]
+            frames + [blink, phone] + imported.assets
         )
     }
 

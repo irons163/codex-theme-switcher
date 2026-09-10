@@ -126,7 +126,8 @@ final class ThemeAppModelDraftTests: XCTestCase {
         )
         for filename in [
             VoiceDefaultPresetResources.mouthSpriteFilename,
-            VoiceDefaultPresetResources.blinkFilename
+            VoiceDefaultPresetResources.blinkFilename,
+            VoiceDefaultPresetResources.phoneBackgroundFilename
         ] {
             XCTAssertTrue(
                 FileManager.default.createFile(
@@ -151,6 +152,33 @@ final class ThemeAppModelDraftTests: XCTestCase {
         XCTAssertEqual(
             resolved?.standardizedFileURL,
             voiceDefaults.standardizedFileURL
+        )
+
+        let modelDirectory = voiceDefaults.appendingPathComponent(
+            VoiceDefaultPresetResources.live2DModelDirectoryName,
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: modelDirectory,
+            withIntermediateDirectories: true
+        )
+        let modelURL = modelDirectory.appendingPathComponent(
+            VoiceDefaultPresetResources.live2DModelFilename
+        )
+        XCTAssertTrue(
+            FileManager.default.createFile(
+                atPath: modelURL.path,
+                contents: Data([0])
+            )
+        )
+        XCTAssertEqual(
+            VoiceDefaultPresetResources.live2DModelURL(
+                in: voiceDefaults,
+                sourceFileURL: root
+                    .appendingPathComponent("Missing")
+                    .appendingPathComponent("VoiceDefaultPresetResources.swift")
+            )?.standardizedFileURL,
+            modelURL.standardizedFileURL
         )
     }
 
@@ -258,24 +286,38 @@ final class ThemeAppModelDraftTests: XCTestCase {
         let light = preset.style.light
 
         XCTAssertTrue(preset.style.isEnabled)
-        XCTAssertEqual(preset.assets.count, 5)
-        XCTAssertEqual(preset.style.light, preset.style.dark)
-        XCTAssertEqual(light.orbScale, 3)
+        XCTAssertEqual(preset.assets.count, 10)
+        XCTAssertNotEqual(preset.style.light, preset.style.dark)
+        XCTAssertEqual(light.avatarMode, .live2D)
+        XCTAssertEqual(light.backgroundImageFit, .contain)
+        XCTAssertEqual(light.backgroundZoom, 0.5)
+        XCTAssertEqual(light.backgroundImageOpacity, 1)
+        XCTAssertEqual(light.overlayMascotWidth, 129)
+        XCTAssertEqual(light.orbScale, 1.41)
         XCTAssertEqual(light.orbOpacity, 0)
         XCTAssertEqual(light.orbMouthFrameAssetIDs.count, 3)
+        XCTAssertEqual(light.live2DModel?.scale, 0.94)
+        XCTAssertEqual(
+            light.live2DModel?.modelSettingsPath,
+            "kurisu-amadeus.model3.json"
+        )
+        XCTAssertEqual(preset.style.dark.orbScale, 3)
+        XCTAssertNotNil(light.backgroundAssetID)
         XCTAssertNotNil(light.orbBackgroundAssetID)
         XCTAssertNotNil(light.orbBlinkAssetID)
         XCTAssertEqual(
             Set(
-                [light.orbBackgroundAssetID, light.orbBlinkAssetID]
-                    .compactMap { $0 }
+                [
+                    light.backgroundAssetID,
+                    light.orbBackgroundAssetID,
+                    light.orbBlinkAssetID
+                ].compactMap { $0 }
                     + light.orbMouthFrameAssetIDs
+                    + (light.live2DModel?.resources.map(\.assetID) ?? [])
             ),
             Set(preset.assets.map(\.id))
         )
-        XCTAssertTrue(preset.assets.allSatisfy {
-            $0.mediaType == "image/png" && $0.decodedData != nil
-        })
+        XCTAssertTrue(preset.assets.allSatisfy { $0.decodedData != nil })
     }
 
     @MainActor
@@ -307,12 +349,16 @@ final class ThemeAppModelDraftTests: XCTestCase {
         model.setVoiceStyleEnabled(true)
 
         let seeded = try XCTUnwrap(model.draft)
-        XCTAssertEqual(seeded.assets.count, 5)
-        XCTAssertEqual(
+        XCTAssertEqual(seeded.assets.count, 10)
+        XCTAssertNotEqual(
             seeded.voiceStyle?.light,
             seeded.voiceStyle?.dark
         )
-        XCTAssertEqual(seeded.voiceStyle?.light.orbScale, 3)
+        XCTAssertEqual(seeded.voiceStyle?.light.avatarMode, .live2D)
+        XCTAssertEqual(seeded.voiceStyle?.light.orbScale, 1.41)
+        XCTAssertEqual(seeded.voiceStyle?.dark.orbScale, 3)
+        XCTAssertNotNil(seeded.voiceStyle?.light.live2DModel)
+        XCTAssertNotNil(seeded.voiceStyle?.light.backgroundAssetID)
         let seededAssetIDs = seeded.assets.map(\.id)
 
         model.setVoiceStyleEnabled(false)
