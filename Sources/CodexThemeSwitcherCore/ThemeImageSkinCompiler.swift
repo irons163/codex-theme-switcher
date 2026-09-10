@@ -387,11 +387,19 @@ enum ThemeImageSkinCompiler {
     }
 
     private static func centerPanelRule() -> String {
-        rule(
+        // The scheduled-task page has no dedicated surface attribute. Its
+        // stable search control and list structure identify the content panel
+        // without affecting other list-based views.
+        let scheduledTaskPanelSelector =
+            "[data-app-shell-focus-area=\"main\"]:has(#scheduled-page-search) "
+                + "div:has(> [role=\"list\"] > [role=\"listitem\"])"
+        return rule(
             selectors: [
                 "[data-mcp-app-portal-target=\"true\"]:has(> [data-thread-find-target=\"conversation\"])",
                 "main.main-surface [role=\"main\"] div:has(> [data-feature=\"game-source\"])",
-                "main[data-app-shell-main-surface] [role=\"main\"] div:has(> [data-feature=\"game-source\"])"
+                "main[data-app-shell-main-surface] [role=\"main\"] div:has(> [data-feature=\"game-source\"])",
+                "main.main-surface \(scheduledTaskPanelSelector)",
+                "main[data-app-shell-main-surface] \(scheduledTaskPanelSelector)"
             ],
             declarations: [
                 "box-sizing: border-box !important;",

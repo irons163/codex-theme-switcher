@@ -32,6 +32,26 @@ final class ThemeNativeSurfaceRenderTests: XCTestCase {
     }
 
     @MainActor
+    func testScheduledTaskListGetsCenterPanelSurfaceWithoutPaintingOtherLists() async throws {
+        var skin = ThemeImageSkin()
+        skin.centerPanel.isEnabled = true
+        skin.light.centerPanelTint = "#123456"
+        skin.light.centerPanelOpacity = 1
+        skin.light.centerPanelBorderColor = "#ABCDEF"
+        skin.light.centerPanelBorderOpacity = 1
+        skin.light.centerPanelShadowOpacity = 0
+        let css = try ThemeCompiler()
+            .compile(TestFixtures.theme(imageSkin: skin))
+            .css
+        let values = try await renderScheduledTaskList(css)
+
+        XCTAssertNotEqual(values["panelBackground"], "rgba(0, 0, 0, 0)")
+        XCTAssertEqual(values["panelPaddingTop"], "20px")
+        XCTAssertEqual(values["panelBorderTopWidth"], "1px")
+        XCTAssertEqual(values["otherListBackground"], "rgba(0, 0, 0, 0)")
+    }
+
+    @MainActor
     private func render(_ css: String) async throws -> [String: String] {
         let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 600, height: 260))
         let loaded = expectation(description: "local settings fixture loaded")
@@ -69,6 +89,53 @@ final class ThemeNativeSurfaceRenderTests: XCTestCase {
           const style = getComputedStyle(document.getElementById(id));
           const backgroundIDs = new Set(['panel', 'baseSurface', 'surfaceUnder']);
           return [id, backgroundIDs.has(id) ? style.backgroundColor : style.color];
+        }))
+        """)
+        return try XCTUnwrap(result as? [String: String])
+    }
+
+    @MainActor
+    private func renderScheduledTaskList(_ css: String) async throws -> [String: String] {
+        let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 800, height: 500))
+        let loaded = expectation(description: "local scheduled task fixture loaded")
+        let navigation = LocalNavigation(loaded: loaded)
+        view.navigationDelegate = navigation
+        view.loadHTMLString("""
+        <!doctype html>
+        <html class="electron-light" data-codex-theme-switcher-theme="taipei-afterglow">
+          <head><style>
+            html, body, main, [data-app-shell-focus-area="main"] { margin: 0; min-height: 100%; }
+            main { background: #f0c0a0; }
+            #scheduled-panel { display: flex; flex-direction: column; }
+            #other-list { margin-top: 20px; }
+            \(css)
+          </style></head>
+          <body>
+            <main data-app-shell-main-surface="default">
+              <div data-app-shell-focus-area="main">
+                <input id="scheduled-page-search" aria-label="Search scheduled tasks">
+                <div id="scheduled-panel">
+                  <div role="list">
+                    <div role="listitem">Task one</div>
+                  </div>
+                </div>
+              </div>
+              <div id="other-list">
+                <div role="list"><div role="listitem">Not a scheduled task</div></div>
+              </div>
+            </main>
+          </body>
+        </html>
+        """, baseURL: nil)
+        await fulfillment(of: [loaded], timeout: 10)
+        if let error = navigation.error { throw error }
+        let result = try await view.evaluateJavaScript("""
+        Object.fromEntries(['panelBackground', 'panelPaddingTop', 'panelBorderTopWidth', 'otherListBackground'].map(id => {
+          const panel = document.getElementById('scheduled-panel');
+          const other = document.getElementById('other-list');
+          const style = id === 'otherListBackground' ? getComputedStyle(other) : getComputedStyle(panel);
+          const property = id === 'panelBackground' || id === 'otherListBackground' ? 'backgroundColor' : id.replace('panel', '').replace(/^./, c => c.toLowerCase());
+          return [id, style[property]];
         }))
         """)
         return try XCTUnwrap(result as? [String: String])

@@ -468,6 +468,7 @@ final class ThemeCompilerTests: XCTestCase {
             )
         )
         XCTAssertFalse(css.contains("[data-feature=\"game-source\"]"))
+        XCTAssertFalse(css.contains("#scheduled-page-search"))
     }
 
     func testCenterPanelCompilesIndependentPaletteAndMaterialRules() throws {
@@ -540,6 +541,14 @@ final class ThemeCompilerTests: XCTestCase {
             css.contains(
                 "main.main-surface [role=\"main\"] div:has("
                     + "> [data-feature=\"game-source\"])"
+            )
+        )
+        XCTAssertTrue(
+            css.contains(
+                "main[data-app-shell-main-surface] "
+                    + "[data-app-shell-focus-area=\"main\"]:has("
+                    + "#scheduled-page-search) div:has("
+                    + "> [role=\"list\"] > [role=\"listitem\"])"
             )
         )
         XCTAssertTrue(
