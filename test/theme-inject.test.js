@@ -232,7 +232,38 @@ test("custom Voice activity tray follows native side without covering avatar cen
   );
 });
 
-test("VERSION=73 exposes transaction APIs and source evaluation is idempotent", () => {
+test("Quick Chat Voice orb is preferred over a mounted legacy orb", () => {
+  const start = source.indexOf("  function findVoiceOrbRoot(");
+  const end = source.indexOf(
+    "\n  function cancelVoiceSessionDeactivation(",
+    start,
+  );
+  assert.ok(start >= 0 && end > start);
+
+  const quickChatRoot = { id: "quick-chat" };
+  const legacyRoot = { id: "legacy" };
+  const sandbox = {
+    document: {
+      querySelector(selector) {
+        return selector === "quick-chat" ? quickChatRoot : legacyRoot;
+      },
+    },
+  };
+  vm.runInNewContext([
+    'const QUICK_CHAT_VOICE_ORB_SELECTOR = "quick-chat";',
+    'const VOICE_ORB_SELECTOR = "legacy";',
+    source.slice(start, end),
+    "this.findRoot = findVoiceOrbRoot;",
+  ].join("\n"), sandbox);
+
+  assert.equal(sandbox.findRoot(), quickChatRoot);
+  sandbox.document.querySelector = (selector) => (
+    selector === "legacy" ? legacyRoot : null
+  );
+  assert.equal(sandbox.findRoot(), legacyRoot);
+});
+
+test("VERSION=74 exposes transaction APIs and source evaluation is idempotent", () => {
   const dom = install();
   const runtime = dom.window.__codexThemeSwitcherRuntime;
   const functions = [
@@ -244,7 +275,7 @@ test("VERSION=73 exposes transaction APIs and source evaluation is idempotent", 
     "__codexThemeSwitcherClear",
   ];
 
-  assert.equal(runtime.version, 73);
+  assert.equal(runtime.version, 74);
   for (const name of functions) {
     assert.equal(typeof dom.window[name], "function", name);
   }
@@ -259,9 +290,9 @@ test("VERSION=73 exposes transaction APIs and source evaluation is idempotent", 
   assert.equal(dom.window.__codexThemeSwitcherStatus().stylePresent, false);
 });
 
-test("upgrading the renderer replaces version 72 closures and clears the old theme", () => {
+test("upgrading the renderer replaces version 73 closures and clears the old theme", () => {
   const dom = fakeDOM();
-  vm.runInNewContext(source.replace("const VERSION = 73;", "const VERSION = 72;"), dom.sandbox);
+  vm.runInNewContext(source.replace("const VERSION = 74;", "const VERSION = 73;"), dom.sandbox);
   const oldRuntime = dom.window.__codexThemeSwitcherRuntime;
   dom.window.__codexThemeSwitcherBegin(beginPayload());
   dom.window.__codexThemeSwitcherCommit({ transactionID: "transaction-1" });
@@ -271,7 +302,7 @@ test("upgrading the renderer replaces version 72 closures and clears the old the
 
   assert.notEqual(dom.window.__codexThemeSwitcherRuntime, oldRuntime);
   assert.notEqual(dom.window.__codexThemeSwitcherBegin, oldRuntime.begin);
-  assert.equal(dom.window.__codexThemeSwitcherRuntime.version, 73);
+  assert.equal(dom.window.__codexThemeSwitcherRuntime.version, 74);
   assert.equal(activeThemeStyle(dom), null);
   assert.equal(oldRuntime.status().stylePresent, false);
 });

@@ -834,6 +834,31 @@ final class ThemeCompilerTests: XCTestCase {
         )
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
+                "data-quick-chat-presentation=\"voice\""
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-custom-frame-width: initial;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-custom-frame-height: initial;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "background-color: transparent !important;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "content: none !important;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
                 "data-codex-voice-activity-shelf"
             )
         )

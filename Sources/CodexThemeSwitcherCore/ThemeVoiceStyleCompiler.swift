@@ -10,6 +10,7 @@ enum ThemeVoiceStyleCompiler {
         var output = ["/* Codex Theme Voice Overlay */"]
         output.append(contentsOf: sharedRules(style))
         output.append(overlayFoundationRules)
+        output.append(quickChatVoiceFoundationRules)
         output.append(contentsOf: overlayPositioningRules(style))
         output.append(orbFoundationRules)
         let advanced = style.rawCSS.trimmingCharacters(
@@ -553,6 +554,34 @@ enum ThemeVoiceStyleCompiler {
           width: var(--cts-voice-overlay-mascot-width) !important;
         }
 
+        """
+    }
+
+    private static var quickChatVoiceFoundationRules: String {
+        """
+        /*
+         * Codex 26.908 embeds Voice in the 40pt floating Quick Chat bar. The
+         * same renderer also keeps the legacy full-size avatar tree mounted,
+         * so the runtime still receives the full Voice theme. Keep the new
+         * bar transparent and constrain custom image/Live2D content to its
+         * 28pt orb instead of reusing the legacy overlay's pixel dimensions.
+         */
+        \(root):has([data-quick-chat-presentation="voice"]),
+        \(root):has([data-quick-chat-presentation="voice"]) body {
+          background-color: transparent !important;
+        }
+
+        \(root):has([data-quick-chat-presentation="voice"]) body::before {
+          content: none !important;
+          display: none !important;
+        }
+
+        \(root):has([data-quick-chat-presentation="voice"]) {
+          --cts-voice-orb-custom-frame-width: initial;
+          --cts-voice-orb-custom-frame-height: initial;
+          --cts-voice-orb-custom-frame-left: initial;
+          --cts-voice-orb-custom-frame-top: initial;
+        }
         """
     }
 

@@ -5,7 +5,7 @@
   const STYLE_ID = "codex-theme-switcher-style";
   const STAGING_STYLE_ID = `${STYLE_ID}-staging`;
   const VOICE_SESSION_STYLE_ID = `${STYLE_ID}-voice-session`;
-  const VERSION = 73;
+  const VERSION = 74;
   // Pixi's resolution is the number of backing pixels per CSS pixel before
   // the avatar overlay's transforms are applied. Keep the existing Retina
   // baseline, then add enough resolution for the final transformed box so
@@ -27,6 +27,15 @@
       ")",
     ].join(""),
   ].join(", ");
+  // Codex 26.908 moved Voice into the floating Quick Chat bar. That page can
+  // still contain the legacy (usually hidden) Voice orb, so prefer the orb in
+  // the currently presented Quick Chat Voice surface instead of relying on
+  // document order.
+  const QUICK_CHAT_VOICE_ORB_SELECTOR = [
+    '[data-quick-chat-presentation="voice"]',
+    '[data-avatar-overlay-native-surface-id="voice-controls"]',
+    ".codex-avatar-root[data-realtime-voice-orb]",
+  ].join(" ");
   const VOICE_PULSE_ENABLED = "--cts-voice-orb-pulse-enabled";
   const VOICE_PULSE_STRENGTH = "--cts-voice-orb-pulse-strength";
   const VOICE_PULSE_LIVE_SCALE = "--cts-voice-orb-live-pulse";
@@ -2082,6 +2091,12 @@
     return null;
   }
 
+  function findVoiceOrbRoot() {
+    if (typeof document.querySelector !== "function") return null;
+    return document.querySelector(QUICK_CHAT_VOICE_ORB_SELECTOR)
+      || document.querySelector(VOICE_ORB_SELECTOR);
+  }
+
   function cancelVoiceSessionDeactivation() {
     const pulse = runtime.voicePulse;
     if (pulse.sessionDeactivationTimer != null) {
@@ -3821,11 +3836,6 @@
     }
     startVoiceActivityShelfSync();
 
-    const findRoot = () => (
-      typeof document.querySelector === "function"
-        ? document.querySelector(VOICE_ORB_SELECTOR)
-        : null
-    );
     if (
       typeof MutationObserver === "function"
       && document.documentElement
@@ -3833,7 +3843,7 @@
       runtime.voicePulse.domObserver = new MutationObserver(() => {
         if (generation !== runtime.voicePulse.generation) return;
         scheduleVoiceActivityShelfSync();
-        const nextRoot = findRoot();
+        const nextRoot = findVoiceOrbRoot();
         if (nextRoot === runtime.voicePulse.root) {
           synchronizeVoicePresentationVisibility(nextRoot);
           return;
@@ -3856,7 +3866,7 @@
         subtree: true,
       });
     }
-    const root = findRoot();
+    const root = findVoiceOrbRoot();
     if (root) attachVoicePulseRoot(root, generation);
   }
 
