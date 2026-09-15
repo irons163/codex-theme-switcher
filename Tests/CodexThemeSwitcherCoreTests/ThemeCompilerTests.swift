@@ -848,11 +848,6 @@ final class ThemeCompilerTests: XCTestCase {
             )
         )
         XCTAssertTrue(
-            compiled.avatarOverlayCSS.contains(
-                "--cts-voice-stage-drag-x"
-            )
-        )
-        XCTAssertTrue(
             compiled.avatarOverlayCSS.contains("cursor: grab;")
         )
         XCTAssertTrue(

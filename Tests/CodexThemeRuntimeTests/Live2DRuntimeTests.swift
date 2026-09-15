@@ -9,7 +9,7 @@ final class Live2DRuntimeTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(source.contains("const VERSION = 79;"))
+        XCTAssertTrue(source.contains("const VERSION = 80;"))
         XCTAssertTrue(source.contains("function transformScale("))
         XCTAssertTrue(source.contains("function live2DFinalDisplayScale("))
         XCTAssertTrue(source.contains("function live2DRenderResolution("))
@@ -39,8 +39,11 @@ final class Live2DRuntimeTests: XCTestCase {
         XCTAssertTrue(source.contains("QUICK_CHAT_VOICE_STAGE_ATTRIBUTE"))
         XCTAssertTrue(source.contains("function voiceAvatarHost("))
         XCTAssertTrue(source.contains("function installQuickChatVoiceDrag("))
+        XCTAssertTrue(source.contains("avatar-overlay-drag-start"))
+        XCTAssertTrue(source.contains("avatar-overlay-drag-move"))
+        XCTAssertTrue(source.contains("avatar-overlay-drag-end"))
+        XCTAssertTrue(source.contains("sendMessageFromView"))
         XCTAssertTrue(source.contains("presentation.setPointerCapture?.("))
-        XCTAssertTrue(source.contains("quickChatDragOffsetX"))
         XCTAssertTrue(source.contains("clearQuickChatVoiceStage();"))
         XCTAssertTrue(source.contains("function findVoiceOrbRoot("))
         XCTAssertTrue(
@@ -575,7 +578,7 @@ final class Live2DRuntimeTests: XCTestCase {
             JSONSerialization.jsonObject(with: result) as? [String: Any]
         )
 
-        XCTAssertEqual(object["version"] as? Int, 79)
+        XCTAssertEqual(object["version"] as? Int, 80)
 
         let nativeCompositionTest = """
         const runtime = require(\(javascriptString(injection.path)));

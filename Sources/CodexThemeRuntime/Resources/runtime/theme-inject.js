@@ -5,7 +5,7 @@
   const STYLE_ID = "codex-theme-switcher-style";
   const STAGING_STYLE_ID = `${STYLE_ID}-staging`;
   const VOICE_SESSION_STYLE_ID = `${STYLE_ID}-voice-session`;
-  const VERSION = 79;
+  const VERSION = 80;
   // Pixi's resolution is the number of backing pixels per CSS pixel before
   // the avatar overlay's transforms are applied. Keep the existing Retina
   // baseline, then add enough resolution for the final transformed box so
@@ -42,8 +42,6 @@
     "data-codex-quick-chat-voice-presentation";
   const QUICK_CHAT_VOICE_DRAGGING_ATTRIBUTE =
     "data-codex-quick-chat-voice-dragging";
-  const QUICK_CHAT_VOICE_DRAG_X = "--cts-voice-stage-drag-x";
-  const QUICK_CHAT_VOICE_DRAG_Y = "--cts-voice-stage-drag-y";
   const VOICE_PULSE_ENABLED = "--cts-voice-orb-pulse-enabled";
   const VOICE_PULSE_STRENGTH = "--cts-voice-orb-pulse-strength";
   const VOICE_PULSE_LIVE_SCALE = "--cts-voice-orb-live-pulse";
@@ -2126,12 +2124,6 @@
 
   function clearQuickChatVoiceStage() {
     runtime.voicePulse.quickChatDrag = null;
-    document.documentElement?.style?.removeProperty?.(
-      QUICK_CHAT_VOICE_DRAG_X,
-    );
-    document.documentElement?.style?.removeProperty?.(
-      QUICK_CHAT_VOICE_DRAG_Y,
-    );
     document.querySelectorAll?.(
       `[${QUICK_CHAT_VOICE_PRESENTATION_ATTRIBUTE}]`,
     )?.forEach?.((element) => element.remove?.());
@@ -2140,22 +2132,19 @@
     )?.forEach?.((element) => element.remove?.());
   }
 
-  function applyQuickChatVoiceDragOffset() {
-    const pulse = runtime.voicePulse;
-    const style = document.documentElement?.style;
-    style?.setProperty?.(
-      QUICK_CHAT_VOICE_DRAG_X,
-      `${pulse.quickChatDragOffsetX}px`,
-    );
-    style?.setProperty?.(
-      QUICK_CHAT_VOICE_DRAG_Y,
-      `${pulse.quickChatDragOffsetY}px`,
-    );
+  function sendQuickChatVoiceDragMessage(type, payload) {
+    const bridge = window.electronBridge;
+    if (typeof bridge?.sendMessageFromView !== "function") return false;
+    try {
+      bridge.sendMessageFromView({ ...payload, type })?.catch?.(() => {});
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   function installQuickChatVoiceDrag(presentation) {
     if (!presentation?.addEventListener) return;
-    applyQuickChatVoiceDragOffset();
 
     const finish = (event) => {
       const drag = runtime.voicePulse.quickChatDrag;
@@ -2164,6 +2153,15 @@
       }
       runtime.voicePulse.quickChatDrag = null;
       presentation.removeAttribute?.(QUICK_CHAT_VOICE_DRAGGING_ATTRIBUTE);
+      sendQuickChatVoiceDragMessage("avatar-overlay-drag-end", {
+        altKey: event?.type === "pointerup" && event.altKey === true,
+        pointerScreenX: Number.isFinite(event?.screenX)
+          ? event.screenX
+          : drag.screenX,
+        pointerScreenY: Number.isFinite(event?.screenY)
+          ? event.screenY
+          : drag.screenY,
+      });
       try {
         presentation.releasePointerCapture?.(drag.pointerId);
       } catch {
@@ -2173,18 +2171,17 @@
 
     presentation.addEventListener("pointerdown", (event) => {
       if (event.button !== 0 || event.isPrimary === false) return;
-      const pulse = runtime.voicePulse;
-      const rect = presentation.getBoundingClientRect?.();
-      const offsetX = pulse.quickChatDragOffsetX;
-      const offsetY = pulse.quickChatDragOffsetY;
-      pulse.quickChatDrag = {
+      if (!sendQuickChatVoiceDragMessage("avatar-overlay-drag-start", {
+        pointerScreenX: event.screenX,
+        pointerScreenY: event.screenY,
+        pointerWindowX: event.clientX,
+        pointerWindowY: event.clientY,
+        usesOrbPhysics: false,
+      })) return;
+      runtime.voicePulse.quickChatDrag = {
         pointerId: event.pointerId,
-        startX: event.clientX,
-        startY: event.clientY,
-        offsetX,
-        offsetY,
-        baseCenterX: (rect?.left || 0) + (rect?.width || 0) / 2 - offsetX,
-        baseCenterY: (rect?.top || 0) + (rect?.height || 0) / 2 - offsetY,
+        screenX: event.screenX,
+        screenY: event.screenY,
       };
       presentation.setAttribute?.(QUICK_CHAT_VOICE_DRAGGING_ATTRIBUTE, "true");
       event.preventDefault?.();
@@ -2200,22 +2197,12 @@
       const pulse = runtime.voicePulse;
       const drag = pulse.quickChatDrag;
       if (!drag || event.pointerId !== drag.pointerId) return;
-      const margin = 48;
-      pulse.quickChatDragOffsetX = Math.min(
-        window.innerWidth - margin - drag.baseCenterX,
-        Math.max(
-          margin - drag.baseCenterX,
-          drag.offsetX + event.clientX - drag.startX,
-        ),
-      );
-      pulse.quickChatDragOffsetY = Math.min(
-        window.innerHeight - margin - drag.baseCenterY,
-        Math.max(
-          margin - drag.baseCenterY,
-          drag.offsetY + event.clientY - drag.startY,
-        ),
-      );
-      applyQuickChatVoiceDragOffset();
+      drag.screenX = event.screenX;
+      drag.screenY = event.screenY;
+      sendQuickChatVoiceDragMessage("avatar-overlay-drag-move", {
+        pointerScreenX: event.screenX,
+        pointerScreenY: event.screenY,
+      });
       event.preventDefault?.();
       event.stopPropagation?.();
     });
@@ -4566,8 +4553,6 @@
       sessionDeactivationDeadline: 0,
       voiceHandoffStaged: false,
       quickChatDrag: null,
-      quickChatDragOffsetX: 0,
-      quickChatDragOffsetY: 0,
     },
     live2D: {
       generation: 0,

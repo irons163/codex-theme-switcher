@@ -651,9 +651,7 @@ enum ThemeVoiceStyleCompiler {
               - var(--cts-voice-overlay-mascot-width)) / 2
           ) !important;
           top: 50vh !important;
-          translate:
-            var(--cts-voice-stage-drag-x, 0px)
-            calc(-50% + var(--cts-voice-stage-drag-y, 0px)) !important;
+          translate: 0 -50% !important;
           width: var(--cts-voice-overlay-mascot-width) !important;
         }
 
@@ -665,9 +663,6 @@ enum ThemeVoiceStyleCompiler {
             0px,
             calc((var(--cts-voice-overlay-anchor-width) - 330px) / 2)
           ) !important;
-          translate:
-            var(--cts-voice-stage-drag-x, 0px)
-            var(--cts-voice-stage-drag-y, 0px) !important;
         }
 
         /* The compact Quick Chat orb remains the native stop/status control. */
