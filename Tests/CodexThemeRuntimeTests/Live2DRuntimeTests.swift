@@ -9,7 +9,7 @@ final class Live2DRuntimeTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(source.contains("const VERSION = 74;"))
+        XCTAssertTrue(source.contains("const VERSION = 79;"))
         XCTAssertTrue(source.contains("function transformScale("))
         XCTAssertTrue(source.contains("function live2DFinalDisplayScale("))
         XCTAssertTrue(source.contains("function live2DRenderResolution("))
@@ -36,6 +36,12 @@ final class Live2DRuntimeTests: XCTestCase {
             )
         )
         XCTAssertTrue(source.contains("QUICK_CHAT_VOICE_ORB_SELECTOR"))
+        XCTAssertTrue(source.contains("QUICK_CHAT_VOICE_STAGE_ATTRIBUTE"))
+        XCTAssertTrue(source.contains("function voiceAvatarHost("))
+        XCTAssertTrue(source.contains("function installQuickChatVoiceDrag("))
+        XCTAssertTrue(source.contains("presentation.setPointerCapture?.("))
+        XCTAssertTrue(source.contains("quickChatDragOffsetX"))
+        XCTAssertTrue(source.contains("clearQuickChatVoiceStage();"))
         XCTAssertTrue(source.contains("function findVoiceOrbRoot("))
         XCTAssertTrue(
             source.contains("data-quick-chat-presentation=\"voice\"")
@@ -44,7 +50,7 @@ final class Live2DRuntimeTests: XCTestCase {
         XCTAssertTrue(source.contains("function mountVoiceLive2D("))
         XCTAssertTrue(source.contains("function destroyVoiceLive2D("))
         XCTAssertTrue(source.contains("preserveLive2D = false"))
-        XCTAssertTrue(source.contains("root.appendChild(state.container)"))
+        XCTAssertTrue(source.contains("host.appendChild(state.container)"))
         XCTAssertTrue(source.contains("data-codex-live2d-loading"))
         XCTAssertTrue(source.contains("pulse.canvasLastError = null"))
         XCTAssertTrue(source.contains("finally {"))
@@ -569,7 +575,7 @@ final class Live2DRuntimeTests: XCTestCase {
             JSONSerialization.jsonObject(with: result) as? [String: Any]
         )
 
-        XCTAssertEqual(object["version"] as? Int, 74)
+        XCTAssertEqual(object["version"] as? Int, 79)
 
         let nativeCompositionTest = """
         const runtime = require(\(javascriptString(injection.path)));

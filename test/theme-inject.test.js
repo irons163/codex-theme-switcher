@@ -41,6 +41,12 @@ function fakeDOM() {
     },
   };
   const document = {
+    documentElement: {
+      style: {
+        setProperty() {},
+        removeProperty() {},
+      },
+    },
     head: host,
     documentElement,
     body: null,
@@ -263,7 +269,200 @@ test("Quick Chat Voice orb is preferred over a mounted legacy orb", () => {
   assert.equal(sandbox.findRoot(), legacyRoot);
 });
 
-test("VERSION=74 exposes transaction APIs and source evaluation is idempotent", () => {
+test("Quick Chat Voice mounts its custom avatar on an independent stage", () => {
+  const start = source.indexOf("  function quickChatVoicePresentation(");
+  const end = source.indexOf(
+    "\n  function cancelVoiceSessionDeactivation(",
+    start,
+  );
+  assert.ok(start >= 0 && end > start);
+
+  let stage = null;
+  let presentation = null;
+  let hasMascot = true;
+  const mascot = {
+    closest() {
+      return null;
+    },
+    appendChild(element) {
+      presentation = element;
+      element.parentNode = mascot;
+      return element;
+    },
+  };
+  const quickChat = {};
+  const overlayFrame = {
+    appendChild(element) {
+      presentation = element;
+      element.parentNode = overlayFrame;
+      return element;
+    },
+  };
+  const sensor = {
+    closest(selector) {
+      return selector.includes("voice") ? quickChat : null;
+    },
+  };
+  const dragProperties = new Map();
+  const document = {
+    documentElement: {
+      style: {
+        setProperty(name, value) {
+          dragProperties.set(name, value);
+        },
+        removeProperty(name) {
+          dragProperties.delete(name);
+        },
+      },
+    },
+    querySelector(selector) {
+      if (selector.includes("voice-stage")) return stage;
+      if (selector.includes("content-frame")) return overlayFrame;
+      return null;
+    },
+    querySelectorAll(selector) {
+      if (selector.includes('hit-region="mascot"')) {
+        return hasMascot ? [mascot] : [];
+      }
+      if (selector.includes("voice-presentation")) {
+        return presentation ? [presentation] : [];
+      }
+      if (selector.includes("voice-stage")) return stage ? [stage] : [];
+      return [];
+    },
+    createElement() {
+      const attributes = new Map();
+      const listeners = new Map();
+      return {
+        attributes,
+        children: [],
+        listeners,
+        parentNode: null,
+        appendChild(element) {
+          this.children.push(element);
+          element.parentNode = this;
+          if (element.attributes.has(
+            "data-codex-quick-chat-voice-stage",
+          )) stage = element;
+          return element;
+        },
+        setAttribute(name, value) {
+          attributes.set(name, String(value));
+        },
+        removeAttribute(name) {
+          attributes.delete(name);
+        },
+        addEventListener(name, listener) {
+          const callbacks = listeners.get(name) || [];
+          callbacks.push(listener);
+          listeners.set(name, callbacks);
+        },
+        dispatch(name, event) {
+          for (const listener of listeners.get(name) || []) listener(event);
+        },
+        getBoundingClientRect() {
+          return { left: 500, top: 800, width: 129, height: 140 };
+        },
+        setPointerCapture() {},
+        releasePointerCapture() {},
+        remove() {
+          if (this === stage) stage = null;
+          if (this === presentation) presentation = null;
+          this.parentNode = null;
+        },
+      };
+    },
+  };
+  const runtime = {
+    voicePulse: {
+      quickChatDrag: null,
+      quickChatDragOffsetX: 0,
+      quickChatDragOffsetY: 0,
+    },
+  };
+  const sandbox = {
+    Array,
+    document,
+    runtime,
+    window: { innerWidth: 772, innerHeight: 1867 },
+  };
+  vm.runInNewContext([
+    'const QUICK_CHAT_VOICE_STAGE_ATTRIBUTE = "data-codex-quick-chat-voice-stage";',
+    'const QUICK_CHAT_VOICE_PRESENTATION_ATTRIBUTE = "data-codex-quick-chat-voice-presentation";',
+    'const QUICK_CHAT_VOICE_DRAGGING_ATTRIBUTE = "data-codex-quick-chat-voice-dragging";',
+    'const QUICK_CHAT_VOICE_DRAG_X = "--cts-voice-stage-drag-x";',
+    'const QUICK_CHAT_VOICE_DRAG_Y = "--cts-voice-stage-drag-y";',
+    source.slice(start, end),
+    "this.host = voiceAvatarHost;",
+    "this.clearStage = clearQuickChatVoiceStage;",
+  ].join("\n"), sandbox);
+
+  const host = sandbox.host(sensor);
+  assert.equal(host, stage);
+  assert.equal(
+    host.attributes.get("data-codex-voice-orb"),
+    "quick-chat-stage",
+  );
+  assert.equal(
+    presentation.attributes.get(
+      "data-codex-quick-chat-voice-presentation",
+    ),
+    "true",
+  );
+  assert.equal(
+    presentation.attributes.get("data-codex-quick-chat-voice-stage-anchor"),
+    "mascot",
+  );
+  assert.equal(
+    presentation.attributes.get("data-avatar-overlay-hit-region"),
+    "mascot",
+  );
+  assert.equal(host.parentNode, presentation);
+  assert.equal(presentation.parentNode, mascot);
+
+  const pointerEvent = {
+    button: 0,
+    isPrimary: true,
+    pointerId: 7,
+    clientX: 550,
+    clientY: 850,
+    preventDefault() {},
+    stopPropagation() {},
+  };
+  presentation.dispatch("pointerdown", pointerEvent);
+  assert.equal(
+    presentation.attributes.get("data-codex-quick-chat-voice-dragging"),
+    "true",
+  );
+  presentation.dispatch("pointermove", {
+    ...pointerEvent,
+    clientX: 590,
+    clientY: 880,
+  });
+  assert.equal(dragProperties.get("--cts-voice-stage-drag-x"), "40px");
+  assert.equal(dragProperties.get("--cts-voice-stage-drag-y"), "30px");
+  presentation.dispatch("pointerup", pointerEvent);
+  assert.equal(
+    presentation.attributes.has("data-codex-quick-chat-voice-dragging"),
+    false,
+  );
+
+  sandbox.clearStage();
+  assert.equal(stage, null);
+  assert.equal(presentation, null);
+
+  hasMascot = false;
+  const overlayHost = sandbox.host(sensor);
+  assert.equal(overlayHost, stage);
+  assert.equal(stage.parentNode, presentation);
+  assert.equal(presentation.parentNode, overlayFrame);
+  assert.equal(
+    presentation.attributes.get("data-codex-quick-chat-voice-stage-anchor"),
+    "overlay",
+  );
+});
+
+test("VERSION=79 exposes transaction APIs and source evaluation is idempotent", () => {
   const dom = install();
   const runtime = dom.window.__codexThemeSwitcherRuntime;
   const functions = [
@@ -275,7 +474,7 @@ test("VERSION=74 exposes transaction APIs and source evaluation is idempotent", 
     "__codexThemeSwitcherClear",
   ];
 
-  assert.equal(runtime.version, 74);
+  assert.equal(runtime.version, 79);
   for (const name of functions) {
     assert.equal(typeof dom.window[name], "function", name);
   }
@@ -290,9 +489,9 @@ test("VERSION=74 exposes transaction APIs and source evaluation is idempotent", 
   assert.equal(dom.window.__codexThemeSwitcherStatus().stylePresent, false);
 });
 
-test("upgrading the renderer replaces version 73 closures and clears the old theme", () => {
+test("upgrading the renderer replaces version 78 closures and clears the old theme", () => {
   const dom = fakeDOM();
-  vm.runInNewContext(source.replace("const VERSION = 74;", "const VERSION = 73;"), dom.sandbox);
+  vm.runInNewContext(source.replace("const VERSION = 79;", "const VERSION = 78;"), dom.sandbox);
   const oldRuntime = dom.window.__codexThemeSwitcherRuntime;
   dom.window.__codexThemeSwitcherBegin(beginPayload());
   dom.window.__codexThemeSwitcherCommit({ transactionID: "transaction-1" });
@@ -302,7 +501,7 @@ test("upgrading the renderer replaces version 73 closures and clears the old the
 
   assert.notEqual(dom.window.__codexThemeSwitcherRuntime, oldRuntime);
   assert.notEqual(dom.window.__codexThemeSwitcherBegin, oldRuntime.begin);
-  assert.equal(dom.window.__codexThemeSwitcherRuntime.version, 74);
+  assert.equal(dom.window.__codexThemeSwitcherRuntime.version, 79);
   assert.equal(activeThemeStyle(dom), null);
   assert.equal(oldRuntime.status().stylePresent, false);
 });

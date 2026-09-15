@@ -5,7 +5,7 @@
   const STYLE_ID = "codex-theme-switcher-style";
   const STAGING_STYLE_ID = `${STYLE_ID}-staging`;
   const VOICE_SESSION_STYLE_ID = `${STYLE_ID}-voice-session`;
-  const VERSION = 74;
+  const VERSION = 79;
   // Pixi's resolution is the number of backing pixels per CSS pixel before
   // the avatar overlay's transforms are applied. Keep the existing Retina
   // baseline, then add enough resolution for the final transformed box so
@@ -36,6 +36,14 @@
     '[data-avatar-overlay-native-surface-id="voice-controls"]',
     ".codex-avatar-root[data-realtime-voice-orb]",
   ].join(" ");
+  const QUICK_CHAT_VOICE_STAGE_ATTRIBUTE =
+    "data-codex-quick-chat-voice-stage";
+  const QUICK_CHAT_VOICE_PRESENTATION_ATTRIBUTE =
+    "data-codex-quick-chat-voice-presentation";
+  const QUICK_CHAT_VOICE_DRAGGING_ATTRIBUTE =
+    "data-codex-quick-chat-voice-dragging";
+  const QUICK_CHAT_VOICE_DRAG_X = "--cts-voice-stage-drag-x";
+  const QUICK_CHAT_VOICE_DRAG_Y = "--cts-voice-stage-drag-y";
   const VOICE_PULSE_ENABLED = "--cts-voice-orb-pulse-enabled";
   const VOICE_PULSE_STRENGTH = "--cts-voice-orb-pulse-strength";
   const VOICE_PULSE_LIVE_SCALE = "--cts-voice-orb-live-pulse";
@@ -359,8 +367,12 @@
 
   function synchronizeVoiceEffectiveScale(root) {
     if (!root?.style?.setProperty) return;
+    const host = voiceAvatarHost(root, false) || root;
+    const targets = new Set([root, host]);
     if (voiceAvatarMode() === "native") {
-      root.style.removeProperty?.(VOICE_EFFECTIVE_SCALE);
+      for (const target of targets) {
+        target.style?.removeProperty?.(VOICE_EFFECTIVE_SCALE);
+      }
       return;
     }
     const configured = clamp(
@@ -368,13 +380,15 @@
       0.01,
       10,
     );
-    const effective = configured / presentationScale(root);
+    const effective = configured / presentationScale(host);
     const formatted = effective.toFixed(4);
-    if (
-      root.style.getPropertyValue?.(VOICE_EFFECTIVE_SCALE)
-      !== formatted
-    ) {
-      root.style.setProperty(VOICE_EFFECTIVE_SCALE, formatted);
+    for (const target of targets) {
+      if (
+        target.style?.getPropertyValue?.(VOICE_EFFECTIVE_SCALE)
+        !== formatted
+      ) {
+        target.style?.setProperty?.(VOICE_EFFECTIVE_SCALE, formatted);
+      }
     }
   }
 
@@ -438,17 +452,23 @@
   }
 
   function clearVoiceMouth(root) {
-    root?.style?.removeProperty?.(VOICE_MOUTH_ACTIVE_IMAGE);
-    root?.style?.removeProperty?.(VOICE_MOUTH_IMAGE_A);
-    root?.style?.removeProperty?.(VOICE_MOUTH_IMAGE_B);
-    root?.style?.removeProperty?.(VOICE_MOUTH_OPACITY_A);
-    root?.style?.removeProperty?.(VOICE_MOUTH_OPACITY_B);
+    const host = voiceAvatarHost(root, false);
+    for (const target of new Set([root, host].filter(Boolean))) {
+      target.style?.removeProperty?.(VOICE_MOUTH_ACTIVE_IMAGE);
+      target.style?.removeProperty?.(VOICE_MOUTH_IMAGE_A);
+      target.style?.removeProperty?.(VOICE_MOUTH_IMAGE_B);
+      target.style?.removeProperty?.(VOICE_MOUTH_OPACITY_A);
+      target.style?.removeProperty?.(VOICE_MOUTH_OPACITY_B);
+    }
   }
 
   function setVoiceMouthProperty(root, cacheKey, property, value) {
     const pulse = runtime.voicePulse;
     if (pulse[cacheKey] === value) return;
-    root.style?.setProperty?.(property, value);
+    const host = voiceAvatarHost(root, false);
+    for (const target of new Set([root, host].filter(Boolean))) {
+      target.style?.setProperty?.(property, value);
+    }
     pulse[cacheKey] = value;
   }
 
@@ -1723,10 +1743,12 @@
     }
     const configuration = live2DConfiguration();
     if (!configuration) return;
+    const host = voiceAvatarHost(root);
+    if (!host) return;
     const key = JSON.stringify(configuration);
     const state = runtime.live2D;
     if (
-      state.root === root
+      state.root === host
       && state.configurationKey === key
       && (state.loading || state.model)
     ) {
@@ -1739,12 +1761,12 @@
     ) {
       state.root?.removeAttribute?.("data-codex-live2d-ready");
       state.root?.removeAttribute?.("data-codex-live2d-loading");
-      state.root = root;
-      root.querySelectorAll?.("[data-codex-live2d-avatar]")
+      state.root = host;
+      host.querySelectorAll?.("[data-codex-live2d-avatar]")
         ?.forEach?.((element) => {
           if (element !== state.container) element.remove?.();
         });
-      root.appendChild(state.container);
+      host.appendChild(state.container);
       state.resizeObserver?.disconnect?.();
       if (typeof ResizeObserver === "function") {
         state.resizeObserver = new ResizeObserver(() => {
@@ -1753,21 +1775,21 @@
         state.resizeObserver.observe(state.container);
       }
       resizeLive2DModel(state, configuration);
-      root.setAttribute("data-codex-live2d-ready", "true");
-      root.removeAttribute("data-codex-live2d-loading");
-      root.removeAttribute("data-codex-live2d-error");
+      host.setAttribute("data-codex-live2d-ready", "true");
+      host.removeAttribute("data-codex-live2d-loading");
+      host.removeAttribute("data-codex-live2d-error");
       return;
     }
     destroyVoiceLive2D();
-    root.querySelectorAll?.("[data-codex-live2d-avatar]")
+    host.querySelectorAll?.("[data-codex-live2d-avatar]")
       ?.forEach?.((element) => element.remove?.());
     const generation = runtime.live2D.generation;
-    state.root = root;
+    state.root = host;
     state.configurationKey = key;
     state.loading = true;
-    root.setAttribute("data-codex-live2d-loading", "true");
-    root.removeAttribute("data-codex-live2d-ready");
-    root.removeAttribute("data-codex-live2d-error");
+    host.setAttribute("data-codex-live2d-loading", "true");
+    host.removeAttribute("data-codex-live2d-ready");
+    host.removeAttribute("data-codex-live2d-error");
     let container = null;
     let app = null;
     let model = null;
@@ -1794,7 +1816,7 @@
       const canvas = document.createElement("canvas");
       canvas.dataset.codexLive2dCanvas = "true";
       container.appendChild(canvas);
-      root.appendChild(container);
+      host.appendChild(container);
       state.container = container;
       state.canvas = canvas;
       state.renderCanvas = renderCanvas;
@@ -1864,9 +1886,9 @@
         throw new Error("Live2D first presentation frame timed out.");
       }
       if (state.model === model && root === runtime.voicePulse.root) {
-        root.setAttribute("data-codex-live2d-ready", "true");
-        root.removeAttribute("data-codex-live2d-loading");
-        root.removeAttribute("data-codex-live2d-error");
+        host.setAttribute("data-codex-live2d-ready", "true");
+        host.removeAttribute("data-codex-live2d-loading");
+        host.removeAttribute("data-codex-live2d-error");
       }
     } catch (error) {
       try {
@@ -1896,8 +1918,8 @@
       state.renderResolution = null;
       state.loading = false;
       state.error = error?.message || String(error);
-      root.removeAttribute("data-codex-live2d-loading");
-      root.setAttribute("data-codex-live2d-error", "true");
+      host.removeAttribute("data-codex-live2d-loading");
+      host.setAttribute("data-codex-live2d-error", "true");
       console.warn("Codex Theme Live2D:", error);
     }
   }
@@ -2095,6 +2117,157 @@
     if (typeof document.querySelector !== "function") return null;
     return document.querySelector(QUICK_CHAT_VOICE_ORB_SELECTOR)
       || document.querySelector(VOICE_ORB_SELECTOR);
+  }
+
+  function quickChatVoicePresentation(root) {
+    return root?.closest?.('[data-quick-chat-presentation="voice"]')
+      || null;
+  }
+
+  function clearQuickChatVoiceStage() {
+    runtime.voicePulse.quickChatDrag = null;
+    document.documentElement?.style?.removeProperty?.(
+      QUICK_CHAT_VOICE_DRAG_X,
+    );
+    document.documentElement?.style?.removeProperty?.(
+      QUICK_CHAT_VOICE_DRAG_Y,
+    );
+    document.querySelectorAll?.(
+      `[${QUICK_CHAT_VOICE_PRESENTATION_ATTRIBUTE}]`,
+    )?.forEach?.((element) => element.remove?.());
+    document.querySelectorAll?.(
+      `[${QUICK_CHAT_VOICE_STAGE_ATTRIBUTE}]`,
+    )?.forEach?.((element) => element.remove?.());
+  }
+
+  function applyQuickChatVoiceDragOffset() {
+    const pulse = runtime.voicePulse;
+    const style = document.documentElement?.style;
+    style?.setProperty?.(
+      QUICK_CHAT_VOICE_DRAG_X,
+      `${pulse.quickChatDragOffsetX}px`,
+    );
+    style?.setProperty?.(
+      QUICK_CHAT_VOICE_DRAG_Y,
+      `${pulse.quickChatDragOffsetY}px`,
+    );
+  }
+
+  function installQuickChatVoiceDrag(presentation) {
+    if (!presentation?.addEventListener) return;
+    applyQuickChatVoiceDragOffset();
+
+    const finish = (event) => {
+      const drag = runtime.voicePulse.quickChatDrag;
+      if (!drag || (event?.pointerId != null && event.pointerId !== drag.pointerId)) {
+        return;
+      }
+      runtime.voicePulse.quickChatDrag = null;
+      presentation.removeAttribute?.(QUICK_CHAT_VOICE_DRAGGING_ATTRIBUTE);
+      try {
+        presentation.releasePointerCapture?.(drag.pointerId);
+      } catch {
+        // Pointer capture is already released when the pointer leaves Chromium.
+      }
+    };
+
+    presentation.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || event.isPrimary === false) return;
+      const pulse = runtime.voicePulse;
+      const rect = presentation.getBoundingClientRect?.();
+      const offsetX = pulse.quickChatDragOffsetX;
+      const offsetY = pulse.quickChatDragOffsetY;
+      pulse.quickChatDrag = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        offsetX,
+        offsetY,
+        baseCenterX: (rect?.left || 0) + (rect?.width || 0) / 2 - offsetX,
+        baseCenterY: (rect?.top || 0) + (rect?.height || 0) / 2 - offsetY,
+      };
+      presentation.setAttribute?.(QUICK_CHAT_VOICE_DRAGGING_ATTRIBUTE, "true");
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      try {
+        presentation.setPointerCapture?.(event.pointerId);
+      } catch {
+        // Dragging still works while the pointer remains over the presentation.
+      }
+    });
+
+    presentation.addEventListener("pointermove", (event) => {
+      const pulse = runtime.voicePulse;
+      const drag = pulse.quickChatDrag;
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      const margin = 48;
+      pulse.quickChatDragOffsetX = Math.min(
+        window.innerWidth - margin - drag.baseCenterX,
+        Math.max(
+          margin - drag.baseCenterX,
+          drag.offsetX + event.clientX - drag.startX,
+        ),
+      );
+      pulse.quickChatDragOffsetY = Math.min(
+        window.innerHeight - margin - drag.baseCenterY,
+        Math.max(
+          margin - drag.baseCenterY,
+          drag.offsetY + event.clientY - drag.startY,
+        ),
+      );
+      applyQuickChatVoiceDragOffset();
+      event.preventDefault?.();
+      event.stopPropagation?.();
+    });
+    presentation.addEventListener("pointerup", finish);
+    presentation.addEventListener("pointercancel", finish);
+    presentation.addEventListener("lostpointercapture", finish);
+  }
+
+  function voiceAvatarHost(root, create = true) {
+    if (!quickChatVoicePresentation(root)) return root || null;
+    const existing = document.querySelector?.(
+      `[${QUICK_CHAT_VOICE_STAGE_ATTRIBUTE}]`,
+    ) || null;
+    if (existing || !create) return existing;
+
+    const mascots = Array.from(document.querySelectorAll?.(
+      '[data-avatar-overlay-hit-region="mascot"]',
+    ) || []);
+    const mascot = mascots.find((candidate) => (
+      !candidate.closest?.('[data-quick-chat-presentation]')
+    )) || null;
+    const overlayFrame = document.querySelector?.(
+      '[data-avatar-overlay-content-frame]',
+    ) || document.body || document.documentElement;
+    const stageParent = mascot || overlayFrame;
+    if (!stageParent) return root;
+
+    document.querySelectorAll?.(
+      `[${QUICK_CHAT_VOICE_PRESENTATION_ATTRIBUTE}]`,
+    )?.forEach?.((element) => {
+      element.removeAttribute?.(QUICK_CHAT_VOICE_PRESENTATION_ATTRIBUTE);
+    });
+    const presentation = document.createElement("div");
+    presentation.setAttribute(
+      "data-codex-quick-chat-voice-stage-anchor",
+      mascot ? "mascot" : "overlay",
+    );
+    presentation.setAttribute(
+      QUICK_CHAT_VOICE_PRESENTATION_ATTRIBUTE,
+      "true",
+    );
+    presentation.setAttribute("data-avatar-overlay-hit-region", "mascot");
+    presentation.setAttribute("aria-hidden", "true");
+
+    const stage = document.createElement("div");
+    stage.setAttribute(QUICK_CHAT_VOICE_STAGE_ATTRIBUTE, "true");
+    stage.setAttribute("data-codex-voice-orb", "quick-chat-stage");
+    stage.setAttribute("aria-hidden", "true");
+    presentation.appendChild(stage);
+    stageParent.appendChild(presentation);
+    installQuickChatVoiceDrag(presentation);
+    return stage;
   }
 
   function cancelVoiceSessionDeactivation() {
@@ -3438,6 +3611,8 @@
 
   function setVoiceOrbLiveGeometry(root, geometry) {
     if (!root || !geometry) return false;
+    const host = voiceAvatarHost(root, false);
+    const targets = new Set([root, host].filter(Boolean));
     for (const [name, property] of Object.entries(
       VOICE_ORB_LIVE_GEOMETRY,
     )) {
@@ -3446,22 +3621,26 @@
       const value = Number(geometry[name]);
       if (!Number.isFinite(value)) return false;
       const formatted = `${clamp(value, minimum, maximum).toFixed(4)}%`;
-      if (root.style?.getPropertyValue?.(property) !== formatted) {
-        root.style?.setProperty?.(property, formatted);
+      for (const target of targets) {
+        if (target.style?.getPropertyValue?.(property) !== formatted) {
+          target.style?.setProperty?.(property, formatted);
+        }
       }
     }
     setVoiceOrbLayoutShift(root);
     const pulse = Number(geometry.pulse);
     if (Number.isFinite(pulse)) {
       const formatted = clamp(pulse, 0.25, 2.5).toFixed(4);
-      if (
-        root.style?.getPropertyValue?.(VOICE_PULSE_LIVE_SCALE)
-        !== formatted
-      ) {
-        root.style?.setProperty?.(
-          VOICE_PULSE_LIVE_SCALE,
-          formatted,
-        );
+      for (const target of targets) {
+        if (
+          target.style?.getPropertyValue?.(VOICE_PULSE_LIVE_SCALE)
+          !== formatted
+        ) {
+          target.style?.setProperty?.(
+            VOICE_PULSE_LIVE_SCALE,
+            formatted,
+          );
+        }
       }
     }
     const speechEnergy = Number(geometry.speechEnergy) || 0;
@@ -3585,13 +3764,19 @@
   }
 
   function removeVoiceOrbLiveGeometry(root) {
-    root?.style?.removeProperty?.(VOICE_PULSE_LIVE_SCALE);
-    root?.style?.removeProperty?.(VOICE_EFFECTIVE_SCALE);
+    const host = voiceAvatarHost(root, false);
+    const targets = new Set([root, host].filter(Boolean));
+    for (const target of targets) {
+      target.style?.removeProperty?.(VOICE_PULSE_LIVE_SCALE);
+      target.style?.removeProperty?.(VOICE_EFFECTIVE_SCALE);
+    }
     clearVoiceMouth(root);
-    root?.style?.removeProperty?.(VOICE_IDLE_X);
-    root?.style?.removeProperty?.(VOICE_IDLE_Y);
-    root?.style?.removeProperty?.(VOICE_IDLE_ROTATION);
-    root?.style?.removeProperty?.(VOICE_BLINK_OPACITY);
+    for (const target of targets) {
+      target.style?.removeProperty?.(VOICE_IDLE_X);
+      target.style?.removeProperty?.(VOICE_IDLE_Y);
+      target.style?.removeProperty?.(VOICE_IDLE_ROTATION);
+      target.style?.removeProperty?.(VOICE_BLINK_OPACITY);
+    }
     const hitRegion = root?.closest?.(
       '[data-avatar-overlay-hit-region="mascot"]',
     );
@@ -3605,8 +3790,10 @@
         layoutTarget?.style?.removeProperty?.(property);
       }
     }
-    for (const property of Object.values(VOICE_ORB_LIVE_GEOMETRY)) {
-      root?.style?.removeProperty?.(property);
+    for (const target of targets) {
+      for (const property of Object.values(VOICE_ORB_LIVE_GEOMETRY)) {
+        target.style?.removeProperty?.(property);
+      }
     }
   }
 
@@ -3665,6 +3852,7 @@
       cancelAnimationFrame(pulse.canvasFrameID);
     }
     removeVoiceOrbLiveGeometry(pulse.root);
+    if (!preserveLive2D) clearQuickChatVoiceStage();
     clearVoicePresentationAncestors();
     scheduleVoiceActivityShelfSync();
     if (pulse.rootMarkerOwned) {
@@ -3709,6 +3897,7 @@
     }
     pulse.root = root;
     pulse.active = true;
+    voiceAvatarHost(root);
     markVoicePresentationAncestors(root);
     observeVoicePresentation(root);
     scheduleVoiceActivityShelfSync();
@@ -3845,6 +4034,14 @@
         scheduleVoiceActivityShelfSync();
         const nextRoot = findVoiceOrbRoot();
         if (nextRoot === runtime.voicePulse.root) {
+          const host = voiceAvatarHost(nextRoot);
+          if (
+            voiceAvatarMode() === "live2D"
+            && voiceRendererOwnsAvatar()
+            && runtime.live2D.root !== host
+          ) {
+            mountVoiceLive2D(nextRoot, generation);
+          }
           synchronizeVoicePresentationVisibility(nextRoot);
           return;
         }
@@ -4368,6 +4565,9 @@
       sessionDeactivationTimer: null,
       sessionDeactivationDeadline: 0,
       voiceHandoffStaged: false,
+      quickChatDrag: null,
+      quickChatDragOffsetX: 0,
+      quickChatDragOffsetY: 0,
     },
     live2D: {
       generation: 0,

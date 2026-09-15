@@ -152,7 +152,9 @@ enum ThemeVoiceStyleCompiler {
 
     private static func centeredOverlayRule(selector: String) -> String {
         """
-        \(selector)[data-codex-theme-switcher-theme]
+        \(selector)[data-codex-theme-switcher-theme]:not(
+          :has([data-quick-chat-presentation="voice"])
+        )
         :has(> [data-avatar-overlay-hit-region="mascot"]) {
           bottom: auto !important;
           left: 50vw !important;
@@ -561,10 +563,10 @@ enum ThemeVoiceStyleCompiler {
         """
         /*
          * Codex 26.908 embeds Voice in the 40pt floating Quick Chat bar. The
-         * same renderer also keeps the legacy full-size avatar tree mounted,
-         * so the runtime still receives the full Voice theme. Keep the new
-         * bar transparent and constrain custom image/Live2D content to its
-         * 28pt orb instead of reusing the legacy overlay's pixel dimensions.
+         * native orb remains the stop/status control, while custom image and
+         * Live2D avatars render in an independent legacy presentation. Voice
+         * unmounts the old mascot tree, so the presentation can also anchor
+         * directly to the persistent overlay content frame.
          */
         \(root):has([data-quick-chat-presentation="voice"]),
         \(root):has([data-quick-chat-presentation="voice"]) body {
@@ -576,11 +578,114 @@ enum ThemeVoiceStyleCompiler {
           display: none !important;
         }
 
-        \(root):has([data-quick-chat-presentation="voice"]) {
-          --cts-voice-orb-custom-frame-width: initial;
-          --cts-voice-orb-custom-frame-height: initial;
-          --cts-voice-orb-custom-frame-left: initial;
-          --cts-voice-orb-custom-frame-top: initial;
+        \(root):has([data-quick-chat-presentation="voice"])
+        [data-codex-quick-chat-voice-presentation] {
+          cursor: grab;
+          height: 100%;
+          isolation: isolate;
+          opacity: 1 !important;
+          overflow: visible !important;
+          pointer-events: auto;
+          position: absolute;
+          touch-action: none;
+          user-select: none;
+          visibility: visible !important;
+          width: 100%;
+        }
+
+        \(root):has([data-quick-chat-presentation="voice"])
+        [data-codex-quick-chat-voice-presentation][data-codex-quick-chat-voice-dragging] {
+          cursor: grabbing;
+        }
+
+        \(root):has([data-quick-chat-presentation="voice"])
+        [data-codex-quick-chat-voice-presentation]::before {
+          background-image: var(--cts-voice-background-image);
+          background-position: var(--cts-voice-background-position);
+          background-repeat: var(--cts-voice-background-repeat);
+          background-size: var(--cts-voice-background-size);
+          content: "";
+          filter: blur(var(--cts-voice-background-blur));
+          height: 100vh;
+          left: 50%;
+          opacity: var(--cts-voice-background-opacity);
+          pointer-events: auto;
+          position: absolute;
+          scale: var(--cts-voice-background-scale);
+          top: 50%;
+          transform-origin: var(--cts-voice-background-origin);
+          translate: -50% -50%;
+          width: 100vw;
+          z-index: 0;
+        }
+
+        \(root):has([data-quick-chat-presentation="voice"])
+        [data-codex-quick-chat-voice-stage] {
+          height: 100% !important;
+          inset: 0 !important;
+          opacity: 1 !important;
+          overflow: visible !important;
+          pointer-events: none !important;
+          position: relative !important;
+          visibility: visible !important;
+          width: 100% !important;
+          z-index: 2 !important;
+        }
+
+        \(root):has([data-quick-chat-presentation="voice"])
+        [data-codex-quick-chat-voice-presentation]
+        [data-codex-live2d-avatar] {
+          border-radius: 0 !important;
+          clip-path: none !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+
+        \(root):has([data-quick-chat-presentation="voice"])
+        [data-codex-quick-chat-voice-stage-anchor="overlay"] {
+          bottom: auto !important;
+          height: var(--cts-voice-overlay-mascot-height) !important;
+          left: auto !important;
+          right: calc(
+            (var(--cts-voice-overlay-anchor-width)
+              - var(--cts-voice-overlay-mascot-width)) / 2
+          ) !important;
+          top: 50vh !important;
+          translate:
+            var(--cts-voice-stage-drag-x, 0px)
+            calc(-50% + var(--cts-voice-stage-drag-y, 0px)) !important;
+          width: var(--cts-voice-overlay-mascot-width) !important;
+        }
+
+        /* Re-dock the 330pt native control group over the legacy artwork. */
+        \(root):has([data-quick-chat-presentation="voice"])
+        [data-quick-chat-presentation="voice"] {
+          left: auto !important;
+          right: max(
+            0px,
+            calc((var(--cts-voice-overlay-anchor-width) - 330px) / 2)
+          ) !important;
+          translate:
+            var(--cts-voice-stage-drag-x, 0px)
+            var(--cts-voice-stage-drag-y, 0px) !important;
+        }
+
+        /* The compact Quick Chat orb remains the native stop/status control. */
+        \(root):has([data-quick-chat-presentation="voice"])
+        [data-quick-chat-presentation="voice"]
+        .codex-avatar-root[data-realtime-voice-orb]::before,
+        \(root):has([data-quick-chat-presentation="voice"])
+        [data-quick-chat-presentation="voice"]
+        .codex-avatar-root[data-realtime-voice-orb]::after {
+          content: none !important;
+          display: none !important;
+        }
+
+        \(root):has([data-quick-chat-presentation="voice"])
+        [data-quick-chat-presentation="voice"]
+        .codex-avatar-root[data-realtime-voice-orb] canvas {
+          opacity: 1 !important;
+          scale: 1 !important;
         }
         """
     }
@@ -767,7 +872,8 @@ enum ThemeVoiceStyleCompiler {
           overflow: hidden;
           pointer-events: none;
           position: absolute;
-          top: var(--cts-voice-orb-live-top, 14.9038%);
+          top: var(--cts-voice-orb-custom-frame-top,
+            var(--cts-voice-orb-live-top, 14.9038%));
           transform:
             translate(
               var(--cts-voice-orb-idle-x, 0px),

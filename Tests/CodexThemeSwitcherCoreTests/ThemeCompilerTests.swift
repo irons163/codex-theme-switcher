@@ -839,13 +839,21 @@ final class ThemeCompilerTests: XCTestCase {
         )
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
-                "--cts-voice-orb-custom-frame-width: initial;"
+                "data-codex-quick-chat-voice-presentation"
             )
         )
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
-                "--cts-voice-orb-custom-frame-height: initial;"
+                "data-codex-quick-chat-voice-stage"
             )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-stage-drag-x"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains("cursor: grab;")
         )
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
@@ -855,6 +863,21 @@ final class ThemeCompilerTests: XCTestCase {
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
                 "content: none !important;"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "background-image: var(--cts-voice-background-image);"
+            )
+        )
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
+                "scale: 1 !important;"
+            )
+        )
+        XCTAssertFalse(
+            compiled.avatarOverlayCSS.contains(
+                "--cts-voice-orb-custom-frame-width: initial;"
             )
         )
         XCTAssertTrue(
@@ -984,7 +1007,7 @@ final class ThemeCompilerTests: XCTestCase {
                 "left: 50vw !important;"
             )
         )
-        XCTAssertFalse(
+        XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
                 "top: 50vh !important;"
             )
