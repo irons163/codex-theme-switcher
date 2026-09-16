@@ -9,7 +9,7 @@ final class Live2DRuntimeTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(source.contains("const VERSION = 80;"))
+        XCTAssertTrue(source.contains("const VERSION = 81;"))
         XCTAssertTrue(source.contains("function transformScale("))
         XCTAssertTrue(source.contains("function live2DFinalDisplayScale("))
         XCTAssertTrue(source.contains("function live2DRenderResolution("))
@@ -39,6 +39,7 @@ final class Live2DRuntimeTests: XCTestCase {
         XCTAssertTrue(source.contains("QUICK_CHAT_VOICE_STAGE_ATTRIBUTE"))
         XCTAssertTrue(source.contains("function voiceAvatarHost("))
         XCTAssertTrue(source.contains("function installQuickChatVoiceDrag("))
+        XCTAssertTrue(source.contains("QUICK_CHAT_VOICE_DRAG_SURFACE_ATTRIBUTE"))
         XCTAssertTrue(source.contains("avatar-overlay-drag-start"))
         XCTAssertTrue(source.contains("avatar-overlay-drag-move"))
         XCTAssertTrue(source.contains("avatar-overlay-drag-end"))
@@ -578,7 +579,7 @@ final class Live2DRuntimeTests: XCTestCase {
             JSONSerialization.jsonObject(with: result) as? [String: Any]
         )
 
-        XCTAssertEqual(object["version"] as? Int, 80)
+        XCTAssertEqual(object["version"] as? Int, 81)
 
         let nativeCompositionTest = """
         const runtime = require(\(javascriptString(injection.path)));

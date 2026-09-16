@@ -279,6 +279,7 @@ test("Quick Chat Voice mounts its custom avatar on an independent stage", () => 
 
   let stage = null;
   let presentation = null;
+  let dragSurface = null;
   let hasMascot = true;
   const mascot = {
     closest() {
@@ -334,6 +335,9 @@ test("Quick Chat Voice mounts its custom avatar on an independent stage", () => 
           if (element.attributes.has(
             "data-codex-quick-chat-voice-stage",
           )) stage = element;
+          if (element.attributes.has(
+            "data-codex-quick-chat-voice-drag-surface",
+          )) dragSurface = element;
           return element;
         },
         setAttribute(name, value) {
@@ -384,6 +388,7 @@ test("Quick Chat Voice mounts its custom avatar on an independent stage", () => 
   vm.runInNewContext([
     'const QUICK_CHAT_VOICE_STAGE_ATTRIBUTE = "data-codex-quick-chat-voice-stage";',
     'const QUICK_CHAT_VOICE_PRESENTATION_ATTRIBUTE = "data-codex-quick-chat-voice-presentation";',
+    'const QUICK_CHAT_VOICE_DRAG_SURFACE_ATTRIBUTE = "data-codex-quick-chat-voice-drag-surface";',
     'const QUICK_CHAT_VOICE_DRAGGING_ATTRIBUTE = "data-codex-quick-chat-voice-dragging";',
     source.slice(start, end),
     "this.host = voiceAvatarHost;",
@@ -410,6 +415,11 @@ test("Quick Chat Voice mounts its custom avatar on an independent stage", () => 
     presentation.attributes.get("data-avatar-overlay-hit-region"),
     "mascot",
   );
+  assert.equal(
+    dragSurface.attributes.get("data-avatar-overlay-hit-region"),
+    "custom-voice-drag",
+  );
+  assert.equal(dragSurface.parentNode, presentation);
   assert.equal(host.parentNode, presentation);
   assert.equal(presentation.parentNode, mascot);
 
@@ -482,7 +492,7 @@ test("Quick Chat Voice mounts its custom avatar on an independent stage", () => 
   );
 });
 
-test("VERSION=80 exposes transaction APIs and source evaluation is idempotent", () => {
+test("VERSION=81 exposes transaction APIs and source evaluation is idempotent", () => {
   const dom = install();
   const runtime = dom.window.__codexThemeSwitcherRuntime;
   const functions = [
@@ -494,7 +504,7 @@ test("VERSION=80 exposes transaction APIs and source evaluation is idempotent", 
     "__codexThemeSwitcherClear",
   ];
 
-  assert.equal(runtime.version, 80);
+  assert.equal(runtime.version, 81);
   for (const name of functions) {
     assert.equal(typeof dom.window[name], "function", name);
   }
@@ -509,9 +519,9 @@ test("VERSION=80 exposes transaction APIs and source evaluation is idempotent", 
   assert.equal(dom.window.__codexThemeSwitcherStatus().stylePresent, false);
 });
 
-test("upgrading the renderer replaces version 79 closures and clears the old theme", () => {
+test("upgrading the renderer replaces version 80 closures and clears the old theme", () => {
   const dom = fakeDOM();
-  vm.runInNewContext(source.replace("const VERSION = 80;", "const VERSION = 79;"), dom.sandbox);
+  vm.runInNewContext(source.replace("const VERSION = 81;", "const VERSION = 80;"), dom.sandbox);
   const oldRuntime = dom.window.__codexThemeSwitcherRuntime;
   dom.window.__codexThemeSwitcherBegin(beginPayload());
   dom.window.__codexThemeSwitcherCommit({ transactionID: "transaction-1" });
@@ -521,7 +531,7 @@ test("upgrading the renderer replaces version 79 closures and clears the old the
 
   assert.notEqual(dom.window.__codexThemeSwitcherRuntime, oldRuntime);
   assert.notEqual(dom.window.__codexThemeSwitcherBegin, oldRuntime.begin);
-  assert.equal(dom.window.__codexThemeSwitcherRuntime.version, 80);
+  assert.equal(dom.window.__codexThemeSwitcherRuntime.version, 81);
   assert.equal(activeThemeStyle(dom), null);
   assert.equal(oldRuntime.status().stylePresent, false);
 });

@@ -598,6 +598,26 @@ enum ThemeVoiceStyleCompiler {
           cursor: grabbing;
         }
 
+        /*
+         * Electron derives click-through regions from real DOM boxes, not the
+         * full-viewport ::before artwork below. Mirror that visual footprint
+         * so the complete legacy phone can start a native window drag.
+         */
+        \(root):has([data-quick-chat-presentation="voice"])
+        [data-codex-quick-chat-voice-drag-surface] {
+          background: transparent;
+          cursor: inherit;
+          height: 100vh;
+          left: 50%;
+          pointer-events: auto;
+          position: absolute;
+          top: 50%;
+          touch-action: none;
+          translate: -50% -50%;
+          width: 100vw;
+          z-index: 1;
+        }
+
         \(root):has([data-quick-chat-presentation="voice"])
         [data-codex-quick-chat-voice-presentation]::before {
           background-image: var(--cts-voice-background-image);
@@ -609,7 +629,7 @@ enum ThemeVoiceStyleCompiler {
           height: 100vh;
           left: 50%;
           opacity: var(--cts-voice-background-opacity);
-          pointer-events: auto;
+          pointer-events: none;
           position: absolute;
           scale: var(--cts-voice-background-scale);
           top: 50%;

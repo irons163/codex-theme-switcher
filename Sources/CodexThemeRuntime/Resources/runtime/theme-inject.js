@@ -5,7 +5,7 @@
   const STYLE_ID = "codex-theme-switcher-style";
   const STAGING_STYLE_ID = `${STYLE_ID}-staging`;
   const VOICE_SESSION_STYLE_ID = `${STYLE_ID}-voice-session`;
-  const VERSION = 80;
+  const VERSION = 81;
   // Pixi's resolution is the number of backing pixels per CSS pixel before
   // the avatar overlay's transforms are applied. Keep the existing Retina
   // baseline, then add enough resolution for the final transformed box so
@@ -40,6 +40,8 @@
     "data-codex-quick-chat-voice-stage";
   const QUICK_CHAT_VOICE_PRESENTATION_ATTRIBUTE =
     "data-codex-quick-chat-voice-presentation";
+  const QUICK_CHAT_VOICE_DRAG_SURFACE_ATTRIBUTE =
+    "data-codex-quick-chat-voice-drag-surface";
   const QUICK_CHAT_VOICE_DRAGGING_ATTRIBUTE =
     "data-codex-quick-chat-voice-dragging";
   const VOICE_PULSE_ENABLED = "--cts-voice-orb-pulse-enabled";
@@ -2246,6 +2248,19 @@
     );
     presentation.setAttribute("data-avatar-overlay-hit-region", "mascot");
     presentation.setAttribute("aria-hidden", "true");
+
+    // The legacy phone artwork fills the overlay viewport through ::before,
+    // while the avatar presentation itself can be much smaller. Electron's
+    // pointer interactivity only measures real hit-region elements, so mirror
+    // the artwork footprint with a transparent DOM surface.
+    const dragSurface = document.createElement("div");
+    dragSurface.setAttribute(QUICK_CHAT_VOICE_DRAG_SURFACE_ATTRIBUTE, "true");
+    dragSurface.setAttribute(
+      "data-avatar-overlay-hit-region",
+      "custom-voice-drag",
+    );
+    dragSurface.setAttribute("aria-hidden", "true");
+    presentation.appendChild(dragSurface);
 
     const stage = document.createElement("div");
     stage.setAttribute(QUICK_CHAT_VOICE_STAGE_ATTRIBUTE, "true");

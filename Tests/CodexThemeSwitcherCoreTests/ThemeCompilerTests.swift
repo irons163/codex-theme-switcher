@@ -852,6 +852,13 @@ final class ThemeCompilerTests: XCTestCase {
         )
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
+                "[data-codex-quick-chat-voice-drag-surface]"
+            )
+        )
+        XCTAssertTrue(compiled.avatarOverlayCSS.contains("height: 100vh;"))
+        XCTAssertTrue(compiled.avatarOverlayCSS.contains("width: 100vw;"))
+        XCTAssertTrue(
+            compiled.avatarOverlayCSS.contains(
                 "background-color: transparent !important;"
             )
         )
