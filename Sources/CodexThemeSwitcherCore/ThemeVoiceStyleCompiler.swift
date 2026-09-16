@@ -609,7 +609,7 @@ enum ThemeVoiceStyleCompiler {
           cursor: inherit;
           height: 100vh;
           left: 50%;
-          pointer-events: auto;
+          pointer-events: none;
           position: absolute;
           top: 50%;
           touch-action: none;

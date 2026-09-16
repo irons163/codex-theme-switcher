@@ -393,7 +393,31 @@ test("Quick Chat Voice mounts its custom avatar on an independent stage", () => 
     source.slice(start, end),
     "this.host = voiceAvatarHost;",
     "this.clearStage = clearQuickChatVoiceStage;",
+    "this.dragRect = quickChatVoiceDragRect;",
   ].join("\n"), sandbox);
+
+  const fittedDragRect = sandbox.dragRect({
+    viewportWidth: 772,
+    viewportHeight: 1867,
+    imageWidth: 948,
+    imageHeight: 1659,
+    backgroundSize: "contain",
+    positionX: 0.5,
+    positionY: 0.5,
+    originX: 0.5,
+    originY: 0.5,
+    zoom: 0.5,
+    alpha: {
+      left: 117 / 948,
+      top: 146 / 1659,
+      right: 833 / 948,
+      bottom: 1495 / 1659,
+    },
+  });
+  assert.ok(Math.abs(fittedDragRect.left - 240.64) < 0.01);
+  assert.ok(Math.abs(fittedDragRect.top - 655.2) < 0.01);
+  assert.ok(Math.abs(fittedDragRect.width - 291.54) < 0.01);
+  assert.ok(Math.abs(fittedDragRect.height - 549.28) < 0.01);
 
   const host = sandbox.host(sensor);
   assert.equal(host, stage);
@@ -416,8 +440,8 @@ test("Quick Chat Voice mounts its custom avatar on an independent stage", () => 
     "mascot",
   );
   assert.equal(
-    dragSurface.attributes.get("data-avatar-overlay-hit-region"),
-    "custom-voice-drag",
+    dragSurface.attributes.has("data-avatar-overlay-hit-region"),
+    false,
   );
   assert.equal(dragSurface.parentNode, presentation);
   assert.equal(host.parentNode, presentation);
@@ -492,7 +516,7 @@ test("Quick Chat Voice mounts its custom avatar on an independent stage", () => 
   );
 });
 
-test("VERSION=81 exposes transaction APIs and source evaluation is idempotent", () => {
+test("VERSION=83 exposes transaction APIs and source evaluation is idempotent", () => {
   const dom = install();
   const runtime = dom.window.__codexThemeSwitcherRuntime;
   const functions = [
@@ -504,7 +528,7 @@ test("VERSION=81 exposes transaction APIs and source evaluation is idempotent", 
     "__codexThemeSwitcherClear",
   ];
 
-  assert.equal(runtime.version, 81);
+  assert.equal(runtime.version, 83);
   for (const name of functions) {
     assert.equal(typeof dom.window[name], "function", name);
   }
@@ -519,9 +543,9 @@ test("VERSION=81 exposes transaction APIs and source evaluation is idempotent", 
   assert.equal(dom.window.__codexThemeSwitcherStatus().stylePresent, false);
 });
 
-test("upgrading the renderer replaces version 80 closures and clears the old theme", () => {
+test("upgrading the renderer replaces version 82 closures and clears the old theme", () => {
   const dom = fakeDOM();
-  vm.runInNewContext(source.replace("const VERSION = 81;", "const VERSION = 80;"), dom.sandbox);
+  vm.runInNewContext(source.replace("const VERSION = 83;", "const VERSION = 82;"), dom.sandbox);
   const oldRuntime = dom.window.__codexThemeSwitcherRuntime;
   dom.window.__codexThemeSwitcherBegin(beginPayload());
   dom.window.__codexThemeSwitcherCommit({ transactionID: "transaction-1" });
@@ -531,7 +555,7 @@ test("upgrading the renderer replaces version 80 closures and clears the old the
 
   assert.notEqual(dom.window.__codexThemeSwitcherRuntime, oldRuntime);
   assert.notEqual(dom.window.__codexThemeSwitcherBegin, oldRuntime.begin);
-  assert.equal(dom.window.__codexThemeSwitcherRuntime.version, 81);
+  assert.equal(dom.window.__codexThemeSwitcherRuntime.version, 83);
   assert.equal(activeThemeStyle(dom), null);
   assert.equal(oldRuntime.status().stylePresent, false);
 });

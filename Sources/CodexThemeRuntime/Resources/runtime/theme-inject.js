@@ -5,7 +5,7 @@
   const STYLE_ID = "codex-theme-switcher-style";
   const STAGING_STYLE_ID = `${STYLE_ID}-staging`;
   const VOICE_SESSION_STYLE_ID = `${STYLE_ID}-voice-session`;
-  const VERSION = 81;
+  const VERSION = 83;
   // Pixi's resolution is the number of backing pixels per CSS pixel before
   // the avatar overlay's transforms are applied. Keep the existing Retina
   // baseline, then add enough resolution for the final transformed box so
@@ -2145,6 +2145,206 @@
     }
   }
 
+  function quickChatVoiceDragRect(options) {
+    const viewportWidth = Number(options?.viewportWidth);
+    const viewportHeight = Number(options?.viewportHeight);
+    const imageWidth = Number(options?.imageWidth);
+    const imageHeight = Number(options?.imageHeight);
+    if (
+      !(viewportWidth > 0)
+      || !(viewportHeight > 0)
+      || !(imageWidth > 0)
+      || !(imageHeight > 0)
+    ) return null;
+
+    const size = String(options?.backgroundSize || "contain").trim();
+    let scaleX = 1;
+    let scaleY = 1;
+    if (size === "contain" || size === "cover") {
+      const scale = size === "contain"
+        ? Math.min(viewportWidth / imageWidth, viewportHeight / imageHeight)
+        : Math.max(viewportWidth / imageWidth, viewportHeight / imageHeight);
+      scaleX = scale;
+      scaleY = scale;
+    } else if (size === "100% 100%") {
+      scaleX = viewportWidth / imageWidth;
+      scaleY = viewportHeight / imageHeight;
+    } else if (size === "100% auto") {
+      scaleX = viewportWidth / imageWidth;
+      scaleY = scaleX;
+    } else if (size === "auto 100%") {
+      scaleY = viewportHeight / imageHeight;
+      scaleX = scaleY;
+    } else if (size !== "auto") {
+      return null;
+    }
+
+    const positionX = Math.min(1, Math.max(0, Number(options?.positionX) || 0));
+    const positionY = Math.min(1, Math.max(0, Number(options?.positionY) || 0));
+    const originX = Math.min(1, Math.max(0, Number(options?.originX) || 0));
+    const originY = Math.min(1, Math.max(0, Number(options?.originY) || 0));
+    const zoom = Number.isFinite(Number(options?.zoom))
+      ? Math.max(0, Number(options.zoom))
+      : 1;
+    const alpha = options?.alpha || {};
+    const alphaLeft = Math.min(1, Math.max(0, Number(alpha.left) || 0));
+    const alphaTop = Math.min(1, Math.max(0, Number(alpha.top) || 0));
+    const alphaRight = Math.min(
+      1,
+      Math.max(alphaLeft, Number(alpha.right) || 1),
+    );
+    const alphaBottom = Math.min(
+      1,
+      Math.max(alphaTop, Number(alpha.bottom) || 1),
+    );
+    const renderedWidth = imageWidth * scaleX;
+    const renderedHeight = imageHeight * scaleY;
+    const imageLeft = (viewportWidth - renderedWidth) * positionX;
+    const imageTop = (viewportHeight - renderedHeight) * positionY;
+    const contentLeft = imageLeft + renderedWidth * alphaLeft;
+    const contentTop = imageTop + renderedHeight * alphaTop;
+    const contentRight = imageLeft + renderedWidth * alphaRight;
+    const contentBottom = imageTop + renderedHeight * alphaBottom;
+    const zoomOriginX = viewportWidth * originX;
+    const zoomOriginY = viewportHeight * originY;
+    const scaledLeft = zoomOriginX + (contentLeft - zoomOriginX) * zoom;
+    const scaledTop = zoomOriginY + (contentTop - zoomOriginY) * zoom;
+    const scaledRight = zoomOriginX + (contentRight - zoomOriginX) * zoom;
+    const scaledBottom = zoomOriginY + (contentBottom - zoomOriginY) * zoom;
+    const left = Math.max(0, Math.min(viewportWidth, scaledLeft));
+    const top = Math.max(0, Math.min(viewportHeight, scaledTop));
+    const right = Math.max(left, Math.min(viewportWidth, scaledRight));
+    const bottom = Math.max(top, Math.min(viewportHeight, scaledBottom));
+    if (right - left < 1 || bottom - top < 1) return null;
+    return {
+      left,
+      top,
+      width: right - left,
+      height: bottom - top,
+    };
+  }
+
+  function quickChatVoicePercentPair(value) {
+    const parts = String(value || "").trim().split(/\s+/);
+    const parse = (part) => {
+      if (!String(part || "").endsWith("%")) return 0.5;
+      const number = Number.parseFloat(part);
+      return Number.isFinite(number) ? number / 100 : 0.5;
+    };
+    return [parse(parts[0]), parse(parts[1] ?? parts[0])];
+  }
+
+  function fitQuickChatVoiceDragSurface(surface) {
+    const getStyle = window.getComputedStyle;
+    const ImageConstructor = window.Image;
+    if (
+      !surface
+      || typeof getStyle !== "function"
+      || typeof ImageConstructor !== "function"
+    ) return;
+    const computed = getStyle(document.documentElement);
+    const imageValue = computed?.getPropertyValue?.(
+      "--cts-voice-background-image",
+    )?.trim() || "";
+    const match = imageValue.match(/^url\((?:"([^"]*)"|'([^']*)'|([^)]*))\)$/);
+    const source = (match?.[1] || match?.[2] || match?.[3] || "").trim();
+    const repeat = computed?.getPropertyValue?.(
+      "--cts-voice-background-repeat",
+    )?.trim();
+    if (!source || repeat === "repeat") return;
+
+    const image = new ImageConstructor();
+    image.src = source;
+    const ready = typeof image.decode === "function"
+      ? image.decode()
+      : new Promise((resolve, reject) => {
+        image.addEventListener?.("load", resolve, { once: true });
+        image.addEventListener?.("error", reject, { once: true });
+      });
+    Promise.resolve(ready).then(() => {
+      const imageWidth = Number(image.naturalWidth || image.width);
+      const imageHeight = Number(image.naturalHeight || image.height);
+      if (!(imageWidth > 0) || !(imageHeight > 0)) return;
+      const sampleScale = Math.min(1, 768 / Math.max(imageWidth, imageHeight));
+      const sampleWidth = Math.max(1, Math.round(imageWidth * sampleScale));
+      const sampleHeight = Math.max(1, Math.round(imageHeight * sampleScale));
+      const canvas = document.createElement?.("canvas");
+      if (!canvas?.getContext) return;
+      canvas.width = sampleWidth;
+      canvas.height = sampleHeight;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) return;
+      context.clearRect(0, 0, sampleWidth, sampleHeight);
+      context.drawImage(image, 0, 0, sampleWidth, sampleHeight);
+      const pixels = context.getImageData(
+        0,
+        0,
+        sampleWidth,
+        sampleHeight,
+      ).data;
+      let minX = sampleWidth;
+      let minY = sampleHeight;
+      let maxX = -1;
+      let maxY = -1;
+      for (let y = 0; y < sampleHeight; y += 1) {
+        for (let x = 0; x < sampleWidth; x += 1) {
+          if (pixels[(y * sampleWidth + x) * 4 + 3] <= 8) continue;
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+        }
+      }
+      if (maxX < minX || maxY < minY) return;
+      const [positionX, positionY] = quickChatVoicePercentPair(
+        computed.getPropertyValue("--cts-voice-background-position"),
+      );
+      const [originX, originY] = quickChatVoicePercentPair(
+        computed.getPropertyValue("--cts-voice-background-origin"),
+      );
+      const rect = quickChatVoiceDragRect({
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+        imageWidth,
+        imageHeight,
+        backgroundSize: computed.getPropertyValue(
+          "--cts-voice-background-size",
+        ),
+        positionX,
+        positionY,
+        originX,
+        originY,
+        zoom: Number.parseFloat(computed.getPropertyValue(
+          "--cts-voice-background-scale",
+        )),
+        alpha: {
+          left: minX / sampleWidth,
+          top: minY / sampleHeight,
+          right: (maxX + 1) / sampleWidth,
+          bottom: (maxY + 1) / sampleHeight,
+        },
+      });
+      if (!rect || surface.isConnected === false) return;
+      surface.style?.setProperty?.("width", `${rect.width}px`, "important");
+      surface.style?.setProperty?.("height", `${rect.height}px`, "important");
+      surface.style?.setProperty?.(
+        "left",
+        `calc(50% + ${rect.left + rect.width / 2 - window.innerWidth / 2}px)`,
+        "important",
+      );
+      surface.style?.setProperty?.(
+        "top",
+        `calc(50% + ${rect.top + rect.height / 2 - window.innerHeight / 2}px)`,
+        "important",
+      );
+      surface.style?.setProperty?.("pointer-events", "auto", "important");
+      surface.setAttribute?.(
+        "data-avatar-overlay-hit-region",
+        "custom-voice-drag",
+      );
+    }).catch(() => {});
+  }
+
   function installQuickChatVoiceDrag(presentation) {
     if (!presentation?.addEventListener) return;
 
@@ -2255,10 +2455,6 @@
     // the artwork footprint with a transparent DOM surface.
     const dragSurface = document.createElement("div");
     dragSurface.setAttribute(QUICK_CHAT_VOICE_DRAG_SURFACE_ATTRIBUTE, "true");
-    dragSurface.setAttribute(
-      "data-avatar-overlay-hit-region",
-      "custom-voice-drag",
-    );
     dragSurface.setAttribute("aria-hidden", "true");
     presentation.appendChild(dragSurface);
 
@@ -2268,6 +2464,7 @@
     stage.setAttribute("aria-hidden", "true");
     presentation.appendChild(stage);
     stageParent.appendChild(presentation);
+    fitQuickChatVoiceDragSurface(dragSurface);
     installQuickChatVoiceDrag(presentation);
     return stage;
   }

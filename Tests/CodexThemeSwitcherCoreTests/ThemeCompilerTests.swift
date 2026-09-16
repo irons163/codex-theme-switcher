@@ -857,6 +857,7 @@ final class ThemeCompilerTests: XCTestCase {
         )
         XCTAssertTrue(compiled.avatarOverlayCSS.contains("height: 100vh;"))
         XCTAssertTrue(compiled.avatarOverlayCSS.contains("width: 100vw;"))
+        XCTAssertTrue(compiled.avatarOverlayCSS.contains("pointer-events: none;"))
         XCTAssertTrue(
             compiled.avatarOverlayCSS.contains(
                 "background-color: transparent !important;"
