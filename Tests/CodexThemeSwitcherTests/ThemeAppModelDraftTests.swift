@@ -297,11 +297,18 @@ final class ThemeAppModelDraftTests: XCTestCase {
         XCTAssertEqual(light.orbOpacity, 0)
         XCTAssertEqual(light.orbMouthFrameAssetIDs.count, 3)
         XCTAssertEqual(light.live2DModel?.scale, 0.94)
+        XCTAssertEqual(light.backgroundPositionY, 0.5)
+        XCTAssertEqual(light.live2DModel?.positionY, 0.5)
+        XCTAssertEqual(light.orbIdleMotionStrength, 1.4)
         XCTAssertEqual(
             light.live2DModel?.modelSettingsPath,
             "kurisu-amadeus.model3.json"
         )
-        XCTAssertEqual(preset.style.dark.orbScale, 3)
+        let dark = preset.style.dark
+        XCTAssertEqual(dark.backgroundPositionY, 0.48)
+        XCTAssertEqual(dark.live2DModel?.positionY, 0.51)
+        XCTAssertEqual(dark.orbIdleMotionStrength, 1.1)
+        XCTAssertEqual(dark.orbScale, 3)
         XCTAssertNotNil(light.backgroundAssetID)
         XCTAssertNotNil(light.orbBackgroundAssetID)
         XCTAssertNotNil(light.orbBlinkAssetID)

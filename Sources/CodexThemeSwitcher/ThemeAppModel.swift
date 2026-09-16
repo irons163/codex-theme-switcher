@@ -2533,6 +2533,9 @@ final class ThemeAppModel: ObservableObject {
         lightVariant.orbBlinkAssetID = blink.id
 
         var darkVariant = lightVariant
+        darkVariant.backgroundPositionY = 0.48
+        darkVariant.live2DModel?.positionY = 0.51
+        darkVariant.orbIdleMotionStrength = 1.1
         darkVariant.orbScale = 3
         return (
             ThemeVoiceStyle(
