@@ -1,6 +1,6 @@
 {
   "name": "codex-theme-switcher-runtime",
-  "version": "0.3.3-beta.1",
+  "version": "0.3.3",
   "private": true,
   "type": "commonjs",
   "scripts": {
