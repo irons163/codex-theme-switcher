@@ -179,6 +179,7 @@ public enum ThemeSemanticRole: String, Codable, CaseIterable, Equatable, Sendabl
             ]
         case .backgroundSecondary:
             return [
+                "--app-shell-panel-background",
                 "--color-background-secondary",
                 "--color-background-panel",
                 "--color-token-bg-secondary",
@@ -327,6 +328,7 @@ enum CodexNativeThemeTokens {
         // Codex 26.901 writes the base surface/ink and several derived
         // surfaces directly on html.style. Generated :root aliases need
         // !important to cross that inline declaration boundary.
+        "--app-shell-panel-background",
         "--codex-base-accent",
         "--codex-base-ink",
         "--codex-base-surface",

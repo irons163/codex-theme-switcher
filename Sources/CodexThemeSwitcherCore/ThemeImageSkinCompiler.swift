@@ -219,6 +219,10 @@ enum ThemeImageSkinCompiler {
         }
         if skin.targets.cards {
             rootDeclarations.append(CodexNativeThemeTokens.declaration(
+                name: "--app-shell-panel-background",
+                value: "var(--cts-skin-card)"
+            ))
+            rootDeclarations.append(CodexNativeThemeTokens.declaration(
                 name: "--color-background-panel",
                 value: "var(--cts-skin-card)"
             ))
@@ -347,6 +351,13 @@ enum ThemeImageSkinCompiler {
                     "[data-app-action-home-suggestion]"
                 ],
                 background: "var(--cts-skin-card)"
+            ))
+            rules.append(rule(
+                selectors: ["[data-app-shell-focus-area=\"right-panel\"]"],
+                declarations: [
+                    "--app-shell-panel-background: var(--cts-skin-card) !important;",
+                    "--color-surface: var(--cts-skin-card) !important;"
+                ]
             ))
         }
 

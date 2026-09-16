@@ -11,6 +11,8 @@ final class ThemeNativeSurfaceRenderTests: XCTestCase {
     func testPaperSettingsCardOverridesNativeDarkInlineColors() async throws {
         let values = try await render(ThemeCompiler().compile(BuiltInThemes.paper).css)
         XCTAssertEqual(values["panel"], "rgb(238, 230, 215)")
+        XCTAssertEqual(values["rightPanel"], "rgb(238, 230, 215)")
+        XCTAssertEqual(values["rightPanelSurface"], "rgb(246, 241, 231)")
         XCTAssertEqual(values["label"], "rgb(41, 37, 31)")
         XCTAssertEqual(values["description"], "rgb(105, 96, 85)")
         XCTAssertEqual(values["directLabel"], "rgb(41, 37, 31)")
@@ -18,6 +20,19 @@ final class ThemeNativeSurfaceRenderTests: XCTestCase {
         XCTAssertEqual(values["baseSurface"], "rgb(246, 241, 231)")
         XCTAssertEqual(values["surfaceUnder"], "rgb(246, 241, 231)")
         XCTAssertEqual(values["primaryIcon"], "rgb(41, 37, 31)")
+    }
+
+    @MainActor
+    func testImageSkinRightPanelUsesCardColorThroughNestedSurface() async throws {
+        var skin = ThemeImageSkin()
+        skin.dark.cardTint = "#123456"
+        skin.dark.cardOpacity = 1
+        let values = try await render(
+            ThemeCompiler().compile(TestFixtures.theme(imageSkin: skin)).css
+        )
+
+        XCTAssertEqual(values["rightPanel"], values["rightPanelSurface"])
+        XCTAssertNotEqual(values["rightPanel"], "rgb(246, 241, 231)")
     }
 
     @MainActor
@@ -71,6 +86,11 @@ final class ThemeNativeSurfaceRenderTests: XCTestCase {
           </style></head>
           <body>
             <div id="panel" style="background-color:var(--color-background-panel, var(--color-background-primary-soft-alpha))">
+              <aside data-app-shell-focus-area="right-panel">
+                <div id="rightPanel" style="background-color:var(--app-shell-panel-background, var(--color-surface))">
+                  <div id="rightPanelSurface" style="background-color:var(--color-surface)">Right</div>
+                </div>
+              </aside>
               <div id="label" class="text-default">Setting</div>
               <div id="description" class="text-secondary">Description</div>
               <span id="directLabel" style="color:var(--color-text-foreground)">Label</span>
@@ -85,9 +105,9 @@ final class ThemeNativeSurfaceRenderTests: XCTestCase {
         await fulfillment(of: [loaded], timeout: 10)
         if let error = navigation.error { throw error }
         let result = try await view.evaluateJavaScript("""
-        Object.fromEntries(['panel', 'label', 'description', 'directLabel', 'directDescription', 'baseSurface', 'surfaceUnder', 'primaryIcon'].map(id => {
+        Object.fromEntries(['panel', 'rightPanel', 'rightPanelSurface', 'label', 'description', 'directLabel', 'directDescription', 'baseSurface', 'surfaceUnder', 'primaryIcon'].map(id => {
           const style = getComputedStyle(document.getElementById(id));
-          const backgroundIDs = new Set(['panel', 'baseSurface', 'surfaceUnder']);
+          const backgroundIDs = new Set(['panel', 'rightPanel', 'rightPanelSurface', 'baseSurface', 'surfaceUnder']);
           return [id, backgroundIDs.has(id) ? style.backgroundColor : style.color];
         }))
         """)

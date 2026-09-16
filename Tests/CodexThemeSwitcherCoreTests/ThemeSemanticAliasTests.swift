@@ -19,6 +19,7 @@ final class ThemeSemanticAliasTests: XCTestCase {
                 "--color-token-editor-background"
             ],
             .backgroundSecondary: [
+                "--app-shell-panel-background",
                 "--color-background-secondary",
                 "--color-background-panel",
                 "--color-token-bg-secondary",
@@ -249,6 +250,15 @@ final class ThemeSemanticAliasTests: XCTestCase {
             "--color-background-panel: var(--cts-skin-card) !important;"
         ))
         XCTAssertTrue(enabled.contains(
+            "--app-shell-panel-background: var(--cts-skin-card) !important;"
+        ))
+        XCTAssertTrue(enabled.contains(
+            "[data-app-shell-focus-area=\"right-panel\"]"
+        ))
+        XCTAssertTrue(enabled.contains(
+            "--color-surface: var(--cts-skin-card) !important;"
+        ))
+        XCTAssertTrue(enabled.contains(
             "--color-background-elevated-primary: var(--cts-skin-card) !important;"
         ))
         XCTAssertTrue(enabled.contains(
@@ -258,6 +268,12 @@ final class ThemeSemanticAliasTests: XCTestCase {
         let disabled = try ThemeCompiler().compile(theme).css
         XCTAssertFalse(disabled.contains(
             "--color-background-panel: var(--cts-skin-card)"
+        ))
+        XCTAssertFalse(disabled.contains(
+            "--app-shell-panel-background: var(--cts-skin-card)"
+        ))
+        XCTAssertFalse(disabled.contains(
+            "[data-app-shell-focus-area=\"right-panel\"]"
         ))
     }
 }
