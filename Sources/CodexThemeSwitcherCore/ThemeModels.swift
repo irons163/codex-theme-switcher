@@ -166,6 +166,7 @@ public enum ThemeSemanticRole: String, Codable, CaseIterable, Equatable, Sendabl
         case .backgroundPrimary:
             return [
                 "--codex-base-surface",
+                "--color-text-inverse",
                 "--color-background-surface",
                 "--color-background-surface-under",
                 "--color-background-primary",
@@ -352,6 +353,7 @@ enum CodexNativeThemeTokens {
         "--color-icon-secondary",
         "--color-icon-tertiary",
         "--color-text-accent",
+        "--color-text-inverse",
         "--color-text-button-secondary",
         "--color-text-button-tertiary",
         "--color-text-foreground",

@@ -20,6 +20,14 @@ final class ThemeNativeSurfaceRenderTests: XCTestCase {
         XCTAssertEqual(values["baseSurface"], "rgb(246, 241, 231)")
         XCTAssertEqual(values["surfaceUnder"], "rgb(246, 241, 231)")
         XCTAssertEqual(values["primaryIcon"], "rgb(41, 37, 31)")
+        XCTAssertEqual(values["primaryButton"], "rgb(246, 241, 231)")
+    }
+
+    @MainActor
+    func testDarkPrimaryButtonUsesDarkInverseText() async throws {
+        let values = try await render(ThemeCompiler().compile(BuiltInThemes.midnight).css)
+        XCTAssertEqual(values["primaryButton"], "rgb(11, 16, 32)")
+        XCTAssertEqual(values["label"], "rgb(238, 245, 255)")
     }
 
     @MainActor
@@ -77,7 +85,7 @@ final class ThemeNativeSurfaceRenderTests: XCTestCase {
         <html class="electron-dark" data-codex-theme-switcher-theme="paper"
           style="--color-background-panel:#222222; --color-text-foreground:#ffffff;
                  --color-text-foreground-secondary:#aaaaaa; --color-background-surface:#181818;
-                 --codex-base-surface:#181818; --codex-base-ink:#ffffff;
+                 --codex-base-surface:#181818; --codex-base-ink:#ffffff; --color-text-inverse:#0d0d0d;
                  --color-background-surface-under:#141414; --color-icon-primary:#ffffff">
           <head><style>
             .text-default { color: var(--color-text); }
@@ -98,6 +106,7 @@ final class ThemeNativeSurfaceRenderTests: XCTestCase {
               <div id="baseSurface" style="background-color:var(--codex-base-surface)">Base</div>
               <div id="surfaceUnder" style="background-color:var(--color-background-surface-under)">Under</div>
               <span id="primaryIcon" style="color:var(--color-icon-primary)">Icon</span>
+              <button id="primaryButton" style="background:var(--color-text);color:var(--color-text-inverse)">New task</button>
             </div>
           </body>
         </html>
@@ -105,7 +114,7 @@ final class ThemeNativeSurfaceRenderTests: XCTestCase {
         await fulfillment(of: [loaded], timeout: 10)
         if let error = navigation.error { throw error }
         let result = try await view.evaluateJavaScript("""
-        Object.fromEntries(['panel', 'rightPanel', 'rightPanelSurface', 'label', 'description', 'directLabel', 'directDescription', 'baseSurface', 'surfaceUnder', 'primaryIcon'].map(id => {
+        Object.fromEntries(['panel', 'rightPanel', 'rightPanelSurface', 'label', 'description', 'directLabel', 'directDescription', 'baseSurface', 'surfaceUnder', 'primaryIcon', 'primaryButton'].map(id => {
           const style = getComputedStyle(document.getElementById(id));
           const backgroundIDs = new Set(['panel', 'rightPanel', 'rightPanelSurface', 'baseSurface', 'surfaceUnder']);
           return [id, backgroundIDs.has(id) ? style.backgroundColor : style.color];

@@ -7,6 +7,7 @@ final class ThemeSemanticAliasTests: XCTestCase {
         let golden: [ThemeSemanticRole: [String]] = [
             .backgroundPrimary: [
                 "--codex-base-surface",
+                "--color-text-inverse",
                 "--color-background-surface",
                 "--color-background-surface-under",
                 "--color-background-primary",
