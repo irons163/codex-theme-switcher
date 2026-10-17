@@ -1071,12 +1071,12 @@ final class ThemeCompilerTests: XCTestCase {
         XCTAssertEqual(
             css.components(separatedBy: "top: calc(100% - 41px) !important;")
                 .count - 1,
-            2
+            3
         )
         XCTAssertEqual(
             css.components(separatedBy: "top: calc(100% - 26px) !important;")
                 .count - 1,
-            2
+            3
         )
     }
 

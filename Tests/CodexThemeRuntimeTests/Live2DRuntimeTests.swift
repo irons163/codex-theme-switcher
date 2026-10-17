@@ -2,6 +2,308 @@ import Foundation
 import XCTest
 
 final class Live2DRuntimeTests: XCTestCase {
+    func testNativeInputShapeIncludesPhoneWithoutDroppingExistingControls() throws {
+        let source = try String(contentsOf: runtimeDirectory.appendingPathComponent("theme-inject.js"), encoding: .utf8)
+        let start = try XCTUnwrap(source.range(of: "  function voiceNativeInputRegions("))
+        let end = try XCTUnwrap(source.range(of: "  function synchronizeVoicePresentationDrag(", range: start.upperBound..<source.endIndex))
+        let script = """
+        const assert = require('node:assert/strict');
+        const window = { innerWidth: 1920, innerHeight: 1080 };
+        const node = (left, top, width, height, extra = {}) => ({
+          getBoundingClientRect: () => ({ left, top, right: left + width, bottom: top + height, width, height }),
+          closest: () => extra.inert ? {} : null,
+          css: { display: 'block', visibility: 'visible', pointerEvents: 'auto', ...extra.css },
+          parentElement: extra.parentElement || null,
+          offsetWidth: width, offsetHeight: height, clientWidth: width, clientHeight: height, clientLeft: 0, clientTop: 0
+        });
+        const phone = node(805.7, 270, 308.6, 540);
+        const button = node(898, 822, 124, 40);
+        const clippingParent = node(100, 100, 40, 40, { css: { overflow: 'hidden' } });
+        const clippedCard = node(90, 90, 100, 100, { parentElement: clippingParent });
+        let nodes = [phone, button, clippedCard, node(0, 0, 1920, 1080, { inert: true }),
+          node(0, 0, 500, 500, { css: { pointerEvents: 'none' } })];
+        const document = { querySelectorAll: () => nodes };
+        const computedStyle = node => node.css;
+        const runtime = { voiceDragDiagnostics: {} };
+        const published = [];
+        const drag = { nativeRegionHost: { setPointerRegions: async (regions, proximity) => published.push({ regions, proximity }) } };
+        \(source[start.lowerBound..<end.lowerBound])
+        (async () => {
+          await publishVoiceNativeInputRegions(drag, true);
+          assert.deepEqual(published[0].regions, [
+            { left: 805, top: 270, width: 310, height: 540 },
+            { left: 898, top: 822, width: 124, height: 40 },
+            { left: 100, top: 100, width: 40, height: 40 }
+          ]);
+          assert.equal(runtime.voiceDragDiagnostics.nativeRegionsPublished, true);
+          await publishVoiceNativeInputRegions(drag, true);
+          assert.equal(published.length, 1, 'unchanged regions must not reset native mouse capture');
+          drag.pointerID = 7;
+          await publishVoiceNativeInputRegions(drag, true);
+          assert.deepEqual(published[1].regions, [{ left: 0, top: 0, width: 1920, height: 1080 }],
+            'a fast drag must remain interactive beyond the previous phone position');
+          drag.pointerID = null;
+          nodes = nodes.filter(node => node !== phone);
+          await publishVoiceNativeInputRegions(drag, true);
+          assert.equal(published[2].regions.length, 2);
+          assert.deepEqual(published[2].regions[0], published[0].regions[1], 'native buttons must remain clickable after removing Voice');
+          process.stdout.write(JSON.stringify({ passed: true }));
+        })().catch(error => { console.error(error); process.exitCode = 1; });
+        """
+        let result = try JSONSerialization.jsonObject(with: runNode(script)) as? [String: Bool]
+        XCTAssertEqual(result?["passed"], true)
+    }
+
+    func testVoiceDragCapturesPointerKeepsControlsOnscreenAndRemembersPosition() throws {
+        let source = try String(contentsOf: runtimeDirectory.appendingPathComponent("theme-inject.js"), encoding: .utf8)
+        let start = try XCTUnwrap(source.range(of: "  function synchronizeLive2DPresentationRoot("))
+        let end = try XCTUnwrap(source.range(of: "  function mountLive2DPresentationContainer(", range: start.upperBound..<source.endIndex))
+        let script = """
+        const assert = require('node:assert/strict');
+        class Node {
+          constructor() {
+            this.children = []; this.handlers = {}; this.vars = new Map(); this.attributes = new Map();
+            this.style = { getPropertyValue: key => this.vars.get(key) || '',
+              setProperty: (key, value) => this.vars.set(key, value), removeProperty: key => this.vars.delete(key) };
+          }
+          appendChild(child) { this.children.push(child); child.parent = this; }
+          remove() { if(this.parent) this.parent.children = this.parent.children.filter(child => child !== this); }
+          setAttribute(key, value) { this.attributes.set(key, value); }
+          addEventListener(type, handler) { this.handlers[type] = handler; }
+          setPointerCapture(id) { this.captured = id; }
+          releasePointerCapture(id) { if(this.captured === id) this.captured = null; }
+          getBoundingClientRect() { return { left: 0, top: 0, right: 1920, bottom: 1080 }; }
+          emit(type, values) { const event = { type, button: 0, pointerId: 7, clientX: 960, clientY: 540,
+            preventDefault() {}, stopPropagation() {}, ...values };
+            listeners.get(type)?.(event); this.handlers[type]?.(event); }
+        }
+        const stored = new Map();
+        const nativeMessages = [];
+        const listeners = new Map(), timers = new Map();
+        const frames = new Map();
+        let timerSequence = 0;
+        function setTimeout(callback) { timers.set(++timerSequence, callback); return timerSequence; }
+        function clearTimeout(id) { timers.delete(id); }
+        function requestAnimationFrame(callback) { frames.set(++timerSequence, callback); return timerSequence; }
+        function cancelAnimationFrame(id) { frames.delete(id); }
+        const window = { innerWidth: 1920, innerHeight: 1080, sessionStorage: {
+          getItem: key => stored.get(key), setItem: (key, value) => stored.set(key, value) },
+          electronBridge: { sendMessageFromView: message => { nativeMessages.push(message); return Promise.resolve(); } },
+          addEventListener: (type, listener) => listeners.set(type, listener), removeEventListener: type => listeners.delete(type) };
+        const document = { body: new Node(), documentElement: new Node(), createElement: () => new Node() };
+        const customProperty = (_, name) => ({ '--cts-voice-background-size': 'contain', '--cts-voice-background-scale': '0.5' })[name] || '';
+        const extractCSSURL = () => null;
+        const runtime = { voicePulse: { sessionActive: true } };
+        const state = { presentationRoot: {}, model: {}, controlsDockImage: { naturalWidth: 948, naturalHeight: 1659 },
+          controlsDock: { node: { getBoundingClientRect: () => ({ width: 330, height: 40 }) } } };
+        \(source[start.lowerBound..<end.lowerBound])
+        synchronizeVoicePresentationDrag(state);
+        const handle = state.presentationDrag.node;
+        assert.equal(handle.attributes.get('data-avatar-overlay-hit-region'), 'custom-voice-drag');
+        assert.equal(handle.attributes.get('class'), 'no-drag');
+        handle.emit('pointerover', {});
+        assert.deepEqual(nativeMessages.at(-1), { type: 'avatar-overlay-pointer-interaction-changed', isInteractive: true });
+        handle.emit('pointerleave', {});
+        for (const callback of timers.values()) callback();
+        timers.clear();
+        assert.equal(nativeMessages.at(-1).isInteractive, true, 'window mode changes must not turn clicks off while the cursor stays on the phone');
+        listeners.get('mousemove')({ clientX: 2000, clientY: 1100 });
+        assert.equal(nativeMessages.at(-1).isInteractive, false, 'actual movement outside the phone must restore click-through');
+        handle.emit('pointerdown', { button: 2 });
+        assert.equal(state.presentationDrag.pointerID, null);
+        handle.emit('pointerdown', {});
+        assert.equal(handle.captured, 7);
+        assert.equal(handle.style.getPropertyValue('width'), '1920px');
+        handle.emit('pointermove', { clientX: 1000, clientY: 520 });
+        handle.emit('lostpointercapture', {});
+        handle.captured = null;
+        assert.equal(state.presentationDrag.pointerID, 7, 'transient native capture loss must not end a held gesture');
+        handle.emit('pointermove', { clientX: 1100, clientY: 460 });
+        handle.emit('pointermove', { clientX: 1140, clientY: 450 });
+        assert.equal(frames.size, 1, 'a burst of mouse events should paint once at the latest position');
+        assert.deepEqual(runtime.voicePlacement, { x: 0, y: 0 });
+        for (const [id, callback] of frames) { frames.delete(id); callback(); }
+        assert.deepEqual(runtime.voicePlacement, { x: 180, y: -90 });
+        assert.equal(document.documentElement.style.getPropertyValue('--cts-voice-drag-x'), '180px');
+        handle.emit('pointerup', {});
+        assert.equal(handle.captured, null);
+        assert.equal(runtime.voiceDragDiagnostics.presses, 2);
+        assert.equal(runtime.voiceDragDiagnostics.rejected, 1);
+        assert.equal(runtime.voiceDragDiagnostics.moves, 3);
+        assert.equal(runtime.voiceDragDiagnostics.paintedMoves, 1);
+        assert.equal(runtime.voiceDragDiagnostics.lostCaptures, 1);
+        assert.equal(runtime.voiceDragDiagnostics.finishes, 1);
+        assert.equal(runtime.voiceDragDiagnostics.lastFinish, 'pointerup');
+        assert.equal(handle.style.getPropertyValue('width'), String(voicePresentationBackgroundBounds(state).width) + 'px');
+        runtime.voicePlacement = null;
+        assert.deepEqual(voicePresentationOffset(), { x: 180, y: -90 });
+        handle.emit('pointerdown', {});
+        handle.emit('pointermove', { clientX: 10000, clientY: 10000 });
+        handle.emit('mouseup', { clientX: 10000, clientY: 10000 });
+        assert.equal(frames.size, 0, 'release must flush the last movement before the next animation frame');
+        const bounds = voicePresentationBackgroundBounds(state);
+        assert(bounds.bottom + runtime.voicePlacement.y + 40 + 12 <= window.innerHeight - 12);
+        assert(window.innerWidth / 2 + runtime.voicePlacement.x + 165 <= window.innerWidth - 8);
+        handle.emit('pointercancel', {});
+        assert.equal(handle.captured, null);
+        const nativeRegions = [];
+        const drag = state.presentationDrag;
+        drag.nativeRegionHost = { setPointerRegions: async regions => nativeRegions.push(regions) };
+        handle.emit('pointerdown', {});
+        handle.emit('pointermove', { clientX: 1000, clientY: 600 });
+        assert.equal(frames.size, 1);
+        releaseVoicePresentationDrag(state);
+        for (const callback of timers.values()) callback();
+        timers.clear();
+        assert.equal(drag.pointerID, null);
+        assert.equal(frames.size, 0);
+        assert.deepEqual(nativeRegions.at(-1), [], 'closing Voice during a drag must release its viewport input shape');
+        assert.equal(nativeMessages.at(-1).isInteractive, false);
+        assert.equal(listeners.size, 0);
+        assert.equal(state.presentationDrag, null);
+        assert.equal(document.body.children.length, 0);
+        assert.equal(document.documentElement.style.getPropertyValue('--cts-voice-drag-x'), '');
+        process.stdout.write(JSON.stringify({ passed: true }));
+        """
+        let result = try JSONSerialization.jsonObject(with: runNode(script)) as? [String: Bool]
+        XCTAssertEqual(result?["passed"], true)
+    }
+
+    func testVoiceControlsFollowBackdropAndRestoreNativePosition() throws {
+        let source = try String(contentsOf: runtimeDirectory.appendingPathComponent("theme-inject.js"), encoding: .utf8)
+        let start = try XCTUnwrap(source.range(of: "  function releaseVoiceControlsDock("))
+        let end = try XCTUnwrap(source.range(of: "  function mountLive2DPresentationContainer(", range: start.upperBound..<source.endIndex))
+        let script = """
+        const assert = require('node:assert/strict');
+        const window = { innerWidth: 1920, innerHeight: 1080 };
+        const runtime = { voicePulse: { sessionActive: true } };
+        const customProperty = () => '';
+        const extractCSSURL = () => null;
+        class Node {
+          constructor(x, y, width, height, buttons) {
+            this.base = { x, y, width, height }; this.offsetWidth = width; this.offsetHeight = height;
+            this.buttons = buttons; this.attributes = new Map(); this.styles = new Map();
+            this.style = { getPropertyValue: key => this.styles.get(key) || '', getPropertyPriority: () => '',
+              setProperty: (key, value) => this.styles.set(key, value), removeProperty: key => this.styles.delete(key) };
+          }
+          querySelector() { return null; }
+          querySelectorAll() { return Array(this.buttons).fill({}); }
+          setAttribute(key, value) { this.attributes.set(key, value); }
+          removeAttribute(key) { this.attributes.delete(key); }
+          getBoundingClientRect() {
+            const shift = (this.style.getPropertyValue('translate') || '0 0').split(' ').map(parseFloat);
+            return { ...this.base, left: this.base.x + shift[0], top: this.base.y + shift[1] };
+          }
+        }
+        const control = new Node(1634, 676.5, 124, 40, 3);
+        const wrapper = new Node(1634, 676.5, 124, 40, 3);
+        const row = new Node(1531, 676.5, 330, 40, 5);
+        control.parentElement = wrapper; wrapper.parentElement = row;
+        row.style.setProperty('translate', '3px 4px');
+        const document = { querySelector: () => control, documentElement: {} };
+        const state = { presentationRoot: {}, model: {}, container: { getBoundingClientRect: () => ({ bottom: 700 }) } };
+        \(source[start.lowerBound..<end.lowerBound])
+        const image = { naturalWidth: 948, naturalHeight: 1659 };
+        const bounds = voiceControlsBackgroundBounds(1920, 1080, image, 'contain', 0.5);
+        assert.equal(bounds.bottom, 810);
+        assert.equal(bounds.height, 540);
+        synchronizeVoiceControlsDock(state);
+        state.controlsDockLastSync = 0; synchronizeVoiceControlsDock(state);
+        let rect = row.getBoundingClientRect();
+        assert.equal(rect.left + rect.width / 2, 960);
+        assert.equal(rect.top, 712);
+        assert.equal(row.attributes.get('data-codex-voice-controls-docked'), 'true');
+        window.innerWidth = 1000;
+        state.controlsDockLastSync = 0; synchronizeVoiceControlsDock(state);
+        rect = row.getBoundingClientRect();
+        assert.equal(rect.left + rect.width / 2, 500);
+        row.base.x += 70;
+        state.controlsDockLastSync = 0; synchronizeVoiceControlsDock(state);
+        rect = row.getBoundingClientRect();
+        assert.equal(rect.left + rect.width / 2, 500, 'native hover movement must not detach the dock');
+        control.closest = () => row;
+        row.querySelector = () => ({ nativeOrb: true });
+        assert.equal(voiceControlsDockNode(), row, 'Quick Chat must dock the complete controls even when the native orb is inside');
+        releaseVoiceControlsDock(state);
+        assert.equal(row.style.getPropertyValue('translate'), '3px 4px');
+        assert.equal(state.controlsDock, null);
+        assert.equal(row.attributes.has('data-codex-voice-controls-docked'), false);
+        process.stdout.write(JSON.stringify({ passed: true }));
+        """
+        let result = try JSONSerialization.jsonObject(with: runNode(script)) as? [String: Bool]
+        XCTAssertEqual(result?["passed"], true)
+    }
+
+    func testCenteredAvatarUsesViewportPresentationAndCleansUpWithoutChangingNativeOpacity() throws {
+        let source = try String(contentsOf: runtimeDirectory.appendingPathComponent("theme-inject.js"), encoding: .utf8)
+        let helperStart = try XCTUnwrap(source.range(of: "  function synchronizeLive2DPresentationRoot("))
+        let helperEnd = try XCTUnwrap(source.range(of: "  async function mountVoiceLive2D(", range: helperStart.upperBound..<source.endIndex))
+        let destroyStart = try XCTUnwrap(source.range(of: "  function destroyVoiceLive2D()"))
+        let destroyEnd = try XCTUnwrap(source.range(of: "  function live2DParameterHandle(", range: destroyStart.upperBound..<source.endIndex))
+        let script = """
+        const assert = require('node:assert/strict');
+        class Element {
+          constructor() {
+            this.children = []; this.attributes = new Map(); this.vars = {};
+            this.styles = new Map(); this.styleWrites = 0;
+            this.style = {
+              setProperty: (key, value) => { this.styles.set(key, value); this.styleWrites++; },
+              getPropertyValue: key => this.styles.get(key) || ''
+            };
+          }
+          appendChild(child) { child.remove(); this.children.push(child); child.parent = this; }
+          remove() { if(this.parent) this.parent.children = this.parent.children.filter(c => c !== this); this.parent = null; }
+          setAttribute(key, value) { this.attributes.set(key, value); }
+          getAttribute(key) { return this.attributes.get(key) ?? null; }
+          removeAttribute(key) { this.attributes.delete(key); }
+        }
+        const document = { body: new Element(), documentElement: new Element(), createElement: () => new Element() };
+        const VOICE_EFFECTIVE_SCALE = '--cts-voice-effective-scale';
+        const VOICE_IDLE_X = '--cts-voice-orb-idle-x';
+        const VOICE_IDLE_Y = '--cts-voice-orb-idle-y';
+        const VOICE_IDLE_ROTATION = '--cts-voice-orb-idle-rotation';
+        const customProperty = (element, name) => element.vars[name] || '';
+        document.documentElement.vars = { '--cts-voice-overlay-mascot-width': '129px', '--cts-voice-orb-lock-center': '1' };
+        const nativeTransition = new Element(); nativeTransition.style.setProperty('opacity', '0');
+        const root = new Element(), canvasContainer = new Element();
+        nativeTransition.appendChild(root);
+        root.setAttribute('data-codex-live2d-ready', 'true');
+        root.vars = { [VOICE_EFFECTIVE_SCALE]: '3', [VOICE_IDLE_X]: '2px', [VOICE_IDLE_Y]: '-1px', [VOICE_IDLE_ROTATION]: '0deg' };
+        const state = { root, container: canvasContainer, generation: 0, presentationRoot: null };
+        const runtime = { live2D: state };
+        \(source[helperStart.lowerBound..<helperEnd.lowerBound])
+        \(source[destroyStart.lowerBound..<destroyEnd.lowerBound])
+        mountLive2DPresentationContainer(state, root, canvasContainer);
+        assert.equal(state.presentationRoot.parent, document.body);
+        assert.equal(canvasContainer.parent, state.presentationRoot);
+        assert.equal(nativeTransition.style.getPropertyValue('opacity'), '0');
+        assert.equal(state.presentationRoot.style.getPropertyValue('position'), 'fixed');
+        assert.equal(state.presentationRoot.getAttribute('data-codex-live2d-ready'), 'true');
+        assert.equal(state.presentationRoot.style.getPropertyValue(VOICE_EFFECTIVE_SCALE), '3');
+        const writes = state.presentationRoot.styleWrites;
+        synchronizeLive2DPresentationRoot(state);
+        assert.equal(state.presentationRoot.styleWrites, writes, 'unchanged frames should not invalidate CSS');
+        root.vars[VOICE_IDLE_X] = '3px';
+        synchronizeLive2DPresentationRoot(state);
+        assert.equal(state.presentationRoot.style.getPropertyValue(VOICE_IDLE_X), '3px');
+        mountLive2DPresentationContainer(state, root, canvasContainer);
+        assert.equal(document.body.children.length, 1, 'reuse the viewport presentation');
+        document.documentElement.vars['--cts-voice-orb-lock-center'] = '0';
+        mountLive2DPresentationContainer(state, root, canvasContainer);
+        assert.equal(canvasContainer.parent, root);
+        assert.equal(document.body.children.length, 0);
+        document.documentElement.vars['--cts-voice-orb-lock-center'] = '1';
+        mountLive2DPresentationContainer(state, root, canvasContainer);
+        destroyVoiceLive2D();
+        assert.equal(document.body.children.length, 0, 'clearing Voice must remove its presentation');
+        assert.equal(state.presentationRoot, null);
+        assert.equal(canvasContainer.parent, null);
+        process.stdout.write(JSON.stringify({ passed: true }));
+        """
+        let result = try JSONSerialization.jsonObject(with: runNode(script)) as? [String: Bool]
+        XCTAssertEqual(result?["passed"], true)
+    }
+
     func testRuntimeKeepsFlatRendererAndAddsLive2DLifecycle() throws {
         let source = try String(
             contentsOf: runtimeDirectory
@@ -9,7 +311,7 @@ final class Live2DRuntimeTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(source.contains("const VERSION = 83;"))
+        XCTAssertTrue(source.contains("const VERSION = 84;"))
         XCTAssertTrue(source.contains("function transformScale("))
         XCTAssertTrue(source.contains("function live2DFinalDisplayScale("))
         XCTAssertTrue(source.contains("function live2DRenderResolution("))
@@ -56,7 +358,7 @@ final class Live2DRuntimeTests: XCTestCase {
         XCTAssertTrue(source.contains("function mountVoiceLive2D("))
         XCTAssertTrue(source.contains("function destroyVoiceLive2D("))
         XCTAssertTrue(source.contains("preserveLive2D = false"))
-        XCTAssertTrue(source.contains("host.appendChild(state.container)"))
+        XCTAssertTrue(source.contains("mountLive2DPresentationContainer(state, host, state.container)"))
         XCTAssertTrue(source.contains("data-codex-live2d-loading"))
         XCTAssertTrue(source.contains("pulse.canvasLastError = null"))
         XCTAssertTrue(source.contains("finally {"))
@@ -581,7 +883,7 @@ final class Live2DRuntimeTests: XCTestCase {
             JSONSerialization.jsonObject(with: result) as? [String: Any]
         )
 
-        XCTAssertEqual(object["version"] as? Int, 83)
+        XCTAssertEqual(object["version"] as? Int, 84)
 
         let nativeCompositionTest = """
         const runtime = require(\(javascriptString(injection.path)));

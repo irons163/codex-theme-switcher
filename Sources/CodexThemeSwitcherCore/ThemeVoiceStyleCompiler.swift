@@ -108,6 +108,14 @@ enum ThemeVoiceStyleCompiler {
                 style.light
             )
         ])
+        // Newer shells publish their selected appearance through data-theme.
+        // Let that explicit setting win over legacy classes and the OS fallback.
+        for (appearance, variant) in [("dark", style.dark), ("light", style.light)] {
+            output.append(rule(
+                ":root:where([data-theme=\"\(appearance)\"])",
+                variant
+            ))
+        }
         return output
     }
 
@@ -962,6 +970,7 @@ enum ThemeVoiceStyleCompiler {
         )[data-codex-live2d-ready="true"]::after {
           display: none !important;
         }
+
         """
     }
 

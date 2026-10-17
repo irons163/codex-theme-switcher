@@ -10,13 +10,13 @@ Theme Switcher inyecta estilos temporales al iniciar Codex. No modifica, sustitu
 
 ## Descargar
 
-**Versión estable actual: 0.3.1**
+**Versión estable actual: 0.3.4**
 
-[DMG para Apple Silicon](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.1/CodexThemeSwitcher-0.3.1-apple-silicon.dmg)
+[DMG para Apple Silicon](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.4/CodexThemeSwitcher-0.3.4-apple-silicon.dmg)
 ·
-[DMG para Intel](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.1/CodexThemeSwitcher-0.3.1-intel.dmg)
+[DMG para Intel](https://github.com/irons163/codex-theme-switcher/releases/download/v0.3.4/CodexThemeSwitcher-0.3.4-intel.dmg)
 ·
-[Notas de la versión y sumas de comprobación](https://github.com/irons163/codex-theme-switcher/releases/tag/v0.3.1)
+[Notas de la versión y sumas de comprobación](https://github.com/irons163/codex-theme-switcher/releases/tag/v0.3.4)
 
 Requiere macOS 13 o posterior. Ambos instaladores están firmados y notarizados por Apple.
 

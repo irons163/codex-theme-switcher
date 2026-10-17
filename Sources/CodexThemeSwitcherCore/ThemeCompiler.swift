@@ -231,6 +231,16 @@ public struct ThemeCompiler: Sendable {
                                 value: "var(\(variable.resolvedName))"
                             ))
                         }
+                        if role == .textPrimary {
+                            body.append(contentsOf: CodexNativeThemeTokens.primarySolidInteractionDeclarations.map {
+                                "  " + $0
+                            })
+                        }
+                        if role == .surface {
+                            body.append(contentsOf: CodexNativeThemeTokens.primarySoftInteractionDeclarations.map {
+                                "  " + $0
+                            })
+                        }
                     }
                 }
                 for variable in variables where variable.semanticRole == nil {
@@ -240,6 +250,11 @@ public struct ThemeCompiler: Sendable {
                     ))
                 }
                 body.append("}")
+                if variables.contains(where: {
+                    $0.resolvedName == ThemeSemanticRole.textPrimary.cssVariableName
+                }) {
+                    body.append(CodexNativeThemeTokens.sidebarTextCSS)
+                }
             }
 
             for (componentIndex, component) in layer.components.enumerated()

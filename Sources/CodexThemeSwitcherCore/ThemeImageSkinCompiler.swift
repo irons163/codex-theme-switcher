@@ -54,7 +54,17 @@ enum ThemeImageSkinCompiler {
             variant: skin.light,
             centerPanelEnabled: skin.centerPanel.isEnabled
         ))
+        // New Codex builds use data-theme instead of electron-light/dark.
+        // The explicit app appearance takes precedence over the OS fallback.
+        for (appearance, variant) in [("dark", skin.dark), ("light", skin.light)] {
+            output.append(appearanceRule(
+                selector: ":root:where([data-theme=\"\(appearance)\"])",
+                variant: variant,
+                centerPanelEnabled: skin.centerPanel.isEnabled
+            ))
+        }
         output.append(foundationRules(skin))
+        output.append(CodexNativeThemeTokens.sidebarTextCSS)
 
         return output.joined(separator: "\n\n")
     }
@@ -192,6 +202,10 @@ enum ThemeImageSkinCompiler {
             role: .accent,
             value: "var(--cts-skin-accent)"
         ))
+        // Use the opaque wallpaper base rather than a translucent glass panel
+        // as the label color on filled primary buttons.
+        rootDeclarations.append("--color-text-primary-solid: var(--cts-skin-background-color);")
+        rootDeclarations.append(contentsOf: CodexNativeThemeTokens.primarySolidInteractionDeclarations)
         if skin.targets.content {
             rootDeclarations.append(
                 "--color-token-main-surface-primary: var(--cts-skin-content);"
@@ -207,6 +221,7 @@ enum ThemeImageSkinCompiler {
         if skin.targets.composer {
             rootDeclarations.append(contentsOf: [
                 "--color-token-input-background: var(--cts-skin-composer);",
+                "--color-background-composer-action-bar: var(--cts-skin-composer);",
                 "--composer-top-tray-background: var(--cts-skin-composer);",
                 "--composer-top-tray-border: var(--cts-skin-border);"
             ])
@@ -290,14 +305,23 @@ enum ThemeImageSkinCompiler {
         }
         if skin.targets.content || skin.wallpaperScope == .mainContent {
             rules.append(transparentRule(selectors: [
+                "[data-app-shell-page-surface]",
                 "[data-app-shell-main-content-layout]",
                 ".app-shell-main-content-frame",
-                "main[data-app-shell-main-surface]",
-                "[data-app-shell-thread-edge-divider]"
+                "[data-app-shell-thread-edge-divider]",
+                "main[data-app-shell-main-surface] > :has(> [data-app-shell-main-content-layout])::before",
+                // Transcript fades paint their own gradients even after the
+                // surrounding surfaces are transparent. Clear only decoration.
+                "[data-app-shell-main-content-top-fade] > [aria-hidden=\"true\"]",
+                ".thread-scroll-container [aria-hidden=\"true\"].sticky > [aria-hidden=\"true\"]"
             ]))
         }
 
         if skin.targets.sidebar {
+            rules.append(transparentRule(selectors: [
+                "aside.app-shell-left-panel .sidebar-navigation",
+                "aside[data-app-shell-left-panel-appearance] .sidebar-navigation"
+            ]))
             rules.append(glassRule(
                 selectors: [
                     "aside.app-shell-left-panel",
@@ -323,6 +347,12 @@ enum ThemeImageSkinCompiler {
         }
 
         if skin.targets.composer {
+            // Keep the footer's decorative surface transparent. The composer
+            // owns the glass; painting both layers would hide the wallpaper.
+            rules.append(transparentRule(selectors: [
+                "[data-thread-scroll-footer]",
+                "[data-thread-scroll-footer] > [aria-hidden=\"true\"]"
+            ]))
             rules.append(glassRule(
                 selectors: [
                     "[data-codex-composer-root] .composer-surface-chrome",
@@ -332,6 +362,18 @@ enum ThemeImageSkinCompiler {
                     "[data-codex-approval-surface]"
                 ],
                 background: "var(--cts-skin-composer)"
+            ))
+            rules.append(rule(
+                selectors: [
+                    "[data-codex-composer-root] [data-composer-surface-variant]",
+                    "[data-codex-composer-root][data-composer-surface-variant]"
+                ],
+                declarations: [
+                    "--color-background-composer-action-bar: transparent !important;",
+                    "--composer-layout-surface-background: transparent !important;",
+                    "--composer-layout-surface-backdrop-filter: none !important;",
+                    "--composer-layout-surface-shadow: none !important;"
+                ]
             ))
             rules.append(controlRule(
                 selectors: [

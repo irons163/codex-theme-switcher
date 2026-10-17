@@ -372,10 +372,15 @@ test("Quick Chat Voice mounts its custom avatar on an independent stage", () => 
       quickChatDrag: null,
     },
   };
+  let avatarMode = "image";
+  let viewportPresentation = false;
   const sandbox = {
     Array,
     document,
     runtime,
+    voiceAvatarMode: () => avatarMode,
+    voiceRendererOwnsAvatar: () => true,
+    usesViewportLive2DPresentation: () => viewportPresentation,
     window: {
       electronBridge: {
         sendMessageFromView(message) {
@@ -419,6 +424,12 @@ test("Quick Chat Voice mounts its custom avatar on an independent stage", () => 
   assert.ok(Math.abs(fittedDragRect.width - 291.54) < 0.01);
   assert.ok(Math.abs(fittedDragRect.height - 549.28) < 0.01);
 
+  avatarMode = "live2D";
+  viewportPresentation = true;
+  assert.equal(sandbox.host(sensor), sensor);
+  assert.equal(stage, null, "viewport Live2D must not create a second native-window drag surface");
+  avatarMode = "image";
+  viewportPresentation = false;
   const host = sandbox.host(sensor);
   assert.equal(host, stage);
   assert.equal(
@@ -516,7 +527,7 @@ test("Quick Chat Voice mounts its custom avatar on an independent stage", () => 
   );
 });
 
-test("VERSION=83 exposes transaction APIs and source evaluation is idempotent", () => {
+test("VERSION=84 exposes transaction APIs and source evaluation is idempotent", () => {
   const dom = install();
   const runtime = dom.window.__codexThemeSwitcherRuntime;
   const functions = [
@@ -528,7 +539,7 @@ test("VERSION=83 exposes transaction APIs and source evaluation is idempotent", 
     "__codexThemeSwitcherClear",
   ];
 
-  assert.equal(runtime.version, 83);
+  assert.equal(runtime.version, 84);
   for (const name of functions) {
     assert.equal(typeof dom.window[name], "function", name);
   }
@@ -543,9 +554,9 @@ test("VERSION=83 exposes transaction APIs and source evaluation is idempotent", 
   assert.equal(dom.window.__codexThemeSwitcherStatus().stylePresent, false);
 });
 
-test("upgrading the renderer replaces version 82 closures and clears the old theme", () => {
+test("upgrading the renderer replaces version 83 closures and clears the old theme", () => {
   const dom = fakeDOM();
-  vm.runInNewContext(source.replace("const VERSION = 83;", "const VERSION = 82;"), dom.sandbox);
+  vm.runInNewContext(source.replace("const VERSION = 84;", "const VERSION = 83;"), dom.sandbox);
   const oldRuntime = dom.window.__codexThemeSwitcherRuntime;
   dom.window.__codexThemeSwitcherBegin(beginPayload());
   dom.window.__codexThemeSwitcherCommit({ transactionID: "transaction-1" });
@@ -555,7 +566,7 @@ test("upgrading the renderer replaces version 82 closures and clears the old the
 
   assert.notEqual(dom.window.__codexThemeSwitcherRuntime, oldRuntime);
   assert.notEqual(dom.window.__codexThemeSwitcherBegin, oldRuntime.begin);
-  assert.equal(dom.window.__codexThemeSwitcherRuntime.version, 83);
+  assert.equal(dom.window.__codexThemeSwitcherRuntime.version, 84);
   assert.equal(activeThemeStyle(dom), null);
   assert.equal(oldRuntime.status().stylePresent, false);
 });

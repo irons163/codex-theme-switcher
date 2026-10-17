@@ -170,6 +170,7 @@ public enum ThemeSemanticRole: String, Codable, CaseIterable, Equatable, Sendabl
                 "--color-background-surface",
                 "--color-background-surface-under",
                 "--color-background-primary",
+                "--color-text-primary-solid",
                 "--color-token-bg-primary",
                 "--color-token-main-surface-primary",
                 "--main-surface-primary",
@@ -199,6 +200,7 @@ public enum ThemeSemanticRole: String, Codable, CaseIterable, Equatable, Sendabl
                 "--color-background-elevated-secondary-opaque",
                 "--color-background-control",
                 "--color-background-control-opaque",
+                "--color-background-primary-soft",
                 "--color-background-application-menu",
                 "--color-codex-application-menu",
                 "--color-surface-elevated",
@@ -217,9 +219,10 @@ public enum ThemeSemanticRole: String, Codable, CaseIterable, Equatable, Sendabl
                 "--foreground",
                 "--color-text",
                 "--color-text-foreground",
+                "--app-color-text-foreground",
                 "--color-icon-primary",
                 "--color-text-primary",
-                "--color-text-primary-solid",
+                "--color-background-primary-solid",
                 "--color-foreground-application-menu",
                 "--color-token-dropdown-foreground",
                 "--color-text-emphasis",
@@ -234,6 +237,9 @@ public enum ThemeSemanticRole: String, Codable, CaseIterable, Equatable, Sendabl
                 "--muted-foreground",
                 "--color-text-foreground-secondary",
                 "--color-text-foreground-tertiary",
+                "--app-color-text-foreground-secondary",
+                "--app-color-text-foreground-tertiary",
+                "--color-codex-description",
                 "--color-text-secondary",
                 "--color-text-tertiary",
                 "--color-icon-secondary",
@@ -325,6 +331,30 @@ public enum ThemeSemanticRole: String, Codable, CaseIterable, Equatable, Sendabl
 /// Keep the exception limited to native inline colors, and give explicit
 /// custom values the same priority so later editor overrides still win.
 enum CodexNativeThemeTokens {
+    // Project forms use soft controls, whose native app palette can differ
+    // from the selected theme. Keep their interaction states on the same pair.
+    static let primarySoftInteractionDeclarations = [
+        "--color-background-primary-soft-hover: color-mix(in srgb, var(--color-background-primary-soft) 92%, var(--color-text));",
+        "--color-background-primary-soft-active: color-mix(in srgb, var(--color-background-primary-soft) 84%, var(--color-text));",
+        "--color-background-primary-ghost-hover: color-mix(in srgb, var(--color-text) 8%, transparent);"
+    ]
+
+    // Filled controls invert the page's ink/surface pair, including hover and
+    // pressed states when the app's appearance differs from the theme.
+    static let primarySolidInteractionDeclarations = [
+        "--color-background-primary-solid-hover: color-mix(in srgb, var(--color-background-primary-solid) 90%, var(--color-text-primary-solid));",
+        "--color-background-primary-solid-active: color-mix(in srgb, var(--color-background-primary-solid) 80%, var(--color-text-primary-solid));"
+    ]
+
+    // Codex 26.1007 gives navigation its own --color-text derived from a
+    // background token. Override that scope so light themes retain dark ink.
+    static let sidebarTextCSS = """
+    aside.app-shell-left-panel nav,
+    aside[data-app-shell-left-panel-appearance] nav {
+      --color-text: var(--codex-theme-text-primary);
+    }
+    """
+
     static let inlineColors: Set<String> = [
         // Codex 26.901 writes the base surface/ink and several derived
         // surfaces directly on html.style. Generated :root aliases need

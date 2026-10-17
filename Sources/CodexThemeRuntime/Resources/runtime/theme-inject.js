@@ -5,7 +5,7 @@
   const STYLE_ID = "codex-theme-switcher-style";
   const STAGING_STYLE_ID = `${STYLE_ID}-staging`;
   const VOICE_SESSION_STYLE_ID = `${STYLE_ID}-voice-session`;
-  const VERSION = 83;
+  const VERSION = 84;
   // Pixi's resolution is the number of backing pixels per CSS pixel before
   // the avatar overlay's transforms are applied. Keep the existing Retina
   // baseline, then add enough resolution for the final transformed box so
@@ -1169,6 +1169,8 @@
 
   function destroyVoiceLive2D() {
     const state = runtime.live2D;
+    releaseVoicePresentationDrag(state);
+    releaseVoiceControlsDock(state);
     state.generation += 1;
     if (
       state.modelUpdateTarget
@@ -1210,6 +1212,8 @@
       } catch {}
     }
     state.container?.remove?.();
+    state.presentationRoot?.remove?.();
+    state.presentationRoot = null;
     state.root = null;
     state.container = null;
     state.canvas = null;
@@ -1441,6 +1445,7 @@
 
   function renderVoiceLive2DFrame() {
     const state = runtime.live2D;
+    synchronizeLive2DPresentationRoot(state);
     const coreModel = state.model?.internalModel?.coreModel;
     if (
       !state.model
@@ -1732,6 +1737,506 @@
     return changed;
   }
 
+  function synchronizeLive2DPresentationRoot(state) {
+    const target = state.presentationRoot;
+    if (!target || !state.root) return;
+    for (const property of [
+      VOICE_EFFECTIVE_SCALE,
+      VOICE_IDLE_X,
+      VOICE_IDLE_Y,
+      VOICE_IDLE_ROTATION,
+    ]) {
+      const value = customProperty(state.root, property);
+      if (value && target.style.getPropertyValue(property) !== value) {
+        target.style.setProperty(property, value);
+      }
+    }
+    synchronizeVoicePresentationDrag(state);
+    synchronizeVoiceControlsDock(state);
+  }
+
+  function releaseVoiceControlsDock(state) {
+    const dock = state.controlsDock;
+    if (dock?.node?.style) {
+      if (dock.originalTranslate) {
+        dock.node.style.setProperty("translate", dock.originalTranslate, dock.originalPriority);
+      } else {
+        dock.node.style.removeProperty("translate");
+      }
+      dock.node.removeAttribute("data-codex-voice-controls-docked");
+    }
+    state.controlsDock = null;
+    state.controlsDockLastSync = 0;
+    state.controlsDockImage = null;
+    state.controlsDockImageURL = "";
+  }
+
+  function voiceControlsBackgroundBounds(width, height, image, size, zoom) {
+    const imageWidth = Number(image?.naturalWidth);
+    const imageHeight = Number(image?.naturalHeight);
+    if (!(imageWidth > 0 && imageHeight > 0 && zoom > 0)) return null;
+    let scale = Math.min(width / imageWidth, height / imageHeight);
+    if (size === "cover") scale = Math.max(width / imageWidth, height / imageHeight);
+    else if (size === "100% auto") scale = width / imageWidth;
+    else if (size === "auto 100%") scale = height / imageHeight;
+    else if (size === "auto") scale = 1;
+    const paintedWidth = (size === "100% 100%" ? width : imageWidth * scale) * zoom;
+    const paintedHeight = (size === "100% 100%" ? height : imageHeight * scale) * zoom;
+    return { left: (width - paintedWidth) / 2, top: (height - paintedHeight) / 2,
+      width: paintedWidth, height: paintedHeight, bottom: (height + paintedHeight) / 2 };
+  }
+
+  function voicePresentationBackgroundBounds(state) {
+    const imageURL = extractCSSURL(customProperty(document.documentElement, "--cts-voice-background-image"));
+    if (imageURL && imageURL !== state.controlsDockImageURL && typeof Image === "function") {
+      const image = new Image();
+      state.controlsDockImageURL = imageURL;
+      state.controlsDockImage = image;
+      image.onload = () => { if (state.controlsDockImage === image) state.controlsDockLastSync = 0; };
+      image.src = imageURL;
+    }
+    return voiceControlsBackgroundBounds(Number(window.innerWidth), Number(window.innerHeight),
+      state.controlsDockImage, customProperty(document.documentElement, "--cts-voice-background-size"),
+      Number.parseFloat(customProperty(document.documentElement, "--cts-voice-background-scale")) || 1);
+  }
+
+  function voiceControlsDockNode() {
+    const control = document.querySelector?.('[data-avatar-overlay-native-surface-id="voice-controls"]');
+    if (!control) return null;
+    const buttonCount = control.querySelectorAll?.("button")?.length || 0;
+    const controlRect = control.getBoundingClientRect();
+    const quickChat = control.closest?.('[data-quick-chat-presentation="voice"]');
+    if (quickChat) {
+      const rect = quickChat.getBoundingClientRect();
+      // Quick Chat nests the native orb in the control row. Its explicit
+      // compact container is safe to dock even though it owns that sensor.
+      if (rect.width > 0 && rect.width <= 500 && rect.height > 0 && rect.height <= 80) return quickChat;
+    }
+    let node = control.parentElement;
+    for (let depth = 0; node && depth < 3; depth += 1, node = node.parentElement) {
+      if (node.querySelector?.("[data-realtime-voice-orb]")) break;
+      const rect = node.getBoundingClientRect();
+      if ((node.querySelectorAll?.("button")?.length || 0) > buttonCount
+        && rect.width > controlRect.width && rect.width <= 500 && rect.height <= 80) return node;
+    }
+    return control.parentElement || control;
+  }
+
+  function synchronizeVoiceControlsDock(state) {
+    if (!state.presentationRoot || !state.model || !runtime.voicePulse?.sessionActive) return;
+    const now = Date.now();
+    if (now - (state.controlsDockLastSync || 0) < 100) return;
+    state.controlsDockLastSync = now;
+    const node = voiceControlsDockNode();
+    if (!node) return;
+    if (state.controlsDock?.node !== node) {
+      releaseVoiceControlsDock(state);
+      state.controlsDock = { node, x: 0, y: 0,
+        originalTranslate: node.style.getPropertyValue("translate"),
+        originalPriority: node.style.getPropertyPriority("translate") };
+    }
+    const dock = state.controlsDock;
+    const width = Number(window.innerWidth), height = Number(window.innerHeight);
+    const rect = node.getBoundingClientRect();
+    if (!(rect.width > 0 && rect.height > 0 && width > 0 && height > 0)) return;
+    const bounds = voicePresentationBackgroundBounds(state);
+    const offset = runtime.voicePlacement || { x: 0, y: 0 };
+    const avatarRect = state.container.getBoundingClientRect();
+    const desiredTop = Math.min(height - rect.height - 12,
+      (bounds ? bounds.bottom + offset.y : avatarRect.bottom) + 12);
+    const scaleX = rect.width / (Number(node.offsetWidth) || rect.width);
+    const scaleY = rect.height / (Number(node.offsetHeight) || rect.height);
+    const x = Math.round((dock.x + (width / 2 + offset.x - rect.left - rect.width / 2) / scaleX) * 4) / 4;
+    const y = Math.round((dock.y + (desiredTop - rect.top) / scaleY) * 4) / 4;
+    if (x !== dock.x || y !== dock.y) {
+      node.style.setProperty("translate", `${x}px ${y}px`, "important");
+      node.setAttribute("data-codex-voice-controls-docked", "true");
+      dock.x = x; dock.y = y;
+    }
+  }
+
+  function voicePresentationOffset() {
+    if (!runtime.voicePlacement) {
+      let stored = null;
+      try { stored = JSON.parse(window.sessionStorage?.getItem("codex-theme-switcher:voice-placement") || "null"); } catch {}
+      runtime.voicePlacement = {
+        x: Number.isFinite(stored?.x) ? stored.x : 0,
+        y: Number.isFinite(stored?.y) ? stored.y : 0,
+      };
+    }
+    return runtime.voicePlacement;
+  }
+
+  function clampVoicePresentationOffset(x, y, width, height, bounds, controlsWidth = 0, controlsHeight = 40) {
+    const halfWidth = Math.max(bounds.width, controlsWidth) / 2;
+    const maxX = Math.max(0, width / 2 - halfWidth - 8);
+    const minY = 8 - bounds.top;
+    const maxY = height - bounds.bottom - controlsHeight - 24;
+    return {
+      x: Math.round(Math.min(maxX, Math.max(-maxX, x)) * 4) / 4,
+      y: Math.round((maxY >= minY ? Math.min(maxY, Math.max(minY, y)) : 0) * 4) / 4,
+    };
+  }
+
+  function setVoicePresentationOffset(state, x, y) {
+    const width = Number(window.innerWidth), height = Number(window.innerHeight);
+    const bounds = voicePresentationBackgroundBounds(state)
+      || { left: width / 2 - 100, top: height / 2 - 100, width: 200, height: 200, bottom: height / 2 + 100 };
+    const controls = state.controlsDock?.node?.getBoundingClientRect?.();
+    const offset = clampVoicePresentationOffset(x, y, width, height, bounds, controls?.width, controls?.height);
+    const changed = runtime.voicePlacement?.x !== offset.x || runtime.voicePlacement?.y !== offset.y;
+    runtime.voicePlacement = offset;
+    for (const [name, value] of [["--cts-voice-drag-x", offset.x], ["--cts-voice-drag-y", offset.y]]) {
+      const text = `${value}px`;
+      if (document.documentElement.style.getPropertyValue(name) !== text) {
+        document.documentElement.style.setProperty(name, text);
+      }
+    }
+    if (changed) state.controlsDockLastSync = 0;
+    return offset;
+  }
+
+  function releaseVoicePresentationDrag(state) {
+    const drag = state.presentationDrag;
+    if (drag) {
+      setVoiceDragInteractivity(drag, false);
+      if (drag.leaveTimer != null) clearTimeout(drag.leaveTimer);
+      if (drag.mouseMoveListener) window.removeEventListener?.("mousemove", drag.mouseMoveListener);
+      for (const [type, listener] of Object.entries(drag.windowListeners || {})) {
+        window.removeEventListener?.(type, listener, true);
+      }
+      if (drag.frameID != null && typeof cancelAnimationFrame === "function") cancelAnimationFrame(drag.frameID);
+      const pointerID = drag.pointerID;
+      drag.pointerID = null;
+      drag.pendingOffset = null;
+      try { if (pointerID != null) drag.node.releasePointerCapture?.(pointerID); } catch {}
+      drag.node.remove?.();
+      drag.style.remove?.();
+      // Publish after restoring the original controls and removing our handle.
+      if (drag.nativeRegionHost && typeof setTimeout === "function") {
+        setTimeout(() => { publishVoiceNativeInputRegions(drag, true); }, 0);
+      }
+    }
+    state.presentationDrag = null;
+    document.documentElement?.style?.removeProperty?.("--cts-voice-drag-x");
+    document.documentElement?.style?.removeProperty?.("--cts-voice-drag-y");
+  }
+
+  function setVoiceDragInteractivity(drag, interactive) {
+    const now = Date.now();
+    if (drag.nativeInteractive === interactive) return;
+    drag.nativeInteractive = interactive;
+    drag.nativeInteractionAt = now;
+    const message = { type: "avatar-overlay-pointer-interaction-changed", isInteractive: interactive };
+    try {
+      const bridge = window.electronBridge;
+      if (typeof bridge?.sendMessageFromView === "function") {
+        const pending = bridge.sendMessageFromView(message);
+        pending?.catch?.((error) => {
+          if (runtime.voiceDragDiagnostics) runtime.voiceDragDiagnostics.nativeError = error?.message || String(error);
+        });
+      } else if (typeof window.dispatchEvent === "function" && typeof CustomEvent === "function") {
+        window.dispatchEvent(new CustomEvent("codex-message-from-view", { detail: message }));
+      }
+      if (runtime.voiceDragDiagnostics) runtime.voiceDragDiagnostics.nativeInteractive = interactive;
+    } catch (error) {
+      if (runtime.voiceDragDiagnostics) runtime.voiceDragDiagnostics.nativeError = error?.message || String(error);
+    }
+  }
+
+  function voiceNativeInputRegions() {
+    const selectors = '[data-avatar-overlay-hit-region], [data-composer-overlay-floating-ui], '
+      + '[data-above-composer-portal] > *, [data-radix-popper-content-wrapper] > *, '
+      + '[data-menu-overlay], [role="dialog"], [role="alertdialog"], .codex-dialog-overlay';
+    const regions = [];
+    for (const node of document.querySelectorAll?.(selectors) || []) {
+      if (node.closest?.("[inert]")) continue;
+      const style = computedStyle(node);
+      if (!style || style.display === "none" || style.visibility === "hidden"
+        || style.visibility === "collapse" || style.pointerEvents === "none") continue;
+      const rect = node.getBoundingClientRect();
+      let left = Math.max(0, rect.left), top = Math.max(0, rect.top);
+      let right = Math.min(window.innerWidth, rect.right), bottom = Math.min(window.innerHeight, rect.bottom);
+      for (let parent = node.parentElement; parent; parent = parent.parentElement) {
+        const parentStyle = computedStyle(parent), bounds = parent.getBoundingClientRect();
+        const scaleX = parent.offsetWidth ? bounds.width / parent.offsetWidth : 1;
+        const scaleY = parent.offsetHeight ? bounds.height / parent.offsetHeight : 1;
+        const x = bounds.left + parent.clientLeft * scaleX, y = bounds.top + parent.clientTop * scaleY;
+        if (/auto|scroll|hidden|clip/.test(parentStyle?.overflowX || parentStyle?.overflow || "")) {
+          left = Math.max(left, x); right = Math.min(right, x + parent.clientWidth * scaleX);
+        }
+        if (/auto|scroll|hidden|clip/.test(parentStyle?.overflowY || parentStyle?.overflow || "")) {
+          top = Math.max(top, y); bottom = Math.min(bottom, y + parent.clientHeight * scaleY);
+        }
+      }
+      if (right <= left || bottom <= top) continue;
+      regions.push({ left: Math.floor(left), top: Math.floor(top),
+        width: Math.ceil(right) - Math.floor(left), height: Math.ceil(bottom) - Math.floor(top) });
+    }
+    return regions;
+  }
+
+  async function publishVoiceNativeInputRegions(drag, force = false) {
+    const now = Date.now();
+    if (!force && now - (drag.nativeRegionAt || 0) < 200) return;
+    drag.nativeRegionAt = now;
+    const diagnostics = runtime.voiceDragDiagnostics;
+    try {
+      if (!drag.nativeRegionHost) {
+        if (drag.nativeRegionLoading) return;
+        const url = [...document.querySelectorAll?.('link[rel="modulepreload"]') || []]
+          .map(node => node.href).find(value => /\/app-shared-[^/]+\.js(?:$|[?#])/.test(value));
+        if (!url || !url.startsWith("app://-/")) return;
+        drag.nativeRegionLoading = true;
+        try {
+          const module = await import(url);
+          const services = module.Kat || Object.values(module).find(value => {
+            try { return value && typeof value === "object" && typeof value.avatarOverlay?.setPointerRegions === "function"; } catch { return false; }
+          });
+          drag.nativeRegionHost = services?.avatarOverlay;
+        } finally { drag.nativeRegionLoading = false; }
+      }
+      if (typeof drag.nativeRegionHost?.setPointerRegions !== "function") return;
+      // Native input shapes take precedence over ignoreMouseEvents. Keep all
+      // existing interactive regions and add the viewport phone handle.
+      // Keep the input shape stable for the entire gesture. Moving a small
+      // native input shape can drop mouse capture before the next update.
+      const regions = drag.pointerID != null
+        ? [{ left: 0, top: 0, width: Math.ceil(window.innerWidth), height: Math.ceil(window.innerHeight) }]
+        : voiceNativeInputRegions();
+      const key = JSON.stringify(regions);
+      if (drag.nativeRegionKey === key) return;
+      await drag.nativeRegionHost.setPointerRegions(regions, regions);
+      drag.nativeRegionKey = key;
+      if (diagnostics) {
+        diagnostics.nativeRegionCount = regions.length;
+        diagnostics.nativeRegionsPublished = true;
+        diagnostics.nativeRegionError = null;
+      }
+    } catch (error) {
+      if (diagnostics) diagnostics.nativeRegionError = error?.message || String(error);
+    }
+  }
+
+  function flushVoicePresentationDrag(state) {
+    const drag = state.presentationDrag;
+    if (!drag) return;
+    if (drag.frameID != null && typeof cancelAnimationFrame === "function") cancelAnimationFrame(drag.frameID);
+    drag.frameID = null;
+    const pending = drag.pendingOffset;
+    drag.pendingOffset = null;
+    if (!pending) return;
+    setVoicePresentationOffset(state, pending.x, pending.y);
+    synchronizeVoicePresentationDrag(state);
+    synchronizeVoiceControlsDock(state);
+    if (runtime.voiceDragDiagnostics) {
+      runtime.voiceDragDiagnostics.paintedMoves = (runtime.voiceDragDiagnostics.paintedMoves || 0) + 1;
+    }
+  }
+
+  function synchronizeVoicePresentationDrag(state) {
+    if (!state.presentationRoot || !state.model || !document.body?.appendChild) return;
+    let drag = state.presentationDrag;
+    if (!drag) {
+      const node = document.createElement("div");
+      const style = document.createElement("style");
+      node.setAttribute("data-codex-voice-drag-handle", "true");
+      // The shell discovers this marker when updating its native hit regions.
+      node.setAttribute("data-avatar-overlay-hit-region", "custom-voice-drag");
+      node.setAttribute("class", "no-drag");
+      node.setAttribute("aria-label", "Move voice avatar");
+      node.style.cssText = "position:fixed;pointer-events:auto;cursor:grab;touch-action:none;user-select:none;-webkit-app-region:no-drag;z-index:21;background:transparent;";
+      style.textContent = `
+        html:root[data-codex-theme-switcher-theme] body::before {
+          translate: var(--cts-voice-drag-x, 0px) var(--cts-voice-drag-y, 0px) !important;
+        }
+        html:root[data-codex-theme-switcher-theme][data-codex-voice-session-active="true"]:has(
+          > body > [data-codex-live2d-presentation-root]
+        ) body::before {
+          content: "" !important;
+          display: block !important;
+        }
+        html:root[data-codex-voice-session-active="false"] [data-codex-voice-drag-handle] {
+          display: none !important;
+        }
+      `;
+      drag = { node, style, pointerID: null };
+      state.presentationDrag = drag;
+      const diagnostics = { hovers: 0, presses: 0, moves: 0, finishes: 0, rejected: 0, captureError: null, trusted: null };
+      runtime.voiceDragDiagnostics = diagnostics;
+      document.body.appendChild(style);
+      document.body.appendChild(node);
+      node.addEventListener("pointerover", (event) => {
+        diagnostics.hovers += 1;
+        drag.lastMouse = { x: event.clientX, y: event.clientY };
+        if (drag.leaveTimer != null) clearTimeout(drag.leaveTimer);
+        drag.leaveTimer = null;
+        setVoiceDragInteractivity(drag, true);
+        publishVoiceNativeInputRegions(drag, true);
+      });
+      const overHandle = (point) => {
+        if (!point) return false;
+        const bounds = node.getBoundingClientRect();
+        return point.x >= bounds.left && point.x <= bounds.right
+          && point.y >= bounds.top && point.y <= bounds.bottom;
+      };
+      // macOS can emit pointerleave while toggling ignoreMouseEvents even
+      // though the forwarded mouse coordinates are still over the phone.
+      // Follow the actual coordinates, rather than that transition event.
+      drag.mouseMoveListener = (event) => {
+        drag.lastMouse = { x: event.clientX, y: event.clientY };
+        const interactive = drag.pointerID != null || overHandle(drag.lastMouse);
+        setVoiceDragInteractivity(drag, interactive);
+      };
+      window.addEventListener?.("mousemove", drag.mouseMoveListener);
+      node.addEventListener("pointerleave", () => {
+        diagnostics.leaves = (diagnostics.leaves || 0) + 1;
+        if (drag.pointerID != null || typeof setTimeout !== "function") return;
+        if (drag.leaveTimer != null) clearTimeout(drag.leaveTimer);
+        drag.leaveTimer = setTimeout(() => {
+          drag.leaveTimer = null;
+          if (state.presentationDrag === drag && drag.pointerID == null) {
+            setVoiceDragInteractivity(drag, overHandle(drag.lastMouse));
+          }
+        }, 150);
+      });
+      const finish = (event) => {
+        if (drag.pointerID == null || event.pointerId !== drag.pointerID) return;
+        flushVoicePresentationDrag(state);
+        diagnostics.finishes += 1;
+        diagnostics.lastFinish = event.type;
+        const id = drag.pointerID;
+        drag.pointerID = null;
+        node.style.cursor = "grab";
+        try { node.releasePointerCapture?.(id); } catch {}
+        synchronizeVoicePresentationDrag(state);
+        publishVoiceNativeInputRegions(drag, true);
+        const bounds = node.getBoundingClientRect();
+        const overHandle = event.clientX >= bounds.left && event.clientX <= bounds.right
+          && event.clientY >= bounds.top && event.clientY <= bounds.bottom;
+        setVoiceDragInteractivity(drag, overHandle);
+        try { window.sessionStorage?.setItem("codex-theme-switcher:voice-placement", JSON.stringify(voicePresentationOffset())); } catch {}
+      };
+      node.addEventListener("pointerdown", (event) => {
+        diagnostics.presses += 1;
+        diagnostics.trusted = event.isTrusted;
+        if (event.button !== 0 || drag.pointerID != null || !runtime.voicePulse.sessionActive) {
+          diagnostics.rejected += 1;
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        setVoiceDragInteractivity(drag, true);
+        const offset = voicePresentationOffset();
+        drag.pointerID = event.pointerId;
+        drag.start = { x: event.clientX, y: event.clientY, offsetX: offset.x, offsetY: offset.y };
+        node.style.cursor = "grabbing";
+        try { node.setPointerCapture?.(event.pointerId); } catch (error) { diagnostics.captureError = error?.message || String(error); }
+        synchronizeVoicePresentationDrag(state);
+        publishVoiceNativeInputRegions(drag, true);
+      });
+      const move = (event) => {
+        if (drag.pointerID == null) return;
+        if (event.pointerId !== drag.pointerID) return;
+        diagnostics.moves += 1;
+        drag.lastMouse = { x: event.clientX, y: event.clientY };
+        event.preventDefault();
+        drag.pendingOffset = {
+          x: drag.start.offsetX + event.clientX - drag.start.x,
+          y: drag.start.offsetY + event.clientY - drag.start.y,
+        };
+        if (typeof requestAnimationFrame !== "function") flushVoicePresentationDrag(state);
+        else if (drag.frameID == null) {
+          drag.frameID = requestAnimationFrame(() => {
+            drag.frameID = null;
+            if (state.presentationDrag === drag) flushVoicePresentationDrag(state);
+          });
+        }
+      };
+      // Native shape changes can release DOM capture while the mouse is
+      // still pressed. Continue on the window until the actual release.
+      node.addEventListener("lostpointercapture", (event) => {
+        if (drag.pointerID != null && event.pointerId === drag.pointerID) {
+          diagnostics.lostCaptures = (diagnostics.lostCaptures || 0) + 1;
+        }
+      });
+      const finishMouse = (event) => {
+        if (event.button === 0 && drag.pointerID != null) finish({
+          type: event.type, pointerId: drag.pointerID, clientX: event.clientX, clientY: event.clientY,
+        });
+      };
+      drag.windowListeners = { pointermove: move, pointerup: finish, pointercancel: finish,
+        mouseup: finishMouse, blur: () => finish({ type: "blur", pointerId: drag.pointerID,
+          clientX: drag.lastMouse?.x, clientY: drag.lastMouse?.y }) };
+      for (const [type, listener] of Object.entries(drag.windowListeners)) {
+        window.addEventListener?.(type, listener, true);
+      }
+    }
+    const offset = voicePresentationOffset();
+    const clamped = setVoicePresentationOffset(state, offset.x, offset.y);
+    const width = Number(window.innerWidth), height = Number(window.innerHeight);
+    const bounds = drag.pointerID != null ? { left: 0, top: 0, width, height }
+      : voicePresentationBackgroundBounds(state)
+        || { left: width / 2 - 100, top: height / 2 - 100, width: 200, height: 200 };
+    const shift = drag.pointerID != null ? { x: 0, y: 0 } : clamped;
+    for (const [name, value] of [["left", bounds.left + shift.x], ["top", bounds.top + shift.y], ["width", bounds.width], ["height", bounds.height]]) {
+      const text = `${value}px`;
+      if (drag.node.style.getPropertyValue(name) !== text) drag.node.style.setProperty(name, text);
+    }
+    publishVoiceNativeInputRegions(drag);
+  }
+
+  function usesViewportLive2DPresentation() {
+    return Boolean(
+      document.body
+      && customProperty(document.documentElement, "--cts-voice-overlay-mascot-width")
+      && customProperty(document.documentElement, "--cts-voice-orb-lock-center") === "1"
+    );
+  }
+
+  function mountLive2DPresentationContainer(state, root, container) {
+    if (!usesViewportLive2DPresentation()) {
+      releaseVoicePresentationDrag(state);
+      releaseVoiceControlsDock(state);
+      root.appendChild(container);
+      state.presentationRoot?.remove?.();
+      state.presentationRoot = null;
+      return;
+    }
+    // Current Voice shells keep the native orb inside a transparent controls
+    // transition. Its opacity and transforms must not hide or move our avatar.
+    // Keep the native root for audio/lifecycle, but present our canvas beside
+    // the viewport background instead of inside the host's animated subtree.
+    let target = state.presentationRoot;
+    if (!target) {
+      target = document.createElement("div");
+      target.setAttribute("data-codex-live2d-presentation-root", "true");
+      target.setAttribute("data-codex-voice-orb", "viewport-presentation");
+      target.setAttribute("data-codex-live2d-loading", "true");
+      for (const [property, value] of Object.entries({
+        position: "fixed",
+        left: "50vw",
+        top: "50vh",
+        width: "var(--cts-voice-overlay-mascot-width)",
+        height: "var(--cts-voice-overlay-mascot-width)",
+        translate: "calc(-50% + var(--cts-voice-drag-x, 0px)) calc(-50% + var(--cts-voice-drag-y, 0px))",
+        "pointer-events": "none",
+        "z-index": "20",
+        "--cts-voice-orb-live-top": "calc((var(--cts-voice-overlay-mascot-width) - var(--cts-voice-orb-custom-frame-height, var(--cts-voice-overlay-mascot-width))) / 2)",
+      })) {
+        target.style.setProperty(property, value, "important");
+      }
+      state.presentationRoot = target;
+      document.body.appendChild(target);
+    }
+    target.appendChild(container);
+    synchronizeLive2DPresentationRoot(state);
+    if (root.getAttribute("data-codex-live2d-ready") === "true") {
+      target.setAttribute("data-codex-live2d-ready", "true");
+      target.removeAttribute("data-codex-live2d-loading");
+    }
+  }
+
   async function mountVoiceLive2D(root, pulseGeneration) {
     if (
       voiceAvatarMode() !== "live2D"
@@ -1766,7 +2271,7 @@
         ?.forEach?.((element) => {
           if (element !== state.container) element.remove?.();
         });
-      host.appendChild(state.container);
+      mountLive2DPresentationContainer(state, host, state.container);
       state.resizeObserver?.disconnect?.();
       if (typeof ResizeObserver === "function") {
         state.resizeObserver = new ResizeObserver(() => {
@@ -1775,9 +2280,14 @@
         state.resizeObserver.observe(state.container);
       }
       resizeLive2DModel(state, configuration);
+      root.setAttribute("data-codex-live2d-ready", "true");
       host.setAttribute("data-codex-live2d-ready", "true");
       host.removeAttribute("data-codex-live2d-loading");
       host.removeAttribute("data-codex-live2d-error");
+      state.presentationRoot?.setAttribute("data-codex-live2d-ready", "true");
+      state.presentationRoot?.removeAttribute("data-codex-live2d-loading");
+      root.removeAttribute("data-codex-live2d-loading");
+      root.removeAttribute("data-codex-live2d-error");
       return;
     }
     destroyVoiceLive2D();
@@ -1816,7 +2326,7 @@
       const canvas = document.createElement("canvas");
       canvas.dataset.codexLive2dCanvas = "true";
       container.appendChild(canvas);
-      host.appendChild(container);
+      mountLive2DPresentationContainer(state, host, container);
       state.container = container;
       state.canvas = canvas;
       state.renderCanvas = renderCanvas;
@@ -1886,9 +2396,14 @@
         throw new Error("Live2D first presentation frame timed out.");
       }
       if (state.model === model && root === runtime.voicePulse.root) {
+        root.setAttribute("data-codex-live2d-ready", "true");
         host.setAttribute("data-codex-live2d-ready", "true");
         host.removeAttribute("data-codex-live2d-loading");
         host.removeAttribute("data-codex-live2d-error");
+        state.presentationRoot?.setAttribute("data-codex-live2d-ready", "true");
+        state.presentationRoot?.removeAttribute("data-codex-live2d-loading");
+        root.removeAttribute("data-codex-live2d-loading");
+        root.removeAttribute("data-codex-live2d-error");
       }
     } catch (error) {
       try {
@@ -1901,6 +2416,8 @@
       container?.remove?.();
       if (generation !== runtime.live2D.generation) return;
       state.container = null;
+      state.presentationRoot?.remove?.();
+      state.presentationRoot = null;
       state.canvas = null;
       state.renderCanvas = null;
       state.presentationContext = null;
@@ -2414,6 +2931,10 @@
   }
 
   function voiceAvatarHost(root, create = true) {
+    // Centered Live2D uses the body-level presentation and shared drag offset.
+    // Keep the Quick Chat native-window presentation for other avatar modes.
+    if (voiceAvatarMode() === "live2D" && voiceRendererOwnsAvatar()
+      && usesViewportLive2DPresentation()) return root || null;
     if (!quickChatVoicePresentation(root)) return root || null;
     const existing = document.querySelector?.(
       `[${QUICK_CHAT_VOICE_STAGE_ATTRIBUTE}]`,
@@ -3856,6 +4377,7 @@
       pulse.root,
       voiceCanvasGeometry(pulse.root),
     );
+    synchronizeLive2DPresentationRoot(runtime.live2D);
     // Voice geometry and the presentation handoff can change transforms
     // without changing the container's CSS layout dimensions. Re-measure the
     // final transformed box on the animation loop so a scale transition gets
@@ -4644,6 +5166,11 @@
       live2DPresentationMode: runtime.live2D.presentationMode,
       live2DPresentationReady: runtime.live2D.presentationFrameReady,
       live2DPresentationError: runtime.live2D.presentationError,
+      live2DViewportPresentation: Boolean(runtime.live2D.presentationRoot),
+      voiceControlsDocked: Boolean(runtime.live2D.controlsDock),
+      voiceAvatarDraggable: Boolean(runtime.live2D.presentationDrag),
+      voiceAvatarOffset: runtime.voicePlacement || { x: 0, y: 0 },
+      voiceDragDiagnostics: runtime.voiceDragDiagnostics || null,
       voiceRendererRole: voiceRendererRole(),
       voiceSessionActive: runtime.voicePulse.sessionActive,
       voiceSessionPhase: runtime.voicePulse.sessionPhase,
@@ -4770,6 +5297,12 @@
       generation: 0,
       root: null,
       container: null,
+      presentationRoot: null,
+      presentationDrag: null,
+      controlsDock: null,
+      controlsDockLastSync: 0,
+      controlsDockImage: null,
+      controlsDockImageURL: "",
       canvas: null,
       renderCanvas: null,
       presentationContext: null,
