@@ -551,6 +551,30 @@ jobs:
           SPARKLE_PUBLIC_ED_KEY: ${{ secrets.SPARKLE_PUBLIC_ED_KEY }}
         run: |
           set -euo pipefail
+          # BEGIN APPLE_TICKET_RETRY
+          # Error 68 includes transient CloudKit transport failures. Keep every
+          # staple/validate check mandatory, but retry that operation in place.
+          xcrun() {
+            local ticket_attempt ticket_status
+            if [[ "${1:-}" != "stapler" || ! "${2:-}" =~ ^(staple|validate)$ ]]; then
+              command xcrun "$@"
+              return
+            fi
+            for ticket_attempt in 1 2 3 4 5; do
+              if command xcrun "$@"; then
+                return 0
+              else
+                ticket_status=$?
+              fi
+              if [[ "$ticket_status" -ne 68 || "$ticket_attempt" -eq 5 ]]; then
+                return "$ticket_status"
+              fi
+              echo "Apple ticket service returned error 68; retrying ${2} (attempt $((ticket_attempt + 1))/5)." >&2
+              sleep "$((ticket_attempt * 5))"
+            done
+          }
+          export -f xcrun
+          # END APPLE_TICKET_RETRY
           chmod +x scripts/build-release-dmg.sh
           scripts/build-release-dmg.sh
 

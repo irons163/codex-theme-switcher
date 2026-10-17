@@ -261,6 +261,11 @@ extracting the downloaded `Sparkle-2.9.1.tar.xz`, it verifies the archive
 against the repository-pinned SHA-256 value. A Sparkle upgrade must update the
 version, dependency lock, download URL, and reviewed SHA-256 together.
 
+Apple ticket delivery can fail transiently with `stapler` error `68` after
+notarization has already been accepted. The build job retries only the
+`stapler staple` and `stapler validate` operations with that exit code, up to
+five attempts. All checks must still succeed; other errors stop the build.
+
 ## Local validation
 
 Run the same unprivileged checks used by CI:
